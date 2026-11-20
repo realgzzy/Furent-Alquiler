@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/admin-layout :: layout(~{::title}, ~{::main}, 'asistente')}">
+<head>
+    <title>Conversación — Furent Admin</title>
+</head>
+<body>
+    <main>
+        <div class="px-10 py-8 max-w-[80rem] mx-auto font-['Outfit']">
+
+            <a th:href="@{/admin/asistente}" class="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-surface-400 hover:text-furent-600 transition-colors mb-6">
+                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+                Volver al listado
+            </a>
+
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+                <div>
+                    <h1 class="text-3xl font-black tracking-tight text-surface-900 leading-none"
+                        th:text="${'Conversación #' + #strings.substring(conversacion.id, 0, 8)}">Conversación</h1>
+                    <p class="text-sm font-medium text-surface-500 mt-2"
+                       th:text="${conversacion.userId != null ? 'Cliente registrado' : 'Visitante invitado'}">Visitante invitado</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest"
+                          th:classappend="${conversacion.estado == 'ACTIVA' ? 'bg-green-50 text-green-700' : (conversacion.estado == 'ESCALADA' ? 'bg-amber-50 text-amber-700' : 'bg-surface-100 text-surface-500')}"
+                          th:text="${conversacion.estado}">ACTIVA</span>
+                    <form th:if="${conversacion.estado != 'CERRADA'}"
+                          th:action="@{'/admin/asistente/' + ${conversacion.id} + '/cerrar'}" method="post">
+                        <button type="submit"
+                                class="inline-flex items-center gap-2 px-6 py-3 bg-surface-900 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-surface-800 transition-colors shadow-sm">
+                            Cerrar conversación
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <!-- Metadatos -->
+                <div class="lg:col-span-1 flex flex-col gap-6">
+                    <div class="bg-white rounded-[2rem] shadow-glass border border-surface-100 p-6">
+                        <h2 class="text-xs font-black uppercase tracking-widest text-surface-400 mb-5">Metadatos</h2>
+                        <dl class="flex flex-col gap-4 text-sm">
+                            <div class="flex items-center justify-between gap-4">
+                                <dt class="font-bold text-surface-400">Mensajes</dt>
+                                <dd class="font-black text-surface-800" th:text="${conversacion.totalMensajes}">0</dd>
+                            </div>
+                            <div class="flex items-center justify-between gap-4">
+                                <dt class="font-bold text-surface-400">Cotizó</dt>
+                                <dd class="font-black" th:classappend="${conversacion.cotizo ? 'text-furent-600' : 'text-surface-300'}"
+                                    th:text="${conversacion.cotizo ? 'Sí' : 'No'}">No</dd>
+                            </div>
+                            <div class="flex items-center justify-between gap-4" th:if="${conversacion.cotizo}">
+                                <dt class="font-bold text-surface-400">Total cotizado</dt>
+                                <dd class="font-black text-furent-600"
+                                    th:text="${'$ ' + #numbers.formatInteger(conversacion.totalCotizado, 0, 'POINT')}">$ 0</dd>
+                            </div>
+                            <div class="flex items-center justify-between gap-4">
+                                <dt class="font-bold text-surface-400">Tokens</dt>
+                                <dd class="font-black text-surface-800"
+                                    th:text="${conversacion.tokensEntrada + ' / ' + conversacion.tokensSalida}">0 / 0</dd>
+                            </div>
+                            <div class="flex items-center justify-between gap-4">
+                                <dt class="font-bold text-surface-400">Inicio</dt>
+                                <dd class="font-black text-surface-800"
+                                    th:text="${T(com.alquiler.furent.util.DateDisplay).dateTime(conversacion.inicio)}">-</dd>
+                            </div>
+                            <div class="flex items-center justify-between gap-4">
+                                <dt class="font-bold text-surface-400">Último mensaje</dt>
+                                <dd class="font-black text-surface-800"
+                                    th:text="${T(com.alquiler.furent.util.DateDisplay).dateTime(conversacion.ultimoMensaje)}">-</dd>
+                            </div>
+                            <div class="flex items-center justify-between gap-4" th:if="${conversacion.expireAt != null}">
+                                <dt class="font-bold text-surface-400">Expira</dt>
+                                <dd class="font-black text-surface-800"
+                                    th:text="${T(com.alquiler.furent.util.DateDisplay).dateTime(conversacion.expireAt)}">-</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <div class="bg-white rounded-[2rem] shadow-glass border border-surface-100 p-6">
+                        <h2 class="text-xs font-black uppercase tracking-widest text-surface-400 mb-5">Contexto</h2>
+                        <dl class="flex flex-col gap-4 text-sm">
+                            <div class="flex items-center justify-between gap-4">
+                                <dt class="font-bold text-surface-400">Página</dt>
+                                <dd class="font-black text-surface-800 truncate" th:text="${conversacion.pageContext ?: '—'}">—</dd>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <dt class="font-bold text-surface-400">Usuario</dt>
+                                <dd class="font-black text-surface-800 break-all"
+                                    th:text="${usuario != null ? usuario.email : (conversacion.userId ?: '—')}">—</dd>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <dt class="font-bold text-surface-400">Sesión</dt>
+                                <dd class="font-mono text-xs text-surface-600 break-all" th:text="${conversacion.sessionId ?: '—'}">—</dd>
+                            </div>
+                            <div class="flex flex-col gap-1" th:if="${conversacion.motivoEscalado != null}">
+                                <dt class="font-bold text-surface-400">Motivo de escalado</dt>
+                                <dd class="font-bold text-amber-700" th:text="${conversacion.motivoEscalado}">—</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+
+                <!-- Transcripción -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-[2.5rem] shadow-glass border border-surface-100 p-8 flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
+                        <h2 class="text-xs font-black uppercase tracking-widest text-surface-400 mb-2">Transcripción</h2>
+
+                        <div th:if="${#lists.isEmpty(mensajes)}" class="text-center py-16">
+                            <p class="text-sm font-bold text-surface-300">Esta conversación no tiene mensajes guardados.</p>
+                        </div>
+
+                        <th:block th:each="m : ${mensajes}">
+                            <!-- Mensaje del usuario -->
+                            <div th:if="${m.rol == 'USER'}" class="flex justify-end">
+                                <div class="max-w-[80%] px-5 py-3 rounded-2xl rounded-br-md bg-furent-500 text-white text-sm font-medium whitespace-pre-wrap break-words"
+                                     th:text="${m.contenido}">Hola</div>
+                            </div>
+
+                            <!-- Respuesta del asistente -->
+                            <div th:if="${m.rol == 'ASSISTANT'}" class="flex justify-start">
+                                <div class="max-w-[80%] px-5 py-3 rounded-2xl rounded-bl-md bg-surface-50 border border-surface-100 text-surface-800 text-sm font-medium whitespace-pre-wrap break-words"
+                                     th:text="${m.contenido}">Respuesta</div>
+                            </div>
+
+                            <!-- Herramienta -->
+                            <div th:if="${m.rol == 'TOOL'}" class="flex justify-center">
+                                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-[11px] font-black uppercase tracking-widest">
+                                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z"/></svg>
+                                    <span th:text="${m.herramienta}">herramienta</span>
+                                    <span th:if="${m.argumentosResumen != null and !m.argumentosResumen.isEmpty()}"
+                                          class="font-bold lowercase tracking-normal text-blue-500"
+                                          th:text="${'· ' + m.argumentosResumen}">· args</span>
+                                </div>
+                            </div>
+                        </th:block>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

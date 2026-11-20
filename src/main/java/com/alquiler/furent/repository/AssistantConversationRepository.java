@@ -29,6 +29,8 @@ public interface AssistantConversationRepository extends MongoRepository<Assista
 
     long countByCotizoTrue();
 
+    List<AssistantConversation> findByCotizoTrue();
+
     long countByInicioBetween(Instant desde, Instant hasta);
 
     long countByEstadoAndInicioBetween(String estado, Instant desde, Instant hasta);
