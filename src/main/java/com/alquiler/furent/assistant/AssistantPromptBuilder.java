@@ -97,7 +97,14 @@ public class AssistantPromptBuilder {
         generation.put("maxOutputTokens", properties.getMaxOutputTokens());
         generation.put("topP", 0.9);
         generation.put("candidateCount", 1);
-        generation.putObject("thinkingConfig").put("thinkingBudget", properties.getThinkingBudget());
+        // Gemini 3.x rechaza thinkingBudget=0; usa thinkingLevel. Los modelos 2.x siguen
+        // aceptando thinkingBudget.
+        ObjectNode thinking = generation.putObject("thinkingConfig");
+        if (properties.getModel() != null && properties.getModel().startsWith("gemini-3")) {
+            thinking.put("thinkingLevel", properties.getThinkingLevel());
+        } else {
+            thinking.put("thinkingBudget", properties.getThinkingBudget());
+        }
 
         ArrayNode safety = root.putArray("safetySettings");
         for (String category : HARM_CATEGORIES) {

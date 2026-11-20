@@ -287,6 +287,9 @@ src/test/java/com/alquiler/furent/controller/AssistantControllerTest.java  (nuev
   - login y retorno a `/cotizacion`;
   - escalado a WhatsApp;
   - recarga y restauración.
+  - Nota: verificado por API real (invitado consulta y cotiza, tarjetas + cotización +
+    persistencia en MongoDB + panel admin). Queda pendiente la pasada manual en navegador
+    (agregar a bolsa, login y retorno, botón de WhatsApp, recarga).
 
 ### Archivos
 
@@ -357,7 +360,12 @@ src/test/java/com/alquiler/furent/controller/admin/AdminAssistantControllerTest.
 
 ### Tareas
 
-- [ ] **7.1** Revisar métricas y logs con una conversación real. *(pendiente: requiere `GEMINI_API_KEY`)*
+- [x] **7.1** Revisar métricas y logs con una conversación real. *(requiere `GEMINI_API_KEY`)*
+  - Verificado con `gemini-3.5-flash-lite`: dos turnos reales (consulta + cotización) sin errores
+    del asistente en el log; se emiten las métricas `furent.assistant.*` (`messages`, `tool.calls`,
+    `tokens`, `quotes`, `latency`).
+  - Corrección necesaria para Gemini 3.x: reenviar el `thoughtSignature` de cada `functionCall`
+    (omitirlo devuelve `400 INVALID_ARGUMENT`).
 - [ ] **7.2** Ajustar el prompt con 10 conversaciones de prueba (tono, longitud, precisión). *(pendiente: requiere `GEMINI_API_KEY`)*
 - [x] **7.3** Verificar rate limit, cuota diaria y fallback a WhatsApp.
 - [x] **7.4** Verificar retención (`expireAt`) y que no se guarden datos sensibles.

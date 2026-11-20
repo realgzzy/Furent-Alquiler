@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
@@ -123,6 +124,29 @@ class AssistantOrchestratorTest {
         assertTrue(stream.types.contains("card"));
         assertTrue(stream.text.toString().contains("Encontré una opción"));
         verify(conversations).saveToolMessage(conversation, "buscar_productos", "{}");
+    }
+
+    @Test
+    void toolCallReenviaThoughtSignatureAlModelo() {
+        when(toolService.execute(anyString(), any(), any()))
+                .thenReturn(ToolResult.of(mapper.createObjectNode()));
+
+        stubGemini(List.of(
+                List.of(GeminiChunk.functionCall("buscar_productos", mapper.createObjectNode(), "firma-xyz")),
+                List.of(GeminiChunk.text("ok"))));
+
+        List<List<JsonNode>> captured = new ArrayList<>();
+        doAnswer(invocation -> {
+            captured.add(new ArrayList<>(invocation.getArgument(0)));
+            return mapper.createObjectNode();
+        }).when(promptBuilder).buildBody(anyList(), any(), any());
+
+        orchestrator.handle(request(), guest, new RecordingStream());
+
+        assertTrue(captured.size() >= 2);
+        JsonNode modelTurn = captured.get(1).get(0);
+        assertEquals("model", modelTurn.path("role").asText());
+        assertEquals("firma-xyz", modelTurn.path("parts").get(0).path("thoughtSignature").asText());
     }
 
     @Test

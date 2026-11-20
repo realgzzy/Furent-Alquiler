@@ -11,17 +11,19 @@ import org.springframework.stereotype.Component;
  *
  * Configuración en application.properties:
  *   furent.assistant.api-key=${GEMINI_API_KEY:}
- *   furent.assistant.model=gemini-2.5-flash-lite
+ *   furent.assistant.model=gemini-3.5-flash-lite
  */
 @Component
 @ConfigurationProperties(prefix = "furent.assistant")
 public class AssistantProperties {
 
     private String apiKey = "";
-    private String model = "gemini-2.5-flash-lite";
+    private String model = "gemini-3.5-flash-lite";
     private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
     private int maxOutputTokens = 800;
     private int thinkingBudget = 0;
+    /** Nivel de razonamiento para Gemini 3.x (MINIMAL, LOW, MEDIUM, HIGH). */
+    private String thinkingLevel = "MINIMAL";
     private double temperature = 0.4;
     private int maxToolIterations = 5;
     private int historyWindow = 12;
@@ -79,6 +81,14 @@ public class AssistantProperties {
 
     public void setThinkingBudget(int thinkingBudget) {
         this.thinkingBudget = thinkingBudget;
+    }
+
+    public String getThinkingLevel() {
+        return thinkingLevel;
+    }
+
+    public void setThinkingLevel(String thinkingLevel) {
+        this.thinkingLevel = thinkingLevel;
     }
 
     public double getTemperature() {

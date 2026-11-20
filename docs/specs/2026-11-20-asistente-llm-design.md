@@ -66,8 +66,8 @@ cupones, reservas y panel admin. El asistente reutiliza esos servicios, no los d
 | Decisión | Elección | Motivo |
 |---|---|---|
 | Proveedor | Google Gemini | Free tier, buen español, function calling y streaming |
-| Modelo por defecto | `gemini-2.5-flash-lite` | ~1.000 req/día en free tier; suficiente para el MVP |
-| Modelo alternativo | `gemini-2.5-flash` | Mejor calidad, cuota gratuita menor (~250 req/día) |
+| Modelo por defecto | `gemini-3.5-flash-lite` | Free tier, baja latencia y suficiente para el MVP |
+| Modelo alternativo | `gemini-3.5-flash` | Mejor calidad, cuota gratuita menor |
 | Integración | `RestClient` de Spring | Sin SDK nuevo; compatible con Spring Boot 4 |
 | Patrón | Function calling | Datos reales y acciones controladas desde el backend |
 | Streaming | SSE sobre `SseEmitter` | Texto incremental sin añadir WebFlux |
@@ -172,10 +172,11 @@ modelos, repositorios y controladores se ubican en `com.alquiler.furent.model`,
 public class AssistantProperties {
     // La habilitación global vive en FeatureFlags (furent.features.assistant-enabled).
     private String apiKey = "";
-    private String model = "gemini-2.5-flash-lite";
+    private String model = "gemini-3.5-flash-lite";
     private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
     private int maxOutputTokens = 800;
-    private int thinkingBudget = 0; // 0 = sin razonamiento extendido (menor latencia/costo)
+    private int thinkingBudget = 0; // modelos 2.x: 0 = sin razonamiento extendido
+    private String thinkingLevel = "MINIMAL"; // modelos 3.x: MINIMAL, LOW, MEDIUM, HIGH
     private double temperature = 0.4;
     private int maxToolIterations = 5;
     private int historyWindow = 12;
@@ -200,7 +201,7 @@ public class AssistantProperties {
   "systemInstruction": { "parts": [{ "text": "..." }] },
   "contents": [
     { "role": "user", "parts": [{ "text": "..." }] },
-    { "role": "model", "parts": [{ "functionCall": { "name": "...", "args": {} } }] },
+    { "role": "model", "parts": [{ "functionCall": { "name": "...", "args": {} }, "thoughtSignature": "..." }] },
     { "role": "user", "parts": [{ "functionResponse": { "name": "...", "response": {} } }] }
   ],
   "tools": [{ "functionDeclarations": [ ... ] }],
@@ -209,7 +210,7 @@ public class AssistantProperties {
     "maxOutputTokens": 800,
     "topP": 0.9,
     "candidateCount": 1,
-    "thinkingConfig": { "thinkingBudget": 0 }
+    "thinkingConfig": { "thinkingLevel": "MINIMAL" }
   },
   "safetySettings": [
     { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE" },
@@ -221,7 +222,11 @@ public class AssistantProperties {
 ```
 
 - El cliente entrega al orquestador una secuencia de `GeminiChunk`:
-  `text(String)`, `functionCall(name, args)`, `usage(promptTokens, outputTokens)`, `blocked(reason)`.
+  `text(String)`, `functionCall(name, args, thoughtSignature)`, `usage(promptTokens, outputTokens)`,
+  `blocked(reason)`.
+- En Gemini 3.x cada `functionCall` viene acompañado de un `thoughtSignature` que **debe**
+  reenviarse junto a la llamada en el historial; omitirlo devuelve
+  `400 INVALID_ARGUMENT` ("missing a thought_signature in functionCall parts").
 - Errores 429/5xx se traducen a `AssistantUnavailableException` para el fallback.
 - Timeout de conexión y lectura configurable (`requestTimeoutSeconds`).
 
@@ -721,7 +726,12 @@ instancias, se documenta migrar a Redis.
 
 ### 13.6 Costos
 
-- Free tier: `gemini-2.5-flash-lite` ~1.000 req/día; `gemini-2.5-flash` ~250 req/día.
+- Free tier: `gemini-3.5-flash-lite` y `gemini-3.5-flash` (la cuota depende de la cuenta;
+  consúltala en Google AI Studio). Los modelos `gemini-2.5-*` ya no están disponibles para
+  cuentas nuevas: la API responde `404` y recomienda la familia `gemini-3.x`.
+- En Gemini 3.x el razonamiento se controla con `thinkingLevel` (`MINIMAL` por defecto);
+  `thinkingBudget` solo aplica a los modelos 2.x. Enviar `thinkingBudget=0` a un modelo 3.x
+  devuelve `400 INVALID_ARGUMENT`.
 - Consumo estimado: 2.000-4.000 tokens por turno; el 90% de las conversaciones usa 3-6
   turnos.
 - Topes: 800 tokens de salida, 6.000 de entrada, 5 iteraciones.
@@ -748,9 +758,10 @@ instancias, se documenta migrar a Redis.
 # ASISTENTE LLM
 furent.features.assistant-enabled=${ASSISTANT_ENABLED:false}
 furent.assistant.api-key=${GEMINI_API_KEY:}
-furent.assistant.model=${GEMINI_MODEL:gemini-2.5-flash-lite}
+furent.assistant.model=${GEMINI_MODEL:gemini-3.5-flash-lite}
 furent.assistant.max-output-tokens=800
 furent.assistant.thinking-budget=0
+furent.assistant.thinking-level=${GEMINI_THINKING_LEVEL:MINIMAL}
 furent.assistant.temperature=0.4
 furent.assistant.max-tool-iterations=5
 furent.assistant.history-window=12

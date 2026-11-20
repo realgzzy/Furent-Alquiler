@@ -155,7 +155,7 @@ public class AssistantOrchestrator {
 
         for (GeminiChunk call : calls) {
             String name = call.functionName();
-            callParts.add(new GeminiContents.Call(name, call.functionArgs()));
+            callParts.add(new GeminiContents.Call(name, call.functionArgs(), call.thoughtSignature()));
 
             ToolResult result;
             try {

@@ -32,7 +32,7 @@ class RestClientGeminiTransportTest {
     private static AssistantProperties properties() {
         AssistantProperties props = new AssistantProperties();
         props.setApiKey("test-key");
-        props.setModel("gemini-2.5-flash-lite");
+        props.setModel("gemini-3.5-flash-lite");
         props.setBaseUrl("https://generativelanguage.googleapis.com/v1beta");
         return props;
     }

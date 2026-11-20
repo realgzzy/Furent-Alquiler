@@ -17,8 +17,15 @@ public final class GeminiContents {
 
     /**
      * Llamada a función solicitada por el modelo.
+     *
+     * @param thoughtSignature firma de pensamiento exigida por Gemini 3.x; viaja junto a la
+     *                         llamada al reenviar el historial. Puede ser nula en modelos 2.x.
      */
-    public record Call(String name, JsonNode args) {
+    public record Call(String name, JsonNode args, String thoughtSignature) {
+
+        public Call(String name, JsonNode args) {
+            this(name, args, null);
+        }
     }
 
     /**
@@ -39,6 +46,9 @@ public final class GeminiContents {
             ObjectNode functionCall = part.putObject("functionCall");
             functionCall.put("name", call.name());
             functionCall.set("args", call.args() == null ? mapper.createObjectNode() : call.args());
+            if (call.thoughtSignature() != null && !call.thoughtSignature().isBlank()) {
+                part.put("thoughtSignature", call.thoughtSignature());
+            }
         }
         return content;
     }

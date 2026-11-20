@@ -46,6 +46,24 @@ class GeminiSseParserTest {
     }
 
     @Test
+    void functionCallKeepsThoughtSignature() {
+        List<GeminiChunk> chunks = feed(
+                "data: {\"candidates\":[{\"content\":{\"parts\":[{\"functionCall\":{\"name\":\"buscar_productos\",\"args\":{}},\"thoughtSignature\":\"firma-123\"}]}}]}\n");
+
+        assertEquals(1, chunks.size());
+        assertEquals("firma-123", chunks.get(0).thoughtSignature());
+    }
+
+    @Test
+    void functionCallWithoutSignatureIsNull() {
+        List<GeminiChunk> chunks = feed(
+                "data: {\"candidates\":[{\"content\":{\"parts\":[{\"functionCall\":{\"name\":\"cotizar\",\"args\":{}}}]}}]}\n");
+
+        assertEquals(1, chunks.size());
+        assertEquals(null, chunks.get(0).thoughtSignature());
+    }
+
+    @Test
     void usageMetadataIsEmitted() {
         List<GeminiChunk> chunks = feed(
                 "data: {\"usageMetadata\":{\"promptTokenCount\":120,\"candidatesTokenCount\":30}}\n");

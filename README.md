@@ -72,7 +72,7 @@ cotización con precios y stock tomados directamente de la base de datos. **No c
 cobra**: cuando el cliente quiere avanzar, lo lleva a la bolsa y al checkout de la web, o escala
 la conversación a WhatsApp con un asesor (automática o manualmente).
 
-* **Proveedor**: Google Gemini (`gemini-2.5-flash-lite` por defecto).
+* **Proveedor**: Google Gemini (`gemini-3.5-flash-lite` por defecto).
 * **Transporte**: streaming por Server-Sent Events desde el backend; la clave de API nunca llega
   al navegador.
 * **Persistencia**: conversaciones y mensajes en MongoDB (`asistente_conversaciones`,
@@ -94,15 +94,17 @@ Si falta cualquiera de las dos, el widget no se renderiza y `POST /api/asistente
 | Variable | Descripción | Valor por defecto |
 | :--- | :--- | :--- |
 | `GEMINI_API_KEY` | Clave de Google AI Studio | *(vacío)* |
-| `GEMINI_MODEL` | Modelo de Gemini | `gemini-2.5-flash-lite` |
+| `GEMINI_MODEL` | Modelo de Gemini | `gemini-3.5-flash-lite` |
+| `GEMINI_THINKING_LEVEL` | Nivel de razonamiento en Gemini 3.x (`MINIMAL`, `LOW`, `MEDIUM`, `HIGH`) | `MINIMAL` |
 | `GEMINI_BASE_URL` | Endpoint base de la API de Gemini | `https://generativelanguage.googleapis.com/v1beta` |
 | `ASSISTANT_ENABLED` | Activa/desactiva el asistente | `false` |
 | `FURENT_WHATSAPP_NUMBER` | WhatsApp para el escalado a humano | `573105782442` |
 
-Para cambiar de modelo, ajusta `GEMINI_MODEL` (por ejemplo `gemini-2.5-flash`) y reinicia la
-aplicación. El resto de parámetros (límites por hora, presupuesto diario, tokens máximos,
-temperatura, retención) se ajustan con las propiedades `furent.assistant.*` en
-`application.properties`.
+Para cambiar de modelo, ajusta `GEMINI_MODEL` (por ejemplo `gemini-3.5-flash`) y reinicia la
+aplicación. Los modelos `gemini-2.5-*` ya no están disponibles para cuentas nuevas (Gemini
+responde `404`); usa la familia `gemini-3.x`. El resto de parámetros (límites por hora,
+presupuesto diario, tokens máximos, temperatura, retención) se ajustan con las propiedades
+`furent.assistant.*` en `application.properties`.
 
 > Documentación completa: [diseño](docs/specs/2026-11-20-asistente-llm-design.md) ·
 > [plan de implementación](docs/plans/2026-11-20-asistente-llm-implementation-plan.md).

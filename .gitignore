@@ -37,3 +37,6 @@ build/
 .env.local
 .env.*.local
 logs/
+
+### Configuración local con secretos ###
+application-local.properties

@@ -117,9 +117,13 @@ public class GeminiSseParser {
                         }
                         JsonNode functionCall = part.path("functionCall");
                         if (functionCall.isObject() && functionCall.hasNonNull("name")) {
+                            String signature = part.hasNonNull("thoughtSignature")
+                                    ? part.get("thoughtSignature").asText()
+                                    : null;
                             out.add(GeminiChunk.functionCall(
                                     functionCall.get("name").asText(),
-                                    functionCall.path("args")));
+                                    functionCall.path("args"),
+                                    signature));
                         }
                     }
                 }

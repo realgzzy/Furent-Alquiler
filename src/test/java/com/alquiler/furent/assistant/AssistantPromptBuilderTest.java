@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
 
@@ -83,8 +84,19 @@ class AssistantPromptBuilderTest {
         assertEquals(1, body.path("tools").size());
         assertTrue(body.path("tools").get(0).has("functionDeclarations"));
         assertEquals(800, body.path("generationConfig").path("maxOutputTokens").asInt());
-        assertEquals(0, body.path("generationConfig").path("thinkingConfig").path("thinkingBudget").asInt());
+        assertEquals("MINIMAL", body.path("generationConfig").path("thinkingConfig").path("thinkingLevel").asText());
+        assertFalse(body.path("generationConfig").path("thinkingConfig").has("thinkingBudget"));
         assertEquals(4, body.path("safetySettings").size());
         assertTrue(body.path("systemInstruction").path("parts").get(0).path("text").asText().contains("Furent"));
+    }
+
+    @Test
+    void modelosGemini2SiguenUsandoThinkingBudget() {
+        properties.setModel("gemini-2.5-flash-lite");
+
+        ObjectNode body = builder.buildBody(List.of(), "hola", new ToolContext(null, "s"), null);
+
+        assertEquals(0, body.path("generationConfig").path("thinkingConfig").path("thinkingBudget").asInt());
+        assertFalse(body.path("generationConfig").path("thinkingConfig").has("thinkingLevel"));
     }
 }
