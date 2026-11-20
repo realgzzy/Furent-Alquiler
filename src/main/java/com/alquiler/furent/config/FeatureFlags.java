@@ -24,6 +24,7 @@ public class FeatureFlags {
     private boolean exportPdfEnabled = true;
     private boolean analyticsEnabled = true;
     private boolean payuEnabled = true;
+    private boolean assistantEnabled = false;
 
     public boolean isPayuEnabled() {
         return payuEnabled;
@@ -71,5 +72,13 @@ public class FeatureFlags {
 
     public void setAnalyticsEnabled(boolean analyticsEnabled) {
         this.analyticsEnabled = analyticsEnabled;
+    }
+
+    public boolean isAssistantEnabled() {
+        return assistantEnabled;
+    }
+
+    public void setAssistantEnabled(boolean assistantEnabled) {
+        this.assistantEnabled = assistantEnabled;
     }
 }
