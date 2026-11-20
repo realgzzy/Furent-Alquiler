@@ -32,6 +32,7 @@ public class AssistantProperties {
     private String whatsappNumber = "573105782442";
     private String knowledgeFile = "classpath:assistant/knowledge.yml";
     private int retentionDays = 180;
+    private long emitterTimeoutMillis = 60_000L;
 
     /**
      * Indica si hay una API key configurada. Sin clave el asistente no debe operar.
@@ -158,5 +159,13 @@ public class AssistantProperties {
 
     public void setRetentionDays(int retentionDays) {
         this.retentionDays = retentionDays;
+    }
+
+    public long getEmitterTimeoutMillis() {
+        return emitterTimeoutMillis;
+    }
+
+    public void setEmitterTimeoutMillis(long emitterTimeoutMillis) {
+        this.emitterTimeoutMillis = emitterTimeoutMillis;
     }
 }

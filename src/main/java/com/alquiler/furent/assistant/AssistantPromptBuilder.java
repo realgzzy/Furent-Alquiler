@@ -2,6 +2,7 @@ package com.alquiler.furent.assistant;
 
 import com.alquiler.furent.config.AssistantProperties;
 import com.alquiler.furent.model.AssistantMessage;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -54,13 +55,14 @@ public class AssistantPromptBuilder {
      */
     public ObjectNode buildBody(List<AssistantMessage> historial, String mensaje,
                                 ToolContext context, String pageContext) {
-        ObjectNode root = mapper.createObjectNode();
-        root.putObject("systemInstruction")
-                .putArray("parts")
-                .addObject()
-                .put("text", systemInstruction(context, pageContext));
+        return buildBody(initialContents(historial, mensaje), context, pageContext);
+    }
 
-        ArrayNode contents = root.putArray("contents");
+    /**
+     * Convierte el historial y el mensaje nuevo en la lista inicial de {@code contents}.
+     */
+    public List<JsonNode> initialContents(List<AssistantMessage> historial, String mensaje) {
+        List<JsonNode> contents = new java.util.ArrayList<>();
         for (AssistantMessage message : ventana(historial)) {
             if (AssistantMessage.ROL_USER.equals(message.getRol()) && notBlank(message.getContenido())) {
                 contents.add(GeminiContents.userText(mapper, message.getContenido()));
@@ -69,6 +71,22 @@ public class AssistantPromptBuilder {
             }
         }
         contents.add(GeminiContents.userText(mapper, mensaje));
+        return contents;
+    }
+
+    /**
+     * Cuerpo de la petición a partir de una lista mutable de {@code contents}. Permite
+     * añadir llamadas y respuestas de herramientas entre iteraciones del orquestador.
+     */
+    public ObjectNode buildBody(List<JsonNode> contents, ToolContext context, String pageContext) {
+        ObjectNode root = mapper.createObjectNode();
+        root.putObject("systemInstruction")
+                .putArray("parts")
+                .addObject()
+                .put("text", systemInstruction(context, pageContext));
+
+        ArrayNode contentsNode = root.putArray("contents");
+        contentsNode.addAll(contents);
 
         root.putArray("tools")
                 .addObject()

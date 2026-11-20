@@ -116,6 +116,7 @@ public class SecurityConfig {
                                 "/login", "/registro", "/inicio-rapido",
                                 "/api/auth/**", "/api/productos/search",
                                 "/api/webhooks/**",
+                                "/api/asistente/chat", "/api/asistente/conversations/**",
                                 "/password-reset", "/password-reset/**",
                                 "/verificar-email/**",
                                 "/actuator/health", "/actuator/info",

@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * - Login:         5 intentos/min por IP (protección brute force)
  * - Register:      3 intentos/min por IP
  * - Otros auth:   10 req/min por IP
+ * - Asistente:    20 req/min por IP
  *
  * Los contadores se resetean automáticamente cada 60 segundos.
  */
@@ -39,6 +40,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final int MAX_LOGIN_PER_MINUTE = 5;
     private static final int MAX_REGISTER_PER_MINUTE = 3;
     private static final int MAX_AUTH_REQUESTS_PER_MINUTE = 10;
+    private static final int MAX_ASSISTANT_PER_MINUTE = 20;
     private static final long WINDOW_MS = 60_000;
 
     private final ConcurrentHashMap<String, RateInfo> clients = new ConcurrentHashMap<>();
@@ -68,6 +70,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String bucketKey;
         boolean isLogin = "/api/auth/login".equals(path) && "POST".equals(method);
         boolean isRegister = "/api/auth/register".equals(path) && "POST".equals(method);
+        boolean isAssistantChat = "/api/asistente/chat".equals(path) && "POST".equals(method);
 
         if (isLogin) {
             limit = MAX_LOGIN_PER_MINUTE;
@@ -75,6 +78,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
         } else if (isRegister) {
             limit = MAX_REGISTER_PER_MINUTE;
             bucketKey = clientIp + ":register";
+        } else if (isAssistantChat) {
+            limit = MAX_ASSISTANT_PER_MINUTE;
+            bucketKey = clientIp + ":assistant";
         } else if (path.startsWith("/api/auth/")) {
             limit = MAX_AUTH_REQUESTS_PER_MINUTE;
             bucketKey = clientIp + ":auth";

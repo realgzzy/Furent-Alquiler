@@ -128,6 +128,18 @@ class RateLimitFilterTest {
     }
 
     @Test
+    void assistantChat_hasItsOwnLimit() throws Exception {
+        when(request.getRequestURI()).thenReturn("/api/asistente/chat");
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRemoteAddr()).thenReturn("10.0.0.9");
+
+        filter.doFilterInternal(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+        verify(response).setHeader(eq("X-RateLimit-Limit"), eq("20"));
+    }
+
+    @Test
     void xForwardedFor_extractsFirstIp() throws Exception {
         when(request.getRequestURI()).thenReturn("/api/test");
         when(request.getMethod()).thenReturn("GET");
