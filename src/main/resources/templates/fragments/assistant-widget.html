@@ -1,0 +1,223 @@
+<!--
+  Asistente virtual Furent — widget flotante.
+  Se incluye desde fragments/layout.html solo si `assistantEnabled` es verdadero.
+  Los estilos van embebidos y con prefijo `fa-` para no depender de la compilación de Tailwind.
+-->
+<div th:fragment="assistantWidget" xmlns:th="http://www.thymeleaf.org">
+
+    <style>
+        #furent-assistant-launcher,
+        #furent-assistant-panel { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+
+        /* ───────── Lanzador ───────── */
+        #furent-assistant-launcher {
+            position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 111;
+            width: 58px; height: 58px; border: none; cursor: pointer;
+            border-radius: 9999px; color: #fff;
+            background: linear-gradient(135deg, #E07A3A, #C2630F);
+            box-shadow: 0 12px 30px -6px rgba(224, 122, 58, .55);
+            display: flex; align-items: center; justify-content: center;
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+        #furent-assistant-launcher:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 16px 36px -6px rgba(224, 122, 58, .65); }
+        #furent-assistant-launcher:focus-visible { outline: 3px solid rgba(224, 122, 58, .45); outline-offset: 3px; }
+        #furent-assistant-launcher::after {
+            content: ''; position: absolute; inset: 0; border-radius: 9999px;
+            border: 2px solid rgba(224, 122, 58, .5); animation: fa-pulse 2.4s ease-out infinite;
+        }
+        @keyframes fa-pulse {
+            0% { transform: scale(1); opacity: .7; }
+            100% { transform: scale(1.7); opacity: 0; }
+        }
+        #furent-assistant-launcher[hidden] { display: none; }
+        .fa-launcher-badge {
+            position: absolute; top: -2px; right: -2px; min-width: 18px; height: 18px; padding: 0 5px;
+            border-radius: 9999px; background: #1c1c1c; color: #fff; font-size: 11px; font-weight: 700;
+            display: none; align-items: center; justify-content: center; border: 2px solid #fff;
+        }
+
+        /* ───────── Panel ───────── */
+        #furent-assistant-panel {
+            position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 120;
+            width: min(400px, calc(100vw - 2rem));
+            height: min(640px, calc(100vh - 2rem));
+            background: #fff; border-radius: 24px; overflow: hidden;
+            display: flex; flex-direction: column;
+            border: 1px solid #F0F0F0;
+            box-shadow: 0 24px 70px -12px rgba(0, 0, 0, .28);
+            animation: fa-in .22s cubic-bezier(.4, 0, .2, 1);
+        }
+        #furent-assistant-panel[hidden] { display: none; }
+        @keyframes fa-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+        .fa-header {
+            display: flex; align-items: center; gap: .75rem; padding: .9rem 1rem;
+            color: #fff; background: linear-gradient(135deg, #E07A3A, #C2630F); flex: 0 0 auto;
+        }
+        .fa-avatar {
+            width: 40px; height: 40px; border-radius: 9999px; background: rgba(255,255,255,.22);
+            display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+        }
+        .fa-header h2 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+        .fa-header p { margin: 0; font-size: 11.5px; opacity: .85; display: flex; align-items: center; gap: .35rem; }
+        .fa-dot { width: 7px; height: 7px; border-radius: 9999px; background: #7CFC9A; display: inline-block; }
+        .fa-close {
+            margin-left: auto; background: rgba(255,255,255,.18); border: none; cursor: pointer;
+            width: 34px; height: 34px; border-radius: 12px; color: #fff; display: flex; align-items: center; justify-content: center;
+            transition: background .18s ease;
+        }
+        .fa-close:hover { background: rgba(255,255,255,.32); }
+
+        .fa-messages {
+            flex: 1 1 auto; overflow-y: auto; padding: 1rem;
+            background: #FAFAFA; display: flex; flex-direction: column; gap: .75rem; scroll-behavior: smooth;
+        }
+        .fa-messages::-webkit-scrollbar { width: 6px; }
+        .fa-messages::-webkit-scrollbar-thumb { background: #d8d8d8; border-radius: 9999px; }
+
+        .fa-row { display: flex; gap: .5rem; max-width: 100%; }
+        .fa-row.user { justify-content: flex-end; }
+        .fa-bubble {
+            max-width: 85%; padding: .65rem .85rem; border-radius: 16px;
+            font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+        }
+        .fa-bubble.assistant { background: #fff; color: #2b2b2b; border: 1px solid #EFEFEF; border-bottom-left-radius: 6px; }
+        .fa-bubble.user { background: #E07A3A; color: #fff; border-bottom-right-radius: 6px; }
+        .fa-bubble.error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+        .fa-typing { display: inline-flex; gap: 4px; align-items: center; }
+        .fa-typing span { width: 6px; height: 6px; border-radius: 9999px; background: #C2630F; opacity: .4; animation: fa-blink 1.2s infinite; }
+        .fa-typing span:nth-child(2) { animation-delay: .18s; }
+        .fa-typing span:nth-child(3) { animation-delay: .36s; }
+        @keyframes fa-blink { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
+
+        /* ───────── Tarjetas ───────── */
+        .fa-card { background: #fff; border: 1px solid #EFEFEF; border-radius: 16px; overflow: hidden; width: 100%; }
+        .fa-card-media { display: flex; gap: .7rem; padding: .7rem; align-items: center; }
+        .fa-card-media img { width: 58px; height: 58px; border-radius: 12px; object-fit: cover; background: #F5F5F5; flex: 0 0 auto; }
+        .fa-card-name { font-size: 13.5px; font-weight: 700; color: #212121; margin: 0 0 2px; }
+        .fa-card-meta { font-size: 11.5px; color: #9E9E9E; margin: 0; }
+        .fa-card-price { font-size: 13.5px; font-weight: 800; color: #C2630F; white-space: nowrap; }
+        .fa-card-actions { display: flex; gap: .5rem; padding: 0 .7rem .7rem; }
+        .fa-btn {
+            flex: 1 1 auto; border: none; cursor: pointer; border-radius: 12px; padding: .55rem .7rem;
+            font-size: 12.5px; font-weight: 700; transition: background .18s ease, transform .1s ease;
+        }
+        .fa-btn:active { transform: scale(.97); }
+        .fa-btn-primary { background: #E07A3A; color: #fff; }
+        .fa-btn-primary:hover { background: #C2630F; }
+        .fa-btn-ghost { background: #F5F5F5; color: #424242; }
+        .fa-btn-ghost:hover { background: #EEEEEE; }
+        .fa-btn-wa { background: #25D366; color: #fff; }
+        .fa-btn-wa:hover { background: #1EBE5A; }
+
+        .fa-quote { background: #fff; border: 1px solid #EFEFEF; border-radius: 16px; padding: .85rem; width: 100%; }
+        .fa-quote h4 { margin: 0 0 .5rem; font-size: 13px; font-weight: 800; color: #212121; }
+        .fa-quote-item { display: flex; justify-content: space-between; gap: .5rem; font-size: 12.5px; padding: .28rem 0; color: #424242; }
+        .fa-quote-item span:last-child { font-weight: 700; white-space: nowrap; }
+        .fa-quote-total { display: flex; justify-content: space-between; font-size: 14px; font-weight: 800; color: #212121; margin-top: .5rem; padding-top: .5rem; border-top: 1px dashed #E0E0E0; }
+        .fa-quote-note { font-size: 11px; color: #9E9E9E; margin: .5rem 0 0; line-height: 1.45; }
+        .fa-quote-actions { display: flex; gap: .5rem; margin-top: .7rem; }
+
+        /* ───────── Chips ───────── */
+        .fa-chips { display: flex; flex-wrap: wrap; gap: .4rem; padding: .75rem 1rem 0; background: #FAFAFA; }
+        .fa-chip {
+            border: 1px solid #FED7AA; background: #FFF7F0; color: #C2630F; cursor: pointer;
+            border-radius: 9999px; padding: .38rem .7rem; font-size: 12px; font-weight: 600;
+            transition: background .18s ease;
+        }
+        .fa-chip:hover { background: #FFEDD5; }
+
+        /* ───────── Composer ───────── */
+        .fa-composer { flex: 0 0 auto; border-top: 1px solid #F0F0F0; background: #fff; padding: .6rem .7rem .7rem; }
+        .fa-input-row { display: flex; gap: .5rem; align-items: flex-end; }
+        .fa-input {
+            flex: 1 1 auto; resize: none; max-height: 120px; min-height: 42px;
+            border: 1px solid #E0E0E0; border-radius: 14px; padding: .6rem .75rem;
+            font-size: 13.5px; font-family: inherit; line-height: 1.4; color: #212121; outline: none;
+            transition: border-color .18s ease, box-shadow .18s ease;
+        }
+        .fa-input:focus { border-color: #E07A3A; box-shadow: 0 0 0 3px rgba(224, 122, 58, .14); }
+        .fa-send {
+            flex: 0 0 auto; width: 42px; height: 42px; border: none; cursor: pointer; border-radius: 14px;
+            background: #E07A3A; color: #fff; display: flex; align-items: center; justify-content: center;
+            transition: background .18s ease;
+        }
+        .fa-send:hover { background: #C2630F; }
+        .fa-send:disabled { opacity: .5; cursor: not-allowed; }
+        .fa-disclaimer { font-size: 10.5px; color: #BDBDBD; text-align: center; margin: .5rem 0 0; }
+
+        .fa-sr {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+            clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+        }
+
+        /* ───────── Oscuro ───────── */
+        .dark #furent-assistant-panel { background: #1e1e1e; border-color: #2f2f2f; }
+        .dark .fa-messages, .dark .fa-chips { background: #161616; }
+        .dark .fa-bubble.assistant, .dark .fa-card, .dark .fa-quote { background: #232323; border-color: #333; color: #ECECEC; }
+        .dark .fa-card-name, .dark .fa-quote h4, .dark .fa-quote-total { color: #F5F5F5; }
+        .dark .fa-input { background: #232323; border-color: #3a3a3a; color: #ECECEC; }
+        .dark .fa-composer { background: #1e1e1e; border-color: #2f2f2f; }
+
+        @media (max-width: 480px) {
+            #furent-assistant-panel { right: .5rem; bottom: .5rem; width: calc(100vw - 1rem); height: calc(100vh - 1rem); border-radius: 20px; }
+            #furent-assistant-launcher { right: 1rem; bottom: 1rem; }
+        }
+    </style>
+
+    <!-- Lanzador -->
+    <button type="button" id="furent-assistant-launcher"
+            aria-label="Abrir asistente Furent" aria-expanded="false" aria-controls="furent-assistant-panel">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.17 48.17 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v8.269Z"/>
+        </svg>
+        <span class="fa-launcher-badge" id="furent-assistant-badge" aria-hidden="true">1</span>
+    </button>
+
+    <!-- Panel -->
+    <section id="furent-assistant-panel" hidden role="dialog" aria-modal="true" aria-labelledby="furent-assistant-title"
+             th:attr="data-chat-url=@{/api/asistente/chat},data-authenticated=${currentUser != null}">
+        <header class="fa-header">
+            <div class="fa-avatar" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z"/>
+                </svg>
+            </div>
+            <div>
+                <h2 id="furent-assistant-title">Asistente Furent</h2>
+                <p><span class="fa-dot" aria-hidden="true"></span> En línea · responde al instante</p>
+            </div>
+            <button type="button" class="fa-close" id="furent-assistant-close" aria-label="Cerrar asistente">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </header>
+
+        <div class="fa-messages" id="furent-assistant-messages" role="log" aria-live="polite"></div>
+
+        <div class="fa-chips" id="furent-assistant-chips">
+            <button type="button" class="fa-chip" data-prompt="Necesito sillas y mesas para una boda">Sillas para una boda</button>
+            <button type="button" class="fa-chip" data-prompt="¿Qué mobiliario tienen para eventos corporativos?">Evento corporativo</button>
+            <button type="button" class="fa-chip" data-prompt="¿Cómo funcionan los envíos y el montaje?">Envíos y montaje</button>
+            <button type="button" class="fa-chip" data-prompt="Quiero cotizar para 100 invitados">Cotizar mi evento</button>
+        </div>
+
+        <div class="fa-composer">
+            <div class="fa-input-row">
+                <label class="fa-sr" for="furent-assistant-input">Escribe tu mensaje</label>
+                <textarea id="furent-assistant-input" class="fa-input" rows="1" maxlength="1000"
+                          placeholder="Escribe tu duda o lo que necesitas…"></textarea>
+                <button type="button" class="fa-send" id="furent-assistant-send" aria-label="Enviar mensaje">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/>
+                    </svg>
+                </button>
+            </div>
+            <p class="fa-disclaimer">Asistente con IA. Confirma precios y disponibilidad antes de reservar.</p>
+        </div>
+    </section>
+
+    <script th:src="@{/js/assistant.js}" defer></script>
+</div>

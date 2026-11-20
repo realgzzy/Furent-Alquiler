@@ -26,6 +26,8 @@
 
                     <!-- Form -->
                     <form th:action="@{/login}" method="post" class="space-y-4">
+                        <input type="hidden" name="redirect" th:if="${param.redirect != null}"
+                               th:value="${param.redirect[0]}">
                         <div>
                             <label class="block text-xs font-medium text-surface-600 uppercase tracking-wider mb-2">Email</label>
                             <div class="relative">

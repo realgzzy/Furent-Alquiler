@@ -60,6 +60,11 @@ public class SecurityConfig {
     @Bean
     public AuthenticationSuccessHandler roleBasedSuccessHandler() {
         return (request, response, authentication) -> {
+            String redirect = request.getParameter("redirect");
+            if (isSafeRedirect(redirect)) {
+                response.sendRedirect(redirect.trim());
+                return;
+            }
             boolean isAdmin = authentication.getAuthorities().stream()
                     .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
             if (isAdmin) {
@@ -68,6 +73,33 @@ public class SecurityConfig {
                 response.sendRedirect("/");
             }
         };
+    }
+
+    /**
+     * Solo admite rutas internas seguras para el parámetro {@code redirect} del login.
+     *
+     * Debe empezar por "/", no puede empezar por "//" ni por "\\" (evita redirecciones
+     * a otro host), no admite barras invertidas ni caracteres de control, y tiene una
+     * longitud acotada.
+     */
+    static boolean isSafeRedirect(String redirect) {
+        if (redirect == null || redirect.isBlank()) {
+            return false;
+        }
+        String value = redirect.trim();
+        if (value.length() > 512) {
+            return false;
+        }
+        if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("\\")) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c == '\\' || c == '\r' || c == '\n' || c == '\t') {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Bean

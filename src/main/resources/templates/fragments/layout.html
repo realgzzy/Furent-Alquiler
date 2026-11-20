@@ -369,6 +369,8 @@ document.addEventListener('click', function(e) {
         </a>
     </div>
 
+    <!-- Asistente virtual (solo si el flag está activo y hay API key) -->
+    <div th:if="${assistantEnabled}" th:replace="~{fragments/assistant-widget :: assistantWidget}"></div>
 
     <!-- Global Toast Container -->
     <div id="toast-container" class="fixed top-24 right-5 z-[200] flex flex-col gap-4 pointer-events-none w-full max-w-sm"></div>

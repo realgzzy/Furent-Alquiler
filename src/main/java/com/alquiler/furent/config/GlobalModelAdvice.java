@@ -14,10 +14,23 @@ public class GlobalModelAdvice {
 
     private final UserService userService;
     private final NotificationService notificationService;
+    private final FeatureFlags featureFlags;
+    private final AssistantProperties assistantProperties;
 
-    public GlobalModelAdvice(UserService userService, NotificationService notificationService) {
+    public GlobalModelAdvice(UserService userService, NotificationService notificationService,
+                             FeatureFlags featureFlags, AssistantProperties assistantProperties) {
         this.userService = userService;
         this.notificationService = notificationService;
+        this.featureFlags = featureFlags;
+        this.assistantProperties = assistantProperties;
+    }
+
+    /**
+     * El widget del asistente solo se renderiza si el flag está activo y hay API key.
+     */
+    @ModelAttribute("assistantEnabled")
+    public boolean assistantEnabled() {
+        return featureFlags.isAssistantEnabled() && assistantProperties.isConfigured();
     }
 
     @ModelAttribute("currentUser")
