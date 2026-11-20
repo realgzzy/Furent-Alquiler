@@ -139,9 +139,11 @@ queda como punto de extensión para RAG futuro.
 
 ## 7. Componentes backend
 
-Nuevo paquete: `com.alquiler.furent.assistant` para la lógica del asistente. En la tabla,
-`config/` se refiere a `com.alquiler.furent.config` (junto a `FeatureFlags` y
-`GlobalModelAdvice`); el resto vive en `com.alquiler.furent.assistant`.
+Nuevo paquete `com.alquiler.furent.assistant` para la lógica del asistente (cliente Gemini,
+orquestador, herramientas, prompt y métricas). Para respetar la convención existente, los
+modelos, repositorios y controladores se ubican en `com.alquiler.furent.model`,
+`com.alquiler.furent.repository` y `com.alquiler.furent.controller`; la configuración en
+`com.alquiler.furent.config`.
 
 | Archivo | Responsabilidad |
 |---|---|
