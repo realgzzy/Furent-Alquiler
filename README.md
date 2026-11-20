@@ -33,6 +33,7 @@ Adicionalmente, incorpora un **módulo de inteligencia artificial** con el algor
 * 🔐 **Autenticación Social (Google OAuth2)**: Inicio de sesión rápido y seguro mediante cuentas de Google.
 * ❤️ **Lista de Favoritos**: Guardado persistente de productos de interés para el cliente.
 * 🔔 **Bandeja de Notificaciones**: Alertas en tiempo real sobre aprobaciones de reservas, pagos exitosos y cambios de estado.
+* 🤖 **Asistente Virtual (IA)**: Chat flotante que resuelve dudas, recomienda mobiliario según el tipo de evento y cotiza con precios y stock reales; escala a WhatsApp con un asesor cuando hace falta.
 
 ### 🛡️ Para Administradores (Panel de Control)
 * 📊 **Dashboard Ejecutivo**: Resumen de indicadores clave de rendimiento (Ingresos mensuales, Reservas activas, Registros nuevos).
@@ -43,6 +44,7 @@ Adicionalmente, incorpora un **módulo de inteligencia artificial** con el algor
 * 👥 **Administración de Personal y Usuarios**: Asignación de roles, auditoría de logs, y suspensión temporal o permanente de cuentas.
 * 🎫 **Gestión de Cupones**: Creación de descuentos con fechas de vigencia y límites de uso.
 * 📄 **Generación de PDFs**: Contratos formales de alquiler y reportes de logística generados dinámicamente.
+* 🤖 **Panel del Asistente IA**: Revisión de conversaciones, métricas de uso (activas, escaladas, cotizadas), transcripción completa y exportación a CSV.
 
 ---
 
@@ -62,6 +64,51 @@ Furent cuenta con un motor predictivo que estima la demanda de mobiliario para l
 
 ---
 
+## 🤖 Asistente Virtual (IA)
+
+Widget de chat flotante disponible en el sitio público, para invitados y usuarios autenticados.
+Resuelve dudas frecuentes, recomienda mobiliario, consulta disponibilidad real y arma una
+cotización con precios y stock tomados directamente de la base de datos. **No crea reservas ni
+cobra**: cuando el cliente quiere avanzar, lo lleva a la bolsa y al checkout de la web, o escala
+la conversación a WhatsApp con un asesor (automática o manualmente).
+
+* **Proveedor**: Google Gemini (`gemini-2.5-flash-lite` por defecto).
+* **Transporte**: streaming por Server-Sent Events desde el backend; la clave de API nunca llega
+  al navegador.
+* **Persistencia**: conversaciones y mensajes en MongoDB (`asistente_conversaciones`,
+  `asistente_mensajes`), con retención automática para invitados.
+* **Panel de administración**: `/admin/asistente` (requiere rol `ADMIN`).
+
+### Activar el asistente
+
+El asistente solo se muestra si se cumplen **dos** condiciones:
+
+1. El flag está activo: `furent.features.assistant-enabled=true` (o `ASSISTANT_ENABLED=true`).
+2. Existe una API key: `GEMINI_API_KEY`.
+
+Si falta cualquiera de las dos, el widget no se renderiza y `POST /api/asistente/chat` responde
+`503`. Para desactivarlo sin borrar datos basta con volver a poner el flag en `false`.
+
+### Variables de entorno del asistente
+
+| Variable | Descripción | Valor por defecto |
+| :--- | :--- | :--- |
+| `GEMINI_API_KEY` | Clave de Google AI Studio | *(vacío)* |
+| `GEMINI_MODEL` | Modelo de Gemini | `gemini-2.5-flash-lite` |
+| `GEMINI_BASE_URL` | Endpoint base de la API de Gemini | `https://generativelanguage.googleapis.com/v1beta` |
+| `ASSISTANT_ENABLED` | Activa/desactiva el asistente | `false` |
+| `FURENT_WHATSAPP_NUMBER` | WhatsApp para el escalado a humano | `573105782442` |
+
+Para cambiar de modelo, ajusta `GEMINI_MODEL` (por ejemplo `gemini-2.5-flash`) y reinicia la
+aplicación. El resto de parámetros (límites por hora, presupuesto diario, tokens máximos,
+temperatura, retención) se ajustan con las propiedades `furent.assistant.*` en
+`application.properties`.
+
+> Documentación completa: [diseño](docs/specs/2026-11-20-asistente-llm-design.md) ·
+> [plan de implementación](docs/plans/2026-11-20-asistente-llm-implementation-plan.md).
+
+---
+
 ## 🛠️ Stack Tecnológico
 
 | Capa | Tecnología |
@@ -69,7 +116,7 @@ Furent cuenta con un motor predictivo que estima la demanda de mobiliario para l
 | **Backend Core** | Java 17 · Spring Boot 4.0.3 · Spring Data MongoDB |
 | **Seguridad** | Spring Security 6 · OAuth2 Client (Google) · BCrypt |
 | **Base de Datos** | MongoDB 7.0 |
-| **Inteligencia Artificial** | Weka 3.8 (Clasificador J48 / Árboles de Decisión C4.5) |
+| **Inteligencia Artificial** | Google Gemini 2.5 (asistente virtual) · Weka 3.8 (Clasificador J48 / Árboles de Decisión C4.5) |
 | **Frontend** | Thymeleaf · Tailwind CSS 4 · Chart.js · Alpine.js |
 | **Reportes y PDFs** | OpenHTMLToPDF |
 | **Documentación API** | SpringDoc OpenAPI (Swagger UI) |
@@ -114,6 +161,8 @@ docker compose up -d
 | `FURENT_ADMIN_PASSWORD` | Contraseña por defecto del admin inicial | `admin123` |
 | `GOOGLE_CLIENT_ID` | Client ID de Google Console para OAuth2 | *Opcional* |
 | `GOOGLE_CLIENT_SECRET` | Client Secret de Google Console para OAuth2 | *Opcional* |
+| `GEMINI_API_KEY` | API key de Google AI Studio para el asistente virtual | *Opcional (asistente desactivado sin ella)* |
+| `ASSISTANT_ENABLED` | Activa el asistente virtual en el sitio público | `false` |
 
 ---
 
@@ -156,6 +205,14 @@ Para validar que todos los servicios y el modelo predictivo funcionen correctame
 ```bash
 ./mvnw test
 ```
+
+> **Nota (20/11/2026):** la suite completa reporta fallos **preexistentes y ajenos al
+> asistente** en `EmailServiceTest`, `ReservationServiceTest`, `ReviewServiceTest` y
+> `UserServiceTest` (correo en modo dev y transiciones de estado). Todas las pruebas del
+> asistente (`com.alquiler.furent.assistant.*`, `AssistantControllerTest`,
+> `AdminAssistantControllerTest`, `RateLimitFilterTest`, `SecurityConfigRedirectTest`)
+> pasan en verde. La prueba de integración con Testcontainers (`FullFlowIntegrationTest`)
+> se salta si no hay Docker.
 
 ---
 

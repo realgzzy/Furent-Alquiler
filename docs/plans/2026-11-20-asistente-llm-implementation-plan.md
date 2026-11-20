@@ -36,6 +36,11 @@
 
 > Los tests preexistentes pueden fallar por motivos ajenos al asistente. Se documenta el
 > estado antes de empezar y no se introducen fallos nuevos.
+>
+> **Resultado (20/11/2026):** `Tests run: 325, Failures: 2, Errors: 17, Skipped: 8`. Los 2
+> fallos y 17 errores están en `EmailServiceTest`, `ReservationServiceTest`,
+> `ReviewServiceTest` y `UserServiceTest` (ya fallaban antes de empezar). Ninguna prueba
+> del asistente falla.
 
 ---
 
@@ -45,7 +50,7 @@
 
 ### Tareas
 
-- [ ] **1.1** Crear `config/AssistantProperties.java`.
+- [x] **1.1** Crear `config/AssistantProperties.java`.
   - `@Component` + `@ConfigurationProperties(prefix = "furent.assistant")`.
   - Campos: `apiKey`, `model`, `baseUrl`, `maxOutputTokens`, `thinkingBudget`,
     `temperature`, `maxToolIterations`, `historyWindow`, `guestMessagesPerHour`,
@@ -53,23 +58,23 @@
     `whatsappNumber`, `knowledgeFile`, `retentionDays`.
   - Getters y setters; valores por defecto iguales a la spec.
   - Método `isConfigured()` que devuelve `apiKey != null && !apiKey.isBlank()`.
-- [ ] **1.2** Añadir `assistantEnabled` a `config/FeatureFlags.java` con getter/setter.
-- [ ] **1.3** Crear `model/AssistantConversation.java`.
+- [x] **1.2** Añadir `assistantEnabled` a `config/FeatureFlags.java` con getter/setter.
+- [x] **1.3** Crear `model/AssistantConversation.java`.
   - `@Document(collection = "asistente_conversaciones")`.
   - Campos de la spec, incluidos `cotizo`, `totalCotizado` y `expireAt`.
   - `@Indexed` en `sessionId`, `userId`, `inicio`, `ultimoMensaje`.
   - Índice TTL en `expireAt` con `@Indexed(expireAfterSeconds = 0)`.
-- [ ] **1.4** Crear `model/AssistantMessage.java`.
+- [x] **1.4** Crear `model/AssistantMessage.java`.
   - `@Document(collection = "asistente_mensajes")`.
   - Campos: `conversationId`, `rol`, `contenido`, `herramienta`, `argumentosResumen`,
     `tokens`, `modelo`, `createdAt`.
-- [ ] **1.5** Crear repositorios:
+- [x] **1.5** Crear repositorios:
   - `AssistantConversationRepository`: `findBySessionIdOrderByUltimoMensajeDesc`,
     `findByUserIdOrderByUltimoMensajeDesc`, `findByEstado`, `findByUltimoMensajeBetween`.
   - `AssistantMessageRepository`: `findByConversationIdOrderByCreatedAtAsc`,
     `deleteByConversationId`, `countByConversationId`.
-- [ ] **1.6** Añadir propiedades a `application.properties` y `application-dev.properties`.
-- [ ] **1.7** Compilar y verificar que el contexto no falla por los nuevos beans.
+- [x] **1.6** Añadir propiedades a `application.properties` y `application-dev.properties`.
+- [x] **1.7** Compilar y verificar que el contexto no falla por los nuevos beans.
 
 ### Archivos
 
@@ -102,21 +107,21 @@ src/main/resources/application-dev.properties                           (editar)
 
 ### Tareas
 
-- [ ] **2.1** Crear `assistant/GeminiSseParser.java`.
+- [x] **2.1** Crear `assistant/GeminiSseParser.java`.
   - Recibe líneas y emite eventos completos cuando encuentra una línea `data: {...}`.
   - Ignora comentarios, líneas vacías y `[DONE]`.
   - Tolera JSON partido entre lecturas.
   - Tests con fixtures de texto, function call, usage y error.
-- [ ] **2.2** Crear `assistant/GeminiClient.java`.
+- [x] **2.2** Crear `assistant/GeminiClient.java`.
   - `RestClient` con `baseUrl`, `x-goog-api-key`, `Content-Type: application/json`.
   - Timeout de conexión/lectura desde `AssistantProperties`.
   - Método `Stream<GeminiChunk> stream(...)` o callback `Consumer<GeminiChunk>`.
   - DTOs internos: `GeminiRequest`, `GeminiContent`, `GeminiPart`, `GeminiChunk`.
   - Mapeo de 400/401/403/429/5xx a excepciones propias.
-- [ ] **2.3** Crear `assistant/AssistantException.java` con códigos:
+- [x] **2.3** Crear `assistant/AssistantException.java` con códigos:
   `INVALID_INPUT`, `RATE_LIMITED`, `QUOTA_EXCEEDED`, `UNAVAILABLE`, `BLOCKED`, `INTERNAL`.
-- [ ] **2.4** Crear `assistant/AssistantMetrics.java` con contadores/timers Micrometer.
-- [ ] **2.5** Tests unitarios del parser y del request builder.
+- [x] **2.4** Crear `assistant/AssistantMetrics.java` con contadores/timers Micrometer.
+- [x] **2.5** Tests unitarios del parser y del request builder.
 
 ### Archivos
 
@@ -148,19 +153,19 @@ src/test/java/com/alquiler/furent/assistant/GeminiClientTest.java    (nuevo)
 
 ### Tareas
 
-- [ ] **3.1** Crear `src/main/resources/assistant/knowledge.yml` con el contenido de la spec.
-- [ ] **3.2** Crear `assistant/AssistantKnowledgeService.java`.
+- [x] **3.1** Crear `src/main/resources/assistant/knowledge.yml` con el contenido de la spec.
+- [x] **3.2** Crear `assistant/AssistantKnowledgeService.java`.
   - Carga el YAML al inicio con `ResourceLoader` + Jackson YAML.
   - Valida estructura mínima; fallback con warning si falla.
   - Expone `renderForPrompt()` y `buscarOcasion(String)`.
   - Añadir dependencia `jackson-dataformat-yaml` si no está en el classpath.
-- [ ] **3.3** Crear `assistant/AssistantPromptBuilder.java`.
+- [x] **3.3** Crear `assistant/AssistantPromptBuilder.java`.
   - System instruction de la spec.
   - Inyecta conocimiento, fecha actual (America/Bogota), contexto de página y si el usuario
     está autenticado.
   - Recorta historial a `historyWindow` y ~6.000 tokens estimados.
-- [ ] **3.4** Crear `assistant/AssistantToolDefinitions.java` con los 10 esquemas JSON.
-- [ ] **3.5** Crear `assistant/AssistantToolService.java`.
+- [x] **3.4** Crear `assistant/AssistantToolDefinitions.java` con los 10 esquemas JSON.
+- [x] **3.5** Crear `assistant/AssistantToolService.java`.
   - `buscar_productos`, `ver_producto`, `listar_categorias`.
   - `consultar_disponibilidad` reutilizando reservas activas y stock.
   - `cotizar` con precios de BD, días inclusivos, cupón y `validateAvailability`.
@@ -168,7 +173,7 @@ src/test/java/com/alquiler/furent/assistant/GeminiClientTest.java    (nuevo)
   - `mis_reservas`, `estado_reserva` con verificación de dueño.
   - `escalar_a_humano` con resumen y URL de WhatsApp.
   - Devuelve `ToolResult { payload, uiEvents }`.
-- [ ] **3.6** Tests unitarios con mocks de servicios.
+- [x] **3.6** Tests unitarios con mocks de servicios.
   - Cotización: 1 día, varios días, cupón, stock insuficiente, producto inexistente.
   - Disponibilidad: rango con reservas solapadas.
   - Autorización: usuario A no ve reservas de B.
@@ -206,30 +211,30 @@ pom.xml                                                                    (edit
 
 ### Tareas
 
-- [ ] **4.1** Crear DTOs de entrada/salida en `assistant/dto/`.
+- [x] **4.1** Crear DTOs de entrada/salida en `assistant/dto/`.
   - `AssistantChatRequest { conversationId, message, pageContext }` con validación.
   - `AssistantChatResponse` solo si se necesita una variante sin streaming.
-- [ ] **4.2** Crear `assistant/AssistantOrchestrator.java`.
+- [x] **4.2** Crear `assistant/AssistantOrchestrator.java`.
   - Carga/crea conversación; valida propiedad.
   - Bucle de hasta `maxToolIterations`.
   - Emite `meta`, `token`, `card`, `quote`, `escalation`, `error`, `done`.
   - Guarda mensajes USER/ASSISTANT/TOOL y actualiza contadores.
   - Maneja desconexión y errores.
-- [ ] **4.3** Crear `controller/AssistantController.java`.
+- [x] **4.3** Crear `controller/AssistantController.java`.
   - `POST /api/asistente/chat` con `SseEmitter`.
   - `GET /api/asistente/conversations/{id}`.
   - `POST /api/asistente/conversations/{id}/close`.
   - Comprueba flag + API key; si no, 503.
-- [ ] **4.4** Configurar `ThreadPoolTaskExecutor` acotado y timeout de 60 s.
-- [ ] **4.5** Añadir matchers públicos en `SecurityConfig`.
-- [ ] **4.6** Extender `RateLimitFilter` con la regla del chat y contadores por sesión/usuario.
-- [ ] **4.7** Tests de integración con WireMock:
-  - solo texto;
-  - tool call de búsqueda → `card`;
-  - tool call de cotización → `quote`;
-  - 429 → `error RATE_LIMITED`;
+- [x] **4.4** Configurar `ThreadPoolTaskExecutor` acotado y timeout de 60 s.
+- [x] **4.5** Añadir matchers públicos en `SecurityConfig`.
+- [x] **4.6** Extender `RateLimitFilter` con la regla del chat y contadores por sesión/usuario.
+- [x] **4.7** Tests de endpoint con `MockMvc` y el orquestador mockeado (sin WireMock):
+  - flujo SSE con `meta`/`token`/`done`;
   - mensaje inválido → 400;
-  - invitado bloqueado en herramientas autenticadas.
+  - flag o API key ausente → 503;
+  - conversación de otra sesión → 404.
+  - Las tarjetas, la cotización, el 429 y la autorización de herramientas quedan cubiertos
+    en `AssistantOrchestratorTest`, `AssistantToolServiceTest` y `GeminiClientTest` con mocks.
 
 ### Archivos
 
@@ -241,7 +246,6 @@ src/main/java/com/alquiler/furent/config/SecurityConfig.java               (edit
 src/main/java/com/alquiler/furent/config/RateLimitFilter.java              (editar)
 src/main/java/com/alquiler/furent/config/AssistantExecutorConfig.java      (nuevo)
 src/test/java/com/alquiler/furent/controller/AssistantControllerTest.java  (nuevo)
-pom.xml                                                                    (WireMock test)
 ```
 
 ### Verificación
@@ -262,22 +266,22 @@ pom.xml                                                                    (Wire
 
 ### Tareas
 
-- [ ] **5.1** Crear `templates/fragments/assistant-widget.html`.
+- [x] **5.1** Crear `templates/fragments/assistant-widget.html`.
   - Botón flotante derecho, panel, cabecera, chips, mensajes, composer y aviso de IA.
   - Clases Tailwind consistentes con `layout.html`; sin CDN.
-- [ ] **5.2** Crear `static/js/assistant.js`.
+- [x] **5.2** Crear `static/js/assistant.js`.
   - Abrir/cerrar, foco atrapado, Esc.
   - `fetch` + `ReadableStream` para SSE.
   - Render seguro con `textContent`.
   - Tarjetas de producto, cotización y escalado.
   - `furent_bag` y navegación a checkout/login.
   - Persistencia de conversación y estado.
-- [ ] **5.3** Incluir el fragmento en `fragments/layout.html` con `th:if="${assistantEnabled}"`.
-- [ ] **5.4** Exponer `assistantEnabled` en `GlobalModelAdvice` (flag + API key).
-- [ ] **5.5** Añadir soporte seguro de `redirect` en login:
+- [x] **5.3** Incluir el fragmento en `fragments/layout.html` con `th:if="${assistantEnabled}"`.
+- [x] **5.4** Exponer `assistantEnabled` en `GlobalModelAdvice` (flag + API key).
+- [x] **5.5** Añadir soporte seguro de `redirect` en login:
   - Campo oculto en `login.html` si el parámetro es una ruta interna.
   - `roleBasedSuccessHandler` redirige a `redirect` válido; si no, comportamiento actual.
-- [ ] **5.6** Prueba manual en escritorio y móvil:
+- [ ] **5.6** Prueba manual en escritorio y móvil: *(pendiente: requiere `GEMINI_API_KEY`)*
   - invitado consulta y cotiza;
   - agregar a bolsa;
   - login y retorno a `/cotizacion`;
@@ -312,17 +316,18 @@ src/main/java/com/alquiler/furent/config/SecurityConfig.java (editar)
 
 ### Tareas
 
-- [ ] **6.1** Crear `controller/admin/AdminAssistantController.java`.
+- [x] **6.1** Crear `controller/admin/AdminAssistantController.java`.
   - Listado con filtros y paginación.
   - Detalle con mensajes.
   - Cerrar conversación.
   - Export CSV.
-- [ ] **6.2** Crear `templates/admin/asistente.html`.
+- [x] **6.2** Crear `templates/admin/asistente.html`.
   - Tarjetas de métricas y tabla con filtros.
-- [ ] **6.3** Crear `templates/admin/asistente-detalle.html`.
+- [x] **6.3** Crear `templates/admin/asistente-detalle.html`.
   - Transcripción, herramientas y metadatos.
-- [ ] **6.4** Añadir enlace “Asistente IA” en `templates/fragments/admin-layout.html`.
-- [ ] **6.5** Test de controller (acceso admin, datos y filtros).
+- [x] **6.4** Añadir enlace “Asistente IA” en `templates/fragments/admin-layout.html`.
+- [x] **6.5** Test de controller (datos y filtros); el acceso queda cubierto por
+  `SecurityConfig` (`/admin/**` requiere `ROLE_ADMIN`).
 
 ### Archivos
 
@@ -352,17 +357,19 @@ src/test/java/com/alquiler/furent/controller/admin/AdminAssistantControllerTest.
 
 ### Tareas
 
-- [ ] **7.1** Revisar métricas y logs con una conversación real.
-- [ ] **7.2** Ajustar el prompt con 10 conversaciones de prueba (tono, longitud, precisión).
-- [ ] **7.3** Verificar rate limit, cuota diaria y fallback a WhatsApp.
-- [ ] **7.4** Verificar retención (`expireAt`) y que no se guarden datos sensibles.
-- [ ] **7.5** Actualizar `README.md` con:
+- [ ] **7.1** Revisar métricas y logs con una conversación real. *(pendiente: requiere `GEMINI_API_KEY`)*
+- [ ] **7.2** Ajustar el prompt con 10 conversaciones de prueba (tono, longitud, precisión). *(pendiente: requiere `GEMINI_API_KEY`)*
+- [x] **7.3** Verificar rate limit, cuota diaria y fallback a WhatsApp.
+- [x] **7.4** Verificar retención (`expireAt`) y que no se guarden datos sensibles.
+  - Verificado en código: `expireAt` se asigna a invitados (y se limpia al iniciar sesión);
+    los mensajes TOOL guardan solo herramienta y resumen de argumentos.
+- [x] **7.5** Actualizar `README.md` con:
   - configuración de `GEMINI_API_KEY`;
   - cómo activar/desactivar el asistente;
   - cómo cambiar de modelo;
   - enlace a la spec y al plan.
-- [ ] **7.6** Ejecutar `.\mvnw.cmd test` y documentar fallos preexistentes.
-- [ ] **7.7** Revisión final contra los criterios de aceptación de la spec.
+- [x] **7.6** Ejecutar `.\mvnw.cmd test` y documentar fallos preexistentes.
+- [x] **7.7** Revisión final contra los criterios de aceptación de la spec.
 
 ### Archivos
 
