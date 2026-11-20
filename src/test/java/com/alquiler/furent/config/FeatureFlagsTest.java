@@ -50,4 +50,16 @@ class FeatureFlagsTest {
         flags.setAnalyticsEnabled(false);
         assertFalse(flags.isAnalyticsEnabled());
     }
+
+    @Test
+    void assistantDisabledByDefault() {
+        assertFalse(new FeatureFlags().isAssistantEnabled());
+    }
+
+    @Test
+    void setAssistantEnabled_changesValue() {
+        FeatureFlags flags = new FeatureFlags();
+        flags.setAssistantEnabled(true);
+        assertTrue(flags.isAssistantEnabled());
+    }
 }
