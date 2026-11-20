@@ -1,0 +1,64 @@
+# ═══════════════════════════════════════════════════════
+# FURENT - Base de conocimiento del asistente
+# Editable sin recompilar. Se inyecta en el prompt del sistema.
+# Fuente de la verdad para políticas; los datos de productos,
+# precios y stock siempre vienen de las herramientas.
+# ═══════════════════════════════════════════════════════
+
+negocio:
+  nombre: Furent
+  descripcion: Alquiler de mobiliario y decoración para eventos en Colombia.
+  ciudad_base: Medellín
+  cobertura: Área metropolitana y municipios cercanos. Envíos nacionales sujetos a cotización.
+  horario_atencion: Lunes a sábado, 8:00 a 18:00.
+  sitio: https://furent.co
+
+envios:
+  domicilio: Se cotiza según distancia y volumen; se confirma al crear la reserva.
+  recogida: El cliente puede recoger en bodega con cita previa.
+  montaje: Disponible para eventos con montaje contratado; se coordina con 48 horas de anticipación.
+  desmontaje: Se coordina al finalizar el evento o al día siguiente según el contrato.
+
+pagos:
+  metodos:
+    - Efectivo en oficina
+    - Transferencia bancaria
+    - Tarjeta de crédito o débito (PayU)
+  anticipo: Se confirma al momento de la reserva; el mobiliario se bloquea una vez confirmado el pago.
+  facturacion: Se emite factura electrónica a solicitud del cliente.
+
+reservas:
+  creacion: La reserva se crea desde el checkout de la web y queda pendiente de confirmación.
+  disponibilidad: La disponibilidad consultada no bloquea el inventario hasta confirmar y pagar.
+  cambios: Cambios de fecha o productos sujetos a disponibilidad y se gestionan con el equipo.
+
+cancelaciones:
+  politica: Sujeta a la fecha del evento y al tipo de mobiliario. El equipo confirma la política por escrito.
+  reembolsos: Se gestionan directamente con el equipo; no se procesan desde el asistente.
+
+garantia:
+  politica: El mobiliario se entrega revisado y en buen estado.
+  danos: Los daños o faltantes se cobran según el valor de reposición.
+  limpieza: El mobiliario debe devolverse en condiciones normales de uso.
+
+faq:
+  - pregunta: ¿Puedo reservar para el mismo día?
+    respuesta: Sujeto a disponibilidad. Escríbenos por WhatsApp para confirmarlo.
+  - pregunta: ¿Incluyen el montaje?
+    respuesta: El montaje se contrata como servicio adicional; se coordina con 48 horas de anticipación.
+  - pregunta: ¿Cómo pago?
+    respuesta: Efectivo en oficina, transferencia o tarjeta con PayU desde el checkout.
+  - pregunta: ¿Hacen envíos a otras ciudades?
+    respuesta: Sí, sujeto a cotización de transporte. Escríbenos por WhatsApp con la ciudad y las fechas.
+  - pregunta: ¿Puedo cambiar la fecha de mi reserva?
+    respuesta: Sí, sujeto a disponibilidad. El equipo te confirma el cambio.
+  - pregunta: ¿Qué pasa si daño un mueble?
+    respuesta: Se cobra el valor de reposición según el daño. El mobiliario se entrega revisado.
+
+ocasiones:
+  boda: ["sillas tiffany", "mesas redondas", "mantelería", "arcos", "centros de mesa", "carpas"]
+  corporativo: ["mesas", "sillas", "tarimas", "sonido", "pantallas", "stands"]
+  cumpleanos: ["mesas", "sillas", "inflables", "decoración", "globos"]
+  grado: ["sillas", "tarimas", "arcos", "mantelería", "pasarelas"]
+  baby_shower: ["mesas", "sillas", "decoración", "mantelería"]
+  seminario: ["mesas", "sillas", "tarimas", "sonido", "pantallas"]

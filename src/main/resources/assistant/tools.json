@@ -1,0 +1,127 @@
+[
+  {
+    "name": "buscar_productos",
+    "description": "Busca mobiliario por texto, categoria, ocasion o presupuesto. Devuelve hasta 6 productos con precio por dia y stock.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "consulta": { "type": "STRING", "description": "Texto libre, por ejemplo 'sillas tiffany'." },
+        "categoria": { "type": "STRING", "description": "Nombre de la categoria." },
+        "ocasion": { "type": "STRING", "description": "boda, cumpleanos, corporativo, grado..." },
+        "precioMaximo": { "type": "NUMBER", "description": "Precio maximo por dia en COP." },
+        "limite": { "type": "INTEGER", "description": "Cantidad maxima de resultados (1 a 6)." }
+      }
+    }
+  },
+  {
+    "name": "ver_producto",
+    "description": "Obtiene el detalle de un producto por su ID.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "productoId": { "type": "STRING" }
+      },
+      "required": ["productoId"]
+    }
+  },
+  {
+    "name": "listar_categorias",
+    "description": "Lista las categorias y los combos activos.",
+    "parameters": { "type": "OBJECT", "properties": {} }
+  },
+  {
+    "name": "consultar_disponibilidad",
+    "description": "Consulta el stock disponible real de uno o varios productos en un rango de fechas.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "productoIds": { "type": "ARRAY", "items": { "type": "STRING" } },
+        "fechaInicio": { "type": "STRING", "description": "Fecha en formato YYYY-MM-DD." },
+        "fechaFin": { "type": "STRING", "description": "Fecha en formato YYYY-MM-DD." }
+      },
+      "required": ["productoIds", "fechaInicio", "fechaFin"]
+    }
+  },
+  {
+    "name": "cotizar",
+    "description": "Calcula una cotizacion con precios reales de la base de datos y valida stock. No crea la reserva.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "items": {
+          "type": "ARRAY",
+          "items": {
+            "type": "OBJECT",
+            "properties": {
+              "productoId": { "type": "STRING" },
+              "cantidad": { "type": "INTEGER" }
+            },
+            "required": ["productoId", "cantidad"]
+          }
+        },
+        "fechaInicio": { "type": "STRING", "description": "YYYY-MM-DD." },
+        "fechaFin": { "type": "STRING", "description": "YYYY-MM-DD." },
+        "tipoEvento": { "type": "STRING" },
+        "invitados": { "type": "INTEGER" },
+        "codigoCupon": { "type": "STRING" }
+      },
+      "required": ["items", "fechaInicio", "fechaFin"]
+    }
+  },
+  {
+    "name": "validar_cupon",
+    "description": "Valida un cupon y calcula el descuento sobre un subtotal.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "codigo": { "type": "STRING" },
+        "subtotal": { "type": "NUMBER" }
+      },
+      "required": ["codigo", "subtotal"]
+    }
+  },
+  {
+    "name": "informacion_negocio",
+    "description": "Consulta politicas de Furent: envios, cobertura, horarios, garantia, pagos, cancelacion, montaje o danos.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "tema": { "type": "STRING" }
+      },
+      "required": ["tema"]
+    }
+  },
+  {
+    "name": "mis_reservas",
+    "description": "Lista las reservas del usuario autenticado.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "estado": { "type": "STRING", "description": "Opcional: PENDIENTE, CONFIRMADA, ENTREGADA, COMPLETADA, CANCELADA." }
+      }
+    }
+  },
+  {
+    "name": "estado_reserva",
+    "description": "Consulta el estado de una reserva del usuario autenticado por ID o codigo de pago en efectivo.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "referencia": { "type": "STRING" }
+      },
+      "required": ["referencia"]
+    }
+  },
+  {
+    "name": "escalar_a_humano",
+    "description": "Genera un enlace de WhatsApp con el resumen de la conversacion y marca la conversacion como escalada.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "motivo": { "type": "STRING" },
+        "resumen": { "type": "STRING" }
+      },
+      "required": ["motivo", "resumen"]
+    }
+  }
+]
