@@ -426,6 +426,8 @@
 
         /* Hora del evento: control compacto e integrado con los atajos en la misma fila. */
         .fa-time { margin-top: var(--fa-s3); }
+        .fa-time[hidden] { display: none; }
+        .fa-time:not([hidden]) { animation: fa-rise var(--fa-dur) var(--fa-ease-out); }
         .fa-time-label { display: block; font-size: var(--fa-xs); font-weight: 800; color: var(--fa-ink-2); margin-bottom: 6px; }
         .fa-time-label .fa-field-req { color: var(--fa-accent-strong); }
         .fa-time-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--fa-s2); }
@@ -519,6 +521,27 @@
         .fa-icon-btn:active { transform: scale(.94); }
         .fa-icon-btn:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
         .fa-icon-btn svg { display: block; }
+
+        /* Tooltip ligero para botones de solo icono (aparece al pasar el cursor o enfocar). */
+        .fa-tip { position: relative; }
+        .fa-tip::after {
+            content: attr(data-tip); position: absolute; bottom: calc(100% + 9px); left: 50%;
+            transform: translateX(-50%) translateY(4px); z-index: 30;
+            background: #241c15; color: #fff; font-size: var(--fa-2xs); font-weight: 700; letter-spacing: .01em;
+            padding: 5px 9px; border-radius: 7px; white-space: nowrap; pointer-events: none;
+            box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .5);
+            opacity: 0; transition: opacity var(--fa-dur) var(--fa-ease), transform var(--fa-dur) var(--fa-ease);
+        }
+        .fa-tip::before {
+            content: ''; position: absolute; bottom: calc(100% + 4px); left: 50%;
+            transform: translateX(-50%) translateY(4px); z-index: 30;
+            border: 5px solid transparent; border-top-color: #241c15; pointer-events: none;
+            opacity: 0; transition: opacity var(--fa-dur) var(--fa-ease), transform var(--fa-dur) var(--fa-ease);
+        }
+        .fa-tip:hover::after, .fa-tip:focus-visible::after,
+        .fa-tip:hover::before, .fa-tip:focus-visible::before {
+            opacity: 1; transform: translateX(-50%) translateY(0);
+        }
 
         /* ───────── Flatpickr con el estilo de la pasarela de cotización ───────── */
         .fa-fp.flatpickr-calendar {
@@ -736,7 +759,7 @@
                         <div class="fa-calendar-host" id="furent-assistant-calendar-host">
                             <input type="text" class="fa-sr" id="furent-assistant-dates-input" tabindex="-1" aria-hidden="true" autocomplete="off">
                         </div>
-                        <div class="fa-time">
+                        <div class="fa-time" id="furent-assistant-event-time-wrap" hidden>
                             <span class="fa-time-label">Hora del evento <span class="fa-field-req">*</span></span>
                             <div class="fa-time-row">
                                 <input type="time" id="furent-assistant-event-time" class="fa-time-input" lang="en-GB" step="1800" min="06:00" max="23:30" required>
@@ -749,7 +772,7 @@
                         </div>
                         <p class="fa-calendar-hint" id="furent-assistant-calendar-hint">Elige desde y hasta. Máximo 7 días por alquiler.</p>
                         <div class="fa-calendar-actions">
-                            <button type="button" class="fa-icon-btn" id="furent-assistant-calendar-clear" aria-label="Limpiar fechas" title="Limpiar fechas">
+                            <button type="button" class="fa-icon-btn fa-tip" id="furent-assistant-calendar-clear" aria-label="Limpiar fechas" data-tip="Limpiar fechas">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 5.5 8 11l3.5 3.5 5.5-5.5a2.47 2.47 0 0 0-3.5-3.5Z"/>

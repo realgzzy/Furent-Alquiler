@@ -128,6 +128,7 @@
             calendarHint: document.getElementById('furent-assistant-calendar-hint'),
             eventTime: document.getElementById('furent-assistant-event-time'),
             timeQuick: document.getElementById('furent-assistant-time-quick'),
+            timeWrap: document.getElementById('furent-assistant-event-time-wrap'),
             historyToggle: document.getElementById('furent-assistant-history-toggle'),
             history: document.getElementById('furent-assistant-history'),
             historyList: document.getElementById('furent-assistant-history-list'),
@@ -2139,6 +2140,17 @@
                 return;
             }
             var hasDates = !!(pendingStart && pendingEnd);
+            // La hora solo se pide cuando ya hay un rango de fechas elegido.
+            if (els.timeWrap) {
+                els.timeWrap.hidden = !hasDates;
+            }
+            if (!hasDates && pendingTime) {
+                pendingTime = '';
+                if (els.eventTime) {
+                    els.eventTime.value = '';
+                }
+                syncTimeQuick();
+            }
             var dias = hasDates ? diasEntre(pendingStart, pendingEnd) : 0;
             var etiqueta = hasDates
                 ? rangoCorto(pendingStart, pendingEnd) + ' · ' + dias + (dias === 1 ? ' día' : ' días')
