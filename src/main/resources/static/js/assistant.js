@@ -311,6 +311,13 @@
 
         function closePendingBubble() {
             if (currentBubble) {
+                // Las burbujas de error se conservan: su texto va en un nodo suelto, no en el
+                // span incremental, así que no deben tratarse como una respuesta vacía.
+                if (currentBubble.classList.contains('error')) {
+                    currentBubble.parentNode.removeAttribute('data-pending');
+                    currentBubble = null;
+                    return;
+                }
                 var hasText = currentBubble._textSpan && currentBubble._textSpan.textContent.length > 0;
                 if (!hasText) {
                     var row = currentBubble.parentNode;
