@@ -16,6 +16,8 @@
     var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
         'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     var BAG_KEY = 'furent_bag';
+    // Conversación activa, para sobrevivir la navegación entre páginas (no las recargas).
+    var ACTIVE_KEY = 'furent_active_conversation';
 
     // Tokens de Markdown inline. `==texto==` resalta datos importantes.
     var INLINE_RE = /(\*\*[^*]+\*\*|__[^_]+__|==[^=]+==|\*[^*\n]+\*|_[^_\n]+_|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
@@ -83,6 +85,7 @@
 
         // Estado del calendario de fechas.
         var fp = null;                 // instancia de flatpickr (null si no está disponible)
+        var formFp = null;             // flatpickr del rango de fechas del formulario
         var pendingStart = null;       // inicio elegido pero aún sin enviar (ISO y-m-d)
         var pendingEnd = null;         // fin elegido pero aún sin enviar (ISO y-m-d)
         var lastProductIds = [];       // ids de los productos mostrados, para consultar disponibilidad
@@ -191,6 +194,7 @@
             els.messages.textContent = '';
             state.conversationId = null;
             currentBubble = null;
+            saveActiveId(null);
             closeSidePanel();
             updateHistoryActive();
             renderWelcome();
@@ -199,19 +203,47 @@
         }
 
         function renderWelcome() {
-            appendAssistantBubble('Hola, soy Furi. ¿En qué puedo ayudarte?', true);
             appendNote('Este chat es temporal: se conserva 24 h. Soy un asistente con IA; '
                 + 'confirma precios y disponibilidad antes de reservar.');
-            var row = document.createElement('div');
-            row.className = 'fa-row fa-enter';
-            row.style.flexWrap = 'wrap';
-            row.appendChild(button('Organizar mi evento', 'fa-btn-primary', function () {
-                openSidePanel('form', defaultFormData());
-            }, ICONS.sparkles));
-            row.appendChild(button('Elegir fechas', 'fa-btn-ghost', function () {
-                openSidePanel('fechas');
-            }, ICONS.calendar));
-            els.messages.appendChild(row);
+            typeAssistantMessage('Hola, soy Furi. ¿En qué puedo ayudarte?', 560, function (row) {
+                if (!row.isConnected) {
+                    return;
+                }
+                var actions = document.createElement('div');
+                actions.className = 'fa-row fa-enter';
+                actions.style.flexWrap = 'wrap';
+                actions.appendChild(button('Organizar mi evento', 'fa-btn-primary', function () {
+                    openSidePanel('form', defaultFormData());
+                }, ICONS.sparkles));
+                actions.appendChild(button('Elegir fechas', 'fa-btn-ghost', function () {
+                    openSidePanel('fechas');
+                }, ICONS.calendar));
+                els.messages.appendChild(actions);
+                scrollDown();
+            });
+        }
+
+        /** Muestra al asistente "escribiendo" y luego revela el texto. */
+        function typeAssistantMessage(text, delay, done) {
+            var built = assistantRow();
+            var typing = document.createElement('span');
+            typing.className = 'fa-typing';
+            typing.appendChild(document.createElement('span'));
+            typing.appendChild(document.createElement('span'));
+            typing.appendChild(document.createElement('span'));
+            built.bubble.appendChild(typing);
+            els.messages.appendChild(built.row);
+            scrollDown();
+            window.setTimeout(function () {
+                if (!built.row.isConnected) {
+                    return;
+                }
+                renderMarkdown(built.bubble, text);
+                scrollDown();
+                if (typeof done === 'function') {
+                    done(built.row);
+                }
+            }, delay || 500);
         }
 
         function appendNote(text) {
@@ -235,6 +267,7 @@
             els.launcher.hidden = true;
             els.launcher.setAttribute('aria-expanded', 'true');
             hideBadge();
+            lockPageScroll(true);
             window.setTimeout(function () { els.input.focus(); }, 60);
         }
 
@@ -248,8 +281,21 @@
             isOpen = false;
             collapseSuggestions();
             collapseQuick();
+            lockPageScroll(false);
             if (lastFocused && typeof lastFocused.focus === 'function') {
                 lastFocused.focus();
+            }
+        }
+
+        /** Bloquea el scroll de la página mientras el chat está abierto. */
+        function lockPageScroll(on) {
+            var root = document.documentElement;
+            if (on) {
+                root.classList.add('fa-noscroll');
+                document.body.classList.add('fa-noscroll');
+            } else {
+                root.classList.remove('fa-noscroll');
+                document.body.classList.remove('fa-noscroll');
             }
         }
 
@@ -396,6 +442,7 @@
                 case 'meta':
                     if (data && data.conversationId) {
                         state.conversationId = data.conversationId;
+                        saveActiveId(data.conversationId);
                     }
                     if (data && data.whatsapp) {
                         state.whatsapp = String(data.whatsapp);
@@ -892,7 +939,21 @@
                 'M9.5 8.5h5M9.5 12h3.5'],
             sparkles: ['M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z',
                 'M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z'],
-            trash: ['M4.5 6.75h15M9.75 6.75V5.25A1.5 1.5 0 0 1 11.25 3.75h1.5a1.5 1.5 0 0 1 1.5 1.5v1.5M6.75 6.75l.75 12a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l.75-12']
+            trash: ['M4.5 6.75h15M9.75 6.75V5.25A1.5 1.5 0 0 1 11.25 3.75h1.5a1.5 1.5 0 0 1 1.5 1.5v1.5M6.75 6.75l.75 12a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l.75-12'],
+            tag: ['M20.6 13.4 13.4 20.6a1.9 1.9 0 0 1-2.7 0l-7.3-7.3A1.9 1.9 0 0 1 2.8 12V5.5A2.3 2.3 0 0 1 5.1 3.2H12a1.9 1.9 0 0 1 1.3.6l7.3 7.3a1.9 1.9 0 0 1 0 2.7Z',
+                'M7.6 7.6h.01'],
+            users: ['M16 19.5v-1.6a3.6 3.6 0 0 0-3.6-3.6H7.1a3.6 3.6 0 0 0-3.6 3.6v1.6',
+                'M9.75 10.9a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2Z',
+                'M20.5 19.5v-1.6a3.6 3.6 0 0 0-2.7-3.5',
+                'M15.6 3.9a3.6 3.6 0 0 1 0 7'],
+            coin: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
+                'M14.6 9.3a2.7 2.7 0 0 0-2.6-1.4c-1.4 0-2.5.8-2.5 2 0 2.9 5.1 1.4 5.1 4.3 0 1.2-1.1 2-2.6 2a2.7 2.7 0 0 1-2.6-1.4',
+                'M12 6.4v11.2'],
+            pencil: ['M16.6 3.5a2.1 2.1 0 0 1 3 3L7 19.2l-4 1 1-4Z', 'M13.5 6.5l4 4'],
+            chevron: ['m6 9.5 6 6 6-6'],
+            eraser: ['M4 20h16',
+                'M13.5 5.5 8 11l3.5 3.5 5.5-5.5a2.47 2.47 0 0 0-3.5-3.5Z',
+                'm9.5 12.5-3 3a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l3-3']
         };
 
         function rangoFechas(data) {
@@ -928,6 +989,7 @@
             if (!els.side || !VIEWS[vista]) {
                 return;
             }
+            destroyFormFp();
             sideVista = vista;
             els.side.hidden = false;
             els.panel.classList.add('fa-wide');
@@ -959,6 +1021,7 @@
             if (!els.side) {
                 return;
             }
+            destroyFormFp();
             els.side.hidden = true;
             els.panel.classList.remove('fa-wide');
             sideVista = null;
@@ -994,6 +1057,7 @@
             if (!view) {
                 return;
             }
+            destroyFormFp();
             view.textContent = '';
             var form = document.createElement('form');
             form.className = 'fa-form';
@@ -1007,59 +1071,25 @@
             }
 
             var inputs = {};
+            var dateFields = [];
+            var step = 0;
             (data.fields || []).forEach(function (field) {
-                var wrap = document.createElement('label');
-                wrap.className = 'fa-field';
-                var labelText = document.createElement('span');
-                labelText.textContent = field.label || field.name;
-                if (field.required) {
-                    var req = document.createElement('span');
-                    req.className = 'fa-field-req';
-                    req.textContent = ' *';
-                    labelText.appendChild(req);
+                if (field.type === 'date') {
+                    dateFields.push(field);
+                    return;
                 }
-                wrap.appendChild(labelText);
-
-                var input;
-                if (field.type === 'select') {
-                    input = document.createElement('select');
-                    var placeholder = document.createElement('option');
-                    placeholder.value = '';
-                    placeholder.textContent = 'Selecciona...';
-                    input.appendChild(placeholder);
-                    (field.options || []).forEach(function (opt) {
-                        var option = document.createElement('option');
-                        option.value = opt.value != null ? opt.value : opt;
-                        option.textContent = opt.label != null ? opt.label : opt;
-                        input.appendChild(option);
-                    });
-                } else if (field.type === 'textarea') {
-                    input = document.createElement('textarea');
-                    input.rows = 3;
-                    if (field.placeholder) {
-                        input.placeholder = field.placeholder;
-                    }
-                } else {
-                    input = document.createElement('input');
-                    input.type = field.type === 'number' ? 'number' : (field.type === 'date' ? 'date' : 'text');
-                    if (field.type === 'number') {
-                        input.min = '0';
-                    }
-                    if (field.type === 'date') {
-                        input.min = todayIso();
-                    }
-                    if (field.placeholder) {
-                        input.placeholder = field.placeholder;
-                    }
+                var wrap = buildFormControl(field, inputs);
+                if (wrap) {
+                    wrap.style.animationDelay = (step * 45) + 'ms';
+                    step++;
+                    form.appendChild(wrap);
                 }
-                input.name = field.name;
-                if (field.required) {
-                    input.required = true;
-                }
-                inputs[field.name] = input;
-                wrap.appendChild(input);
-                form.appendChild(wrap);
             });
+            if (dateFields.length) {
+                var range = buildDateRangeField(dateFields, inputs);
+                range.style.animationDelay = (step * 45) + 'ms';
+                form.appendChild(range);
+            }
 
             var error = document.createElement('p');
             error.className = 'fa-form-error';
@@ -1100,6 +1130,206 @@
             });
 
             view.appendChild(form);
+        }
+
+        /** Icono que acompaña a un campo del formulario. */
+        function fieldIcon(field) {
+            switch (field.name) {
+                case 'tipoEvento': return ICONS.tag;
+                case 'invitados': return ICONS.users;
+                case 'estilo': return ICONS.pencil;
+                case 'presupuesto': return ICONS.coin;
+                default: break;
+            }
+            if (field.type === 'number') { return ICONS.coin; }
+            if (field.type === 'textarea') { return ICONS.pencil; }
+            return ICONS.tag;
+        }
+
+        function fieldHead(field) {
+            var head = document.createElement('span');
+            head.className = 'fa-field-head';
+            var icon = fieldIcon(field);
+            if (icon) {
+                head.appendChild(svgIcon(icon, 14));
+            }
+            var label = document.createElement('span');
+            label.textContent = field.label || field.name;
+            if (field.required) {
+                var req = document.createElement('span');
+                req.className = 'fa-field-req';
+                req.textContent = ' *';
+                label.appendChild(req);
+            }
+            head.appendChild(label);
+            return head;
+        }
+
+        /** Campo de texto, número, select o textarea con el control estilo Tailwind. */
+        function buildFormControl(field, inputs) {
+            var wrap = document.createElement('label');
+            wrap.className = 'fa-field';
+            wrap.appendChild(fieldHead(field));
+
+            var control = document.createElement('div');
+            control.className = 'fa-control';
+            var icon = fieldIcon(field);
+            if (icon && field.type !== 'textarea') {
+                control.classList.add('has-ico');
+                var ico = document.createElement('span');
+                ico.className = 'fa-control-ico';
+                ico.appendChild(svgIcon(icon, 16));
+                control.appendChild(ico);
+            }
+
+            var input;
+            if (field.type === 'select') {
+                input = document.createElement('select');
+                var placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = 'Selecciona...';
+                if (field.required) {
+                    placeholder.disabled = true;
+                    placeholder.selected = true;
+                }
+                input.appendChild(placeholder);
+                (field.options || []).forEach(function (opt) {
+                    var option = document.createElement('option');
+                    option.value = opt.value != null ? opt.value : opt;
+                    option.textContent = opt.label != null ? opt.label : opt;
+                    input.appendChild(option);
+                });
+            } else if (field.type === 'textarea') {
+                input = document.createElement('textarea');
+                input.rows = 3;
+                if (field.placeholder) {
+                    input.placeholder = field.placeholder;
+                }
+            } else {
+                input = document.createElement('input');
+                input.type = field.type === 'number' ? 'number' : 'text';
+                if (field.type === 'number') {
+                    input.min = '0';
+                    input.inputMode = 'numeric';
+                }
+                if (field.placeholder) {
+                    input.placeholder = field.placeholder;
+                }
+            }
+            input.name = field.name;
+            if (field.required) {
+                input.required = true;
+            }
+            inputs[field.name] = input;
+            control.appendChild(input);
+
+            if (field.type === 'select') {
+                var caret = document.createElement('span');
+                caret.className = 'fa-control-caret';
+                caret.appendChild(svgIcon(ICONS.chevron, 16));
+                control.appendChild(caret);
+            }
+
+            wrap.appendChild(control);
+            return wrap;
+        }
+
+        /** Une los campos de fecha en un único flatpickr (rango), como en la pasarela. */
+        function buildDateRangeField(dateFields, inputs) {
+            var first = dateFields[0];
+            var second = dateFields[1] || null;
+
+            var wrap = document.createElement('label');
+            wrap.className = 'fa-field';
+            var head = document.createElement('span');
+            head.className = 'fa-field-head';
+            head.appendChild(svgIcon(ICONS.calendar, 14));
+            var label = document.createElement('span');
+            label.textContent = second ? 'Fechas del evento' : (first.label || 'Fecha');
+            head.appendChild(label);
+            wrap.appendChild(head);
+
+            var control = document.createElement('div');
+            control.className = 'fa-control has-ico has-action';
+            var ico = document.createElement('span');
+            ico.className = 'fa-control-ico';
+            ico.appendChild(svgIcon(ICONS.calendar, 16));
+            control.appendChild(ico);
+
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.readOnly = true;
+            input.autocomplete = 'off';
+            input.placeholder = second ? 'Selecciona el rango de fechas...' : 'Selecciona una fecha...';
+            control.appendChild(input);
+
+            var hiddenStart = hiddenInput(first.name);
+            inputs[first.name] = hiddenStart;
+            control.appendChild(hiddenStart);
+            var hiddenEnd = null;
+            if (second) {
+                hiddenEnd = hiddenInput(second.name);
+                inputs[second.name] = hiddenEnd;
+                control.appendChild(hiddenEnd);
+            }
+
+            var clear = document.createElement('button');
+            clear.type = 'button';
+            clear.className = 'fa-control-action';
+            clear.setAttribute('aria-label', 'Limpiar fechas');
+            clear.setAttribute('title', 'Limpiar fechas');
+            clear.appendChild(svgIcon(ICONS.eraser, 16));
+            clear.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (formFp && typeof formFp.clear === 'function') {
+                    formFp.clear();
+                }
+            });
+            control.appendChild(clear);
+
+            wrap.appendChild(control);
+
+            if (typeof window.flatpickr === 'function') {
+                try {
+                    formFp = window.flatpickr(input, {
+                        locale: 'es',
+                        mode: second ? 'range' : 'single',
+                        minDate: 'today',
+                        dateFormat: 'Y-m-d',
+                        altInput: true,
+                        altFormat: 'j \\de M, Y',
+                        disableMobile: true,
+                        onReady: function (d, s, instance) {
+                            instance.calendarContainer.classList.add('fa-fp');
+                        },
+                        onChange: function (dates) {
+                            hiddenStart.value = dates[0] ? toIso(dates[0]) : '';
+                            if (hiddenEnd) {
+                                hiddenEnd.value = dates.length > 1 ? toIso(dates[dates.length - 1]) : '';
+                            }
+                            control.classList.toggle('has-value', dates.length > 0);
+                        }
+                    });
+                } catch (e) {
+                    formFp = null;
+                }
+            }
+            return wrap;
+        }
+
+        function hiddenInput(name) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            return input;
+        }
+
+        function destroyFormFp() {
+            if (formFp && typeof formFp.destroy === 'function') {
+                try { formFp.destroy(); } catch (e) { /* opcional */ }
+            }
+            formFp = null;
         }
 
         // ── Vista: recomendación ──
@@ -1506,7 +1736,7 @@
             }
         }
 
-        function openConversation(id) {
+        function openConversation(id, silent) {
             if (!id) {
                 return;
             }
@@ -1520,6 +1750,7 @@
                 return response.json();
             }).then(function (data) {
                 state.conversationId = id;
+                saveActiveId(id);
                 els.messages.textContent = '';
                 currentBubble = null;
                 var messages = (data && data.messages) || [];
@@ -1535,12 +1766,65 @@
                 }
                 closeSidePanel();
                 closeHistory();
-                openPanel();
+                if (!silent) {
+                    openPanel();
+                }
                 updateHistoryActive();
                 window.setTimeout(scrollDown, 40);
             }).catch(function () {
-                toast('No se pudo abrir ese chat', 'error');
+                if (silent) {
+                    boot();
+                } else {
+                    toast('No se pudo abrir ese chat', 'error');
+                }
             });
+        }
+
+        /** Guarda/limpia la conversación activa para sobrevivir la navegación entre páginas. */
+        function saveActiveId(id) {
+            try {
+                if (id) {
+                    sessionStorage.setItem(ACTIVE_KEY, id);
+                } else {
+                    sessionStorage.removeItem(ACTIVE_KEY);
+                }
+            } catch (e) { /* almacenamiento bloqueado */ }
+        }
+
+        function readActiveId() {
+            try {
+                return sessionStorage.getItem(ACTIVE_KEY) || null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        /** Tipo de navegación: al recargar (F5) se empieza un chat nuevo; al navegar se restaura. */
+        function navigationType() {
+            try {
+                var entries = window.performance
+                    && performance.getEntriesByType
+                    && performance.getEntriesByType('navigation');
+                if (entries && entries.length && entries[0].type) {
+                    return entries[0].type;
+                }
+            } catch (e) { /* opcional */ }
+            return 'navigate';
+        }
+
+        /** Arranque: restaura la conversación activa salvo que sea una recarga. */
+        function start() {
+            if (navigationType() === 'reload') {
+                saveActiveId(null);
+                boot();
+                return;
+            }
+            var saved = readActiveId();
+            if (saved) {
+                openConversation(saved, true);
+            } else {
+                boot();
+            }
         }
 
         function deleteConversation(id) {
@@ -1613,6 +1897,9 @@
                         dateFormat: 'Y-m-d',
                         showMonths: 1,
                         disableMobile: true,
+                        onReady: function (dObj, dStr, instance) {
+                            instance.calendarContainer.classList.add('fa-fp');
+                        },
                         onChange: onDatesChange,
                         onDayCreate: function (dObj, dStr, instance, dayElem) {
                             markReserved(dayElem);
@@ -2210,6 +2497,10 @@
             if (els.quickSuggest) {
                 els.quickSuggest.setAttribute('aria-expanded', open ? 'true' : 'false');
             }
+            if (open) {
+                // Al desplegar las sugerencias, el menú "+" se cierra para no ocupar medio chat.
+                collapseQuick();
+            }
         }
 
         function collapseSuggestions() {
@@ -2488,6 +2779,6 @@
         // Arranque: se difiere hasta aquí porque renderWelcome usa ICONS y boot usa varios
         // objetos (VIEWS, SIDE_TITLES) que se definen más abajo en este mismo ámbito.
         initDatePicker();
-        boot();
+        start();
     }
 })();

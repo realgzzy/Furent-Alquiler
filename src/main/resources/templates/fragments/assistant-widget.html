@@ -77,6 +77,9 @@
             box-sizing: border-box;
         }
 
+        /* Mientras el asistente está abierto, la página de fondo no debe desplazarse. */
+        body.fa-noscroll, html.fa-noscroll { overflow: hidden; }
+
         /* ───────── Lanzador ───────── */
         #furent-assistant-launcher {
             position: fixed; right: var(--fa-s6); bottom: var(--fa-s6); z-index: 111;
@@ -132,8 +135,10 @@
         #furent-assistant-history[hidden] { display: none; }
         .fa-hist-head { display: flex; align-items: center; gap: var(--fa-s2); padding: var(--fa-s4) var(--fa-s4) var(--fa-s2); }
         .fa-hist-head h3 { margin: 0; font-size: var(--fa-lg); font-weight: 800; color: var(--fa-ink); flex: 1 1 auto; }
-        .fa-hist-close { background: var(--fa-surface-3); border: none; cursor: pointer; width: 30px; height: 30px; border-radius: var(--fa-r-sm); color: var(--fa-ink-2); font-size: 18px; line-height: 1; }
+        .fa-hist-close { background: var(--fa-surface-3); border: none; cursor: pointer; width: 30px; height: 30px; border-radius: var(--fa-r-sm); color: var(--fa-ink-2); display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; transition: background var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease); }
         .fa-hist-close:hover { background: #ece2d6; }
+        .fa-hist-close:active { transform: scale(.94); }
+        .fa-hist-close svg { display: block; }
         .fa-hist-list { overflow-y: auto; padding: var(--fa-s2) var(--fa-s3) var(--fa-s3); display: flex; flex-direction: column; gap: var(--fa-s2); scrollbar-width: thin; }
         .fa-hist-empty { padding: var(--fa-s5) var(--fa-s4); text-align: center; color: var(--fa-ink-3); font-size: var(--fa-sm); }
         .fa-hist-item { display: flex; align-items: stretch; gap: var(--fa-s2); }
@@ -214,9 +219,12 @@
         .fa-side[hidden] { display: none; }
         .fa-side-head { display: flex; align-items: center; gap: var(--fa-s2); padding: var(--fa-s3) var(--fa-s4) var(--fa-s2); border-bottom: 1px solid var(--fa-line); }
         .fa-side-head h3 { margin: 0; flex: 1 1 auto; font-size: var(--fa-md); font-weight: 800; color: var(--fa-ink); }
-        .fa-side-close { background: var(--fa-surface); border: 1px solid var(--fa-line-2); cursor: pointer; width: 28px; height: 28px; border-radius: var(--fa-r-xs); color: var(--fa-ink-2); font-size: 16px; line-height: 1; }
+        .fa-side-close { background: var(--fa-surface); border: 1px solid var(--fa-line-2); cursor: pointer; width: 28px; height: 28px; border-radius: var(--fa-r-xs); color: var(--fa-ink-2); display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; transition: background var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease); }
         .fa-side-close:hover { background: var(--fa-surface-3); }
-        .fa-side-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--fa-s3) var(--fa-s4) var(--fa-s4); scrollbar-width: thin; }
+        .fa-side-close:active { transform: scale(.94); }
+        .fa-side-close svg { display: block; }
+        .fa-side-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--fa-s3) var(--fa-s4) var(--fa-s4); scrollbar-width: none; -ms-overflow-style: none; }
+        .fa-side-body::-webkit-scrollbar { display: none; }
         .fa-view[hidden] { display: none; }
 
         .fa-messages {
@@ -328,9 +336,11 @@
         }
 
         /* ───────── Sugerencias (desplegable bajo el input) ───────── */
-        .fa-suggestions { display: flex; flex-wrap: wrap; gap: var(--fa-s2); padding: var(--fa-s3) 0 0; }
+        .fa-suggestions { display: flex; flex-wrap: nowrap; gap: var(--fa-s2); padding: var(--fa-s3) 0 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
         .fa-suggestions[hidden] { display: none; }
+        .fa-suggestions::-webkit-scrollbar { display: none; }
         .fa-suggestions:not([hidden]) { animation: fa-rise var(--fa-dur) var(--fa-ease-out); }
+        .fa-suggestions .fa-chip { flex: 0 0 auto; white-space: nowrap; }
         .fa-chip {
             display: inline-flex; align-items: center; gap: 6px;
             border: 1px solid var(--fa-accent-line); background: var(--fa-surface); color: var(--fa-accent-strong); cursor: pointer;
@@ -363,10 +373,11 @@
         .fa-input-row { display: flex; gap: var(--fa-s2); align-items: flex-end; }
         .fa-plus {
             flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid var(--fa-line-2); cursor: pointer;
-            border-radius: var(--fa-r-pill); background: var(--fa-surface); color: var(--fa-ink-2); font-size: 20px; line-height: 1;
-            display: flex; align-items: center; justify-content: center;
+            border-radius: var(--fa-r-pill); background: var(--fa-surface); color: var(--fa-ink-2);
+            display: flex; align-items: center; justify-content: center; padding: 0;
             transition: background var(--fa-dur) var(--fa-ease), border-color var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease);
         }
+        .fa-plus svg { display: block; }
         .fa-plus:hover { background: var(--fa-surface-3); }
         .fa-plus:active { transform: scale(.94); }
         .fa-plus:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
@@ -392,29 +403,13 @@
         .fa-send:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
 
         /* ───────── Calendario (dentro del panel lateral) ───────── */
+        /* El aspecto del calendario lo aporta `.fa-fp` (estilo de la pasarela de cotización). */
         .fa-calendar-host { display: flex; justify-content: center; }
-        .fa-calendar-host .flatpickr-calendar { box-shadow: none; border: none; width: 100%; max-width: 320px; background: transparent; }
         .fa-calendar-host .flatpickr-calendar.inline { top: 0; }
-        .fa-calendar-host .flatpickr-months .flatpickr-month { color: var(--fa-ink); fill: var(--fa-ink); }
-        .fa-calendar-host .flatpickr-current-month .flatpickr-monthDropdown-months { font-weight: 700; }
-        .fa-calendar-host .flatpickr-weekday { color: var(--fa-ink-3); font-weight: 700; }
-        .fa-calendar-host .flatpickr-day { border-radius: var(--fa-r-sm); color: var(--fa-ink-2); font-weight: 600; }
-        .fa-calendar-host .flatpickr-day:hover { background: var(--fa-accent-soft); border-color: var(--fa-accent-soft); }
-        .fa-calendar-host .flatpickr-day.today { border-color: var(--fa-accent); }
-        .fa-calendar-host .flatpickr-day.selected,
-        .fa-calendar-host .flatpickr-day.startRange,
-        .fa-calendar-host .flatpickr-day.endRange { background: var(--fa-accent); border-color: var(--fa-accent); color: #fff; }
-        .fa-calendar-host .flatpickr-day.inRange { background: #ffe3c7; border-color: #ffe3c7; color: #8a4712; box-shadow: none; }
-        .fa-calendar-host .flatpickr-day.flatpickr-disabled,
-        .fa-calendar-host .flatpickr-day.flatpickr-disabled:hover { color: #cfcfcf; background: transparent; text-decoration: line-through; }
-        .fa-calendar-host .flatpickr-day.is-reserved {
-            color: #c0c0c0; background: repeating-linear-gradient(45deg, #f5f5f5, #f5f5f5 4px, #ececec 4px, #ececec 8px);
-            text-decoration: line-through; cursor: not-allowed;
-        }
         .fa-calendar-hint { margin: var(--fa-s3) 0; font-size: var(--fa-xs); color: var(--fa-ink-3); text-align: center; }
         .fa-calendar-hint[data-tone="warn"] { color: #b45309; font-weight: 600; }
         .fa-calendar-hint[data-tone="ok"] { color: var(--fa-accent-strong); font-weight: 600; }
-        .fa-calendar-actions { display: flex; gap: var(--fa-s2); }
+        .fa-calendar-actions { display: flex; gap: var(--fa-s2); align-items: stretch; }
 
         .fa-native-dates { display: flex; flex-direction: column; gap: var(--fa-s2); width: 100%; }
         .fa-native-field { display: flex; flex-direction: column; gap: 2px; font-size: var(--fa-xs); color: var(--fa-ink-2); font-weight: 600; }
@@ -425,17 +420,135 @@
         .fa-native-field input:focus { border-color: var(--fa-accent); box-shadow: 0 0 0 3px rgba(224, 122, 58, .16); }
 
         /* ───────── Formulario del evento (panel lateral) ───────── */
-        .fa-form { display: flex; flex-direction: column; gap: var(--fa-s3); }
-        .fa-form-desc { margin: 0 0 var(--fa-s1); font-size: var(--fa-xs); color: var(--fa-ink-3); line-height: 1.5; }
-        .fa-field { display: flex; flex-direction: column; gap: 4px; font-size: var(--fa-xs); font-weight: 700; color: var(--fa-ink-2); }
-        .fa-field input, .fa-field select, .fa-field textarea {
-            border: 1px solid var(--fa-line-2); border-radius: var(--fa-r-sm); padding: 9px 11px;
-            font-size: var(--fa-md); font-family: inherit; color: var(--fa-ink); background: var(--fa-surface); outline: none; width: 100%;
-        }
-        .fa-field textarea { resize: vertical; min-height: 64px; }
-        .fa-field input:focus, .fa-field select:focus, .fa-field textarea:focus { border-color: var(--fa-accent); box-shadow: 0 0 0 3px rgba(224, 122, 58, .16); }
+        .fa-form { display: flex; flex-direction: column; gap: var(--fa-s4); }
+        .fa-form-desc { margin: 0; font-size: var(--fa-xs); color: var(--fa-ink-3); line-height: 1.5; }
+        .fa-field { display: flex; flex-direction: column; gap: 6px; animation: fa-rise var(--fa-dur-slow) var(--fa-ease-out) both; }
+        .fa-field-head { display: flex; align-items: center; gap: 6px; font-size: var(--fa-xs); font-weight: 800; color: var(--fa-ink-2); letter-spacing: .01em; }
+        .fa-field-head > svg { color: var(--fa-accent-strong); flex: 0 0 auto; }
         .fa-field-req { color: var(--fa-accent-strong); }
+
+        /* Control estilo Tailwind: caja redondeada, icono de prefijo, foco suave y caret propio. */
+        .fa-control { position: relative; display: flex; align-items: center; }
+        .fa-control input, .fa-control select, .fa-control textarea {
+            width: 100%; border: 1px solid var(--fa-line-2); border-radius: var(--fa-r);
+            padding: 11px 14px; font-size: var(--fa-md); font-family: inherit; line-height: 1.4;
+            color: var(--fa-ink); background: var(--fa-surface); outline: none;
+            transition: border-color var(--fa-dur) var(--fa-ease), box-shadow var(--fa-dur) var(--fa-ease), background var(--fa-dur) var(--fa-ease);
+        }
+        .fa-control textarea { resize: vertical; min-height: 84px; }
+        .fa-control select { cursor: pointer; -webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 38px; }
+        .fa-control.has-ico input, .fa-control.has-ico select { padding-left: 40px; }
+        .fa-control.has-ico.has-action input { padding-right: 42px; }
+        .fa-control input::placeholder, .fa-control textarea::placeholder { color: var(--fa-ink-3); }
+        .fa-control select:required:invalid { color: var(--fa-ink-3); }
+        .fa-control input:hover, .fa-control select:hover, .fa-control textarea:hover { background: var(--fa-surface); }
+        .fa-control:focus-within input, .fa-control:focus-within select, .fa-control:focus-within textarea,
+        .fa-control input:focus, .fa-control select:focus, .fa-control textarea:focus {
+            border-color: var(--fa-accent); background: var(--fa-surface); box-shadow: 0 0 0 4px rgba(224, 122, 58, .14);
+        }
+        .fa-control-ico {
+            position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+            display: flex; align-items: center; color: var(--fa-ink-3); pointer-events: none;
+            transition: color var(--fa-dur) var(--fa-ease);
+        }
+        .fa-control-ico svg { display: block; }
+        .fa-control:focus-within > .fa-control-ico { color: var(--fa-accent-strong); }
+        .fa-control-caret {
+            position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+            display: flex; align-items: center; color: var(--fa-ink-3); pointer-events: none;
+            transition: color var(--fa-dur) var(--fa-ease), transform var(--fa-dur) var(--fa-ease);
+        }
+        .fa-control-caret svg { display: block; }
+        .fa-control:focus-within > .fa-control-caret { color: var(--fa-accent-strong); transform: translateY(-50%) rotate(180deg); }
+        .fa-control-action {
+            position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+            width: 28px; height: 28px; padding: 0; border: none; border-radius: var(--fa-r-xs); cursor: pointer;
+            background: transparent; color: var(--fa-ink-3); display: inline-flex; align-items: center; justify-content: center;
+            transition: background var(--fa-dur) var(--fa-ease), color var(--fa-dur) var(--fa-ease);
+        }
+        .fa-control-action:hover { background: var(--fa-accent-soft); color: var(--fa-accent-strong); }
+        .fa-control-action svg { display: block; }
+        /* Quitar los "spinners" del input numérico. */
+        .fa-control input[type="number"]::-webkit-outer-spin-button,
+        .fa-control input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .fa-control input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
         .fa-form-error { color: #b91c1c; font-size: var(--fa-xs); font-weight: 700; }
+
+        /* Botón de solo icono (p. ej. "Limpiar"). */
+        .fa-icon-btn {
+            flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+            width: 46px; height: 46px; padding: 0; cursor: pointer;
+            border: 1px solid var(--fa-line-2); border-radius: var(--fa-r);
+            background: var(--fa-surface); color: var(--fa-ink-2);
+            transition: background var(--fa-dur) var(--fa-ease), border-color var(--fa-dur) var(--fa-ease), color var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease);
+        }
+        .fa-icon-btn:hover { background: var(--fa-accent-soft); border-color: var(--fa-accent-line); color: var(--fa-accent-strong); }
+        .fa-icon-btn:active { transform: scale(.94); }
+        .fa-icon-btn:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
+        .fa-icon-btn svg { display: block; }
+
+        /* ───────── Flatpickr con el estilo de la pasarela de cotización ───────── */
+        .fa-fp.flatpickr-calendar {
+            background: #fff; border: none !important;
+            box-shadow: 0 25px 50px -12px rgba(36, 28, 21, .3) !important;
+            border-radius: 24px !important; padding: 8px !important;
+            font-family: var(--fa-font) !important; width: 330px !important;
+            z-index: 140 !important;
+        }
+        .fa-fp .flatpickr-months { padding: 12px 0 10px !important; }
+        .fa-fp .flatpickr-months .flatpickr-month { color: var(--fa-ink) !important; fill: var(--fa-ink); height: 50px !important; }
+        .fa-fp .flatpickr-current-month {
+            color: var(--fa-ink) !important; font-size: 115% !important; font-weight: 800 !important;
+            display: flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; padding: 0 !important;
+        }
+        .fa-fp .flatpickr-current-month .flatpickr-monthDropdown-months { font-weight: 800 !important; color: var(--fa-ink) !important; padding: 2px 4px !important; }
+        .fa-fp .flatpickr-current-month .cur-year { font-weight: 600 !important; color: var(--fa-ink-2) !important; }
+        .fa-fp .flatpickr-current-month .numInputWrapper { width: 65px !important; }
+        .fa-fp .numInputWrapper span.arrowUp, .fa-fp .numInputWrapper span.arrowDown { display: none !important; }
+        .fa-fp .flatpickr-day {
+            border-radius: 12px !important; transition: all .2s ease !important; border: 1px solid transparent !important;
+            max-width: 40px !important; height: 40px !important; line-height: 40px !important; font-weight: 500 !important; color: var(--fa-ink-2) !important;
+        }
+        .fa-fp .flatpickr-day:hover { background: var(--fa-accent-soft) !important; border-color: var(--fa-accent-soft) !important; }
+        .fa-fp .flatpickr-day.today { border-color: var(--fa-accent) !important; }
+        .fa-fp .flatpickr-day.selected,
+        .fa-fp .flatpickr-day.startRange, .fa-fp .flatpickr-day.endRange,
+        .fa-fp .flatpickr-day.selected.inRange, .fa-fp .flatpickr-day.startRange.inRange, .fa-fp .flatpickr-day.endRange.inRange,
+        .fa-fp .flatpickr-day.selected:focus, .fa-fp .flatpickr-day.startRange:focus, .fa-fp .flatpickr-day.endRange:focus,
+        .fa-fp .flatpickr-day.selected:hover, .fa-fp .flatpickr-day.startRange:hover, .fa-fp .flatpickr-day.endRange:hover {
+            background: var(--fa-accent) !important; border-color: var(--fa-accent) !important; color: #fff !important; border-radius: 12px !important;
+        }
+        .fa-fp .flatpickr-day.inRange { background: #ffe9d1 !important; border-color: transparent !important; box-shadow: none !important; color: var(--fa-accent-strong) !important; }
+        .fa-fp .flatpickr-weekday { color: var(--fa-ink-3) !important; font-weight: 700 !important; font-size: 13px !important; }
+        .fa-fp .flatpickr-day.flatpickr-disabled { color: #d8cfc4 !important; }
+        .fa-fp .flatpickr-day.flatpickr-disabled:hover { background: transparent !important; }
+        .fa-fp .flatpickr-day.is-reserved { color: #dc2626 !important; background: #fef2f2 !important; text-decoration: line-through; opacity: 1 !important; }
+        .fa-fp .flatpickr-innerContainer { padding: 0 10px 10px !important; }
+        .fa-fp .flatpickr-days { width: 100% !important; }
+        .fa-fp .flatpickr-prev-month, .fa-fp .flatpickr-next-month { padding: 10px !important; color: var(--fa-ink-2) !important; top: 15px !important; }
+        .fa-fp .flatpickr-prev-month:hover svg, .fa-fp .flatpickr-next-month:hover svg { fill: var(--fa-accent) !important; }
+        .fa-fp.flatpickr-calendar.animate.open { animation: fa-fp-in .3s cubic-bezier(.4, 0, .2, 1); }
+        @keyframes fa-fp-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+        /* El calendario incrustado (vista de fechas) usa el ancho del panel, sin sombra. */
+        .fa-fp.inline.flatpickr-calendar { width: 100% !important; max-width: 100% !important; box-shadow: none !important; background: transparent !important; padding: 0 !important; }
+        .fa-fp.inline .flatpickr-innerContainer { padding: 0 !important; }
+        .fa-fp.inline .flatpickr-weekdays { width: 100% !important; }
+        .fa-fp.inline .flatpickr-days { width: 100% !important; }
+        .fa-fp.inline .dayContainer { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+        .fa-fp.inline .flatpickr-day { max-width: 14.2857% !important; height: 33px !important; line-height: 33px !important; font-size: 12.5px !important; }
+        @media (max-width: 420px) {
+            .fa-fp.flatpickr-calendar:not(.inline) { width: calc(100vw - 20px) !important; }
+        }
+        .dark .fa-fp.flatpickr-calendar { background: #2a231d; }
+        .dark .fa-fp .flatpickr-months .flatpickr-month, .dark .fa-fp .flatpickr-current-month,
+        .dark .fa-fp .flatpickr-current-month .flatpickr-monthDropdown-months { color: #f5efe7 !important; fill: #f5efe7; }
+        .dark .fa-fp .flatpickr-current-month .cur-year { color: #cbbdaf !important; }
+        .dark .fa-fp .flatpickr-day { color: #cbbdaf !important; }
+        .dark .fa-fp .flatpickr-day:hover { background: #3a2a1c !important; border-color: #3a2a1c !important; }
+        .dark .fa-fp .flatpickr-day.inRange { background: #4a3618 !important; color: #f5c088 !important; }
+        .dark .fa-fp .flatpickr-day.flatpickr-disabled { color: #6b5f55 !important; }
+        .dark .fa-fp .flatpickr-day.is-reserved { color: #fca5a5 !important; background: #3a1f1f !important; }
+        .dark .fa-fp .flatpickr-prev-month, .dark .fa-fp .flatpickr-next-month { color: #cbbdaf !important; fill: #cbbdaf; }
 
         /* ───────── Bolsa y seguimiento (panel lateral) ───────── */
         .fa-bag-item { display: flex; align-items: center; gap: var(--fa-s2); padding: var(--fa-s2) 0; border-bottom: 1px solid var(--fa-line); }
@@ -484,6 +597,14 @@
         .dark #furent-assistant-panel .fa-tool:hover { background: #352c24; }
         .dark #furent-assistant-panel .fa-tool[aria-expanded="true"] { background: #3a2a1c; border-color: var(--fa-accent); color: #f0b483; }
         .dark #furent-assistant-panel .fa-plus { background: #2a231d; border-color: #453a30; color: #cbbdaf; }
+        .dark #furent-assistant-panel .fa-control input,
+        .dark #furent-assistant-panel .fa-control select,
+        .dark #furent-assistant-panel .fa-control textarea { background: #2a231d; border-color: #453a30; color: #f5efe7; }
+        .dark #furent-assistant-panel .fa-control input:focus,
+        .dark #furent-assistant-panel .fa-control select:focus,
+        .dark #furent-assistant-panel .fa-control textarea:focus { background: #2a231d; }
+        .dark #furent-assistant-panel .fa-icon-btn { background: #2a231d; border-color: #453a30; color: #cbbdaf; }
+        .dark #furent-assistant-panel .fa-icon-btn:hover { background: #3a2a1c; color: #f0b483; }
         .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.prevMonthDay,
         .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.nextMonthDay { color: #6b5f55; }
         .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.inRange { background: #4a3618; border-color: #4a3618; color: #f5c088; }
@@ -506,8 +627,9 @@
 
         @media (prefers-reduced-motion: reduce) {
             #furent-assistant-panel, #furent-assistant-history, .fa-enter, .fa-quick:not([hidden]),
-            #furent-assistant-launcher::after, .fa-typing span { animation: none !important; }
-            #furent-assistant-launcher, .fa-btn, .fa-chip, .fa-send, .fa-plus, .fa-close, .fa-tool { transition: none !important; }
+            #furent-assistant-launcher::after, .fa-typing span, .fa-field, .fa-fp.flatpickr-calendar.animate.open { animation: none !important; }
+            #furent-assistant-launcher, .fa-btn, .fa-chip, .fa-send, .fa-plus, .fa-close, .fa-tool,
+            .fa-control input, .fa-control select, .fa-control textarea, .fa-icon-btn { transition: none !important; }
             .fa-messages { scroll-behavior: auto; }
         }
     </style>
@@ -534,7 +656,11 @@
              th:attr="data-list-url=@{/api/asistente/conversations}">
         <div class="fa-hist-head">
             <h3>Mis chats</h3>
-            <button type="button" class="fa-hist-close" id="furent-assistant-history-close" aria-label="Cerrar historial">&times;</button>
+            <button type="button" class="fa-hist-close" id="furent-assistant-history-close" aria-label="Cerrar historial">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                </svg>
+            </button>
         </div>
         <div class="fa-hist-list" id="furent-assistant-history-list" role="list"></div>
         <button type="button" class="fa-hist-new" id="furent-assistant-history-new">
@@ -564,7 +690,11 @@
             <aside class="fa-side" id="furent-assistant-side" hidden aria-label="Apoyo de la conversación">
                 <div class="fa-side-head">
                     <h3 id="furent-assistant-side-title">Detalle</h3>
-                    <button type="button" class="fa-side-close" id="furent-assistant-side-close" aria-label="Cerrar panel">&times;</button>
+                    <button type="button" class="fa-side-close" id="furent-assistant-side-close" aria-label="Cerrar panel">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
                 </div>
                 <div class="fa-side-body">
                     <div class="fa-view" id="furent-assistant-view-form" hidden></div>
@@ -574,7 +704,13 @@
                         </div>
                         <p class="fa-calendar-hint" id="furent-assistant-calendar-hint">Elige desde y hasta. Máximo 7 días por alquiler.</p>
                         <div class="fa-calendar-actions">
-                            <button type="button" class="fa-btn fa-btn-ghost" id="furent-assistant-calendar-clear">Limpiar</button>
+                            <button type="button" class="fa-icon-btn" id="furent-assistant-calendar-clear" aria-label="Limpiar fechas" title="Limpiar fechas">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 5.5 8 11l3.5 3.5 5.5-5.5a2.47 2.47 0 0 0-3.5-3.5Z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m9.5 12.5-3 3a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l3-3"/>
+                                </svg>
+                            </button>
                             <button type="button" class="fa-btn fa-btn-primary" id="furent-assistant-calendar-use" disabled>Usar estas fechas</button>
                         </div>
                     </div>
@@ -637,7 +773,11 @@
                     </div>
 
                     <div class="fa-input-row">
-                        <button type="button" class="fa-plus" id="furent-assistant-plus" aria-label="Más opciones" aria-expanded="false">+</button>
+                        <button type="button" class="fa-plus" id="furent-assistant-plus" aria-label="Más opciones" aria-expanded="false">
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>
+                            </svg>
+                        </button>
                         <label class="fa-sr" for="furent-assistant-input">Escribe tu mensaje</label>
                         <textarea id="furent-assistant-input" class="fa-input" rows="1" maxlength="1000"
                                   placeholder="Escribe tu duda o lo que necesitas..."></textarea>
