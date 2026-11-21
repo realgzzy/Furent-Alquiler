@@ -724,6 +724,35 @@
         .fa-step:not(:last-child) .fa-step-line { width: 2px; flex: 1 1 auto; background: var(--fa-line-2); }
         .fa-step-col { display: flex; flex-direction: column; align-items: center; }
 
+        /* ───────── Vista de seguimiento del alquiler ───────── */
+        .fa-res-head { margin-bottom: var(--fa-s3); }
+        .fa-res-top { display: flex; align-items: center; justify-content: space-between; gap: var(--fa-s2); }
+        .fa-res-id { margin: 0; font-size: var(--fa-md); font-weight: 800; color: var(--fa-ink); }
+        .fa-res-range { margin: 4px 0 0; font-size: var(--fa-xs); color: var(--fa-ink-3); font-weight: 600; }
+        .fa-res-section { margin-bottom: var(--fa-s3); }
+        .fa-res-section:last-child { margin-bottom: 0; }
+        .fa-res-list-item { margin-bottom: var(--fa-s3); }
+        .fa-res-row { display: flex; align-items: flex-start; gap: var(--fa-s2); padding: var(--fa-s2) 0; }
+        .fa-res-row + .fa-res-row { border-top: 1px solid var(--fa-line); }
+        .fa-res-row-ico { flex: 0 0 auto; margin-top: 1px; color: var(--fa-accent-strong); }
+        .fa-res-row-main { min-width: 0; flex: 1 1 auto; }
+        .fa-res-row-label { display: block; font-size: var(--fa-2xs); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--fa-ink-3); }
+        .fa-res-row-value { display: block; font-size: var(--fa-sm); font-weight: 600; color: var(--fa-ink); overflow-wrap: anywhere; }
+        .fa-res-bar { height: 8px; margin-top: var(--fa-s2); border-radius: var(--fa-r-pill); background: var(--fa-surface-3); overflow: hidden; }
+        .fa-res-bar > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--fa-accent), var(--fa-accent-strong)); transition: width var(--fa-dur) var(--fa-ease-out); }
+        .fa-res-bar-label { display: flex; justify-content: space-between; margin-top: 6px; font-size: var(--fa-2xs); font-weight: 800; color: var(--fa-ink-3); }
+        .fa-status {
+            display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--fa-r-pill);
+            font-size: var(--fa-2xs); font-weight: 800; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap;
+        }
+        .fa-status::before { content: ''; width: 6px; height: 6px; border-radius: var(--fa-r-pill); background: currentColor; flex: 0 0 auto; }
+        .fa-status-amber { color: #b45309; background: #fef3c7; }
+        .fa-status-blue { color: #1d4ed8; background: #dbeafe; }
+        .fa-status-violet { color: #6d28d9; background: #ede9fe; }
+        .fa-status-green { color: #15803d; background: #dcfce7; }
+        .fa-status-red { color: #b91c1c; background: #fee2e2; }
+        .fa-status-slate { color: #475569; background: #e2e8f0; }
+
         .fa-sr {
             position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
             clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
@@ -780,6 +809,14 @@
         }
         .dark #furent-assistant-panel .fa-quote-stock { color: #fcd9a8; background: #3a2a12; border-color: #6b4a1e; }
         .dark #furent-assistant-panel .fa-auth-gate { border-color: #54371d; background: linear-gradient(180deg, #33261a, #2a231d 62%); }
+        .dark #furent-assistant-panel .fa-res-row-ico { color: #f0b483; }
+        .dark #furent-assistant-panel .fa-res-bar { background: #3a2f26; }
+        .dark #furent-assistant-panel .fa-status-amber { color: #fcd34d; background: #3a2a12; }
+        .dark #furent-assistant-panel .fa-status-blue { color: #93c5fd; background: #1e293b; }
+        .dark #furent-assistant-panel .fa-status-violet { color: #c4b5fd; background: #2e1065; }
+        .dark #furent-assistant-panel .fa-status-green { color: #86efac; background: #14301f; }
+        .dark #furent-assistant-panel .fa-status-red { color: #fca5a5; background: #3a1414; }
+        .dark #furent-assistant-panel .fa-status-slate { color: #cbd5e1; background: #2a231d; }
 
         @media (max-width: 640px) {
             /* `width: 100%` (no `100vw`): en un elemento fixed resuelve contra el viewport

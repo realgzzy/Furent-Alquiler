@@ -844,6 +844,12 @@ public class AssistantToolService {
         if (r.getDireccionEvento() != null) {
             node.put("direccionEvento", r.getDireccionEvento());
         }
+        if (r.getHoraEntrega() != null) {
+            node.put("horaEntrega", r.getHoraEntrega());
+        }
+        if (r.getNotasEvento() != null && !r.getNotasEvento().isBlank()) {
+            node.put("notasEvento", r.getNotasEvento());
+        }
         if (r.getCodigoPagoEfectivo() != null) {
             node.put("codigoPagoEfectivo", r.getCodigoPagoEfectivo());
         }

@@ -1174,6 +1174,8 @@
             trash: ['M4.5 6.75h15M9.75 6.75V5.25A1.5 1.5 0 0 1 11.25 3.75h1.5a1.5 1.5 0 0 1 1.5 1.5v1.5M6.75 6.75l.75 12a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l.75-12'],
             tag: ['M20.6 13.4 13.4 20.6a1.9 1.9 0 0 1-2.7 0l-7.3-7.3A1.9 1.9 0 0 1 2.8 12V5.5A2.3 2.3 0 0 1 5.1 3.2H12a1.9 1.9 0 0 1 1.3.6l7.3 7.3a1.9 1.9 0 0 1 0 2.7Z',
                 'M7.6 7.6h.01'],
+            pin: ['M12 21s6-5.4 6-10a6 6 0 1 0-12 0c0 4.6 6 10 6 10Z',
+                'M12 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z'],
             users: ['M16 19.5v-1.6a3.6 3.6 0 0 0-3.6-3.6H7.1a3.6 3.6 0 0 0-3.6 3.6v1.6',
                 'M9.75 10.9a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2Z',
                 'M20.5 19.5v-1.6a3.6 3.6 0 0 0-2.7-3.5',
@@ -1993,6 +1995,67 @@
 
         // ── Vista: seguimiento del alquiler ──
 
+        /** Estados de una reserva con su etiqueta y tono de color. */
+        var ESTADOS_RESERVA = {
+            PENDIENTE: { label: 'Pendiente', tone: 'amber' },
+            CONFIRMADA: { label: 'Confirmada', tone: 'blue' },
+            ENTREGADA: { label: 'Entregada', tone: 'violet' },
+            COMPLETADA: { label: 'Completada', tone: 'green' },
+            CANCELADA: { label: 'Cancelada', tone: 'red' }
+        };
+
+        /** Chip de estado con color, para leer el avance de un vistazo. */
+        function estadoChip(estado) {
+            var meta = ESTADOS_RESERVA[String(estado || '').toUpperCase()]
+                || { label: estado || '—', tone: 'slate' };
+            var chip = document.createElement('span');
+            chip.className = 'fa-status fa-status-' + meta.tone;
+            var text = document.createElement('span');
+            text.textContent = meta.label;
+            chip.appendChild(text);
+            return chip;
+        }
+
+        /** Caja con título que agrupa un bloque del detalle. */
+        function seccion(titulo, contenido) {
+            var box = document.createElement('div');
+            box.className = 'fa-quote fa-res-section';
+            if (titulo) {
+                var head = document.createElement('p');
+                head.className = 'fa-panel-title';
+                head.textContent = titulo;
+                box.appendChild(head);
+            }
+            (Array.isArray(contenido) ? contenido : [contenido]).forEach(function (node) {
+                if (node) {
+                    box.appendChild(node);
+                }
+            });
+            return box;
+        }
+
+        /** Fila "etiqueta / valor" con icono, para los datos del evento. */
+        function infoRow(icon, label, value) {
+            var row = document.createElement('div');
+            row.className = 'fa-res-row';
+            var ico = document.createElement('span');
+            ico.className = 'fa-res-row-ico';
+            ico.appendChild(svgIcon(icon, 16));
+            row.appendChild(ico);
+            var main = document.createElement('div');
+            main.className = 'fa-res-row-main';
+            var lab = document.createElement('span');
+            lab.className = 'fa-res-row-label';
+            lab.textContent = label;
+            main.appendChild(lab);
+            var val = document.createElement('span');
+            val.className = 'fa-res-row-value';
+            val.textContent = value;
+            main.appendChild(val);
+            row.appendChild(main);
+            return row;
+        }
+
         function renderReservation(data) {
             var view = els.viewAlquiler;
             if (!view) {
@@ -2013,14 +2076,18 @@
             }
             list.forEach(function (r) {
                 var box = document.createElement('div');
-                box.className = 'fa-quote';
-                box.style.marginBottom = '10px';
+                box.className = 'fa-quote fa-res-list-item';
+                var head = document.createElement('div');
+                head.className = 'fa-res-top';
                 var title = document.createElement('h4');
-                title.textContent = '#' + shortId(r.id);
-                box.appendChild(title);
+                title.textContent = 'Alquiler #' + shortId(r.id);
+                head.appendChild(title);
+                head.appendChild(estadoChip(r.estado));
+                box.appendChild(head);
                 var meta = document.createElement('p');
                 meta.className = 'fa-quote-dates';
-                meta.textContent = (r.estado || '') + ' · ' + rangoDeReserva(r);
+                meta.textContent = rangoDeReserva(r)
+                    + (typeof r.dias === 'number' ? ' · ' + r.dias + (r.dias === 1 ? ' día' : ' días') : '');
                 box.appendChild(meta);
                 if (r.total != null) {
                     box.appendChild(quoteLine('Total', formatCOP(r.total)));
@@ -2030,58 +2097,91 @@
         }
 
         function renderReservationDetail(view, r) {
-            var title = document.createElement('p');
-            title.className = 'fa-panel-title';
+            // Encabezado: número, estado y fechas.
+            var head = document.createElement('div');
+            head.className = 'fa-res-head';
+            var top = document.createElement('div');
+            top.className = 'fa-res-top';
+            var title = document.createElement('h3');
+            title.className = 'fa-res-id';
             title.textContent = 'Alquiler #' + shortId(r.id);
-            view.appendChild(title);
+            top.appendChild(title);
+            top.appendChild(estadoChip(r.estado));
+            head.appendChild(top);
+            var range = document.createElement('p');
+            range.className = 'fa-res-range';
+            range.textContent = rangoDeReserva(r)
+                + (typeof r.dias === 'number' ? ' · ' + r.dias + (r.dias === 1 ? ' día' : ' días') : '');
+            head.appendChild(range);
+            view.appendChild(head);
 
-            var sub = document.createElement('p');
-            sub.className = 'fa-panel-sub';
-            sub.textContent = (r.estado || '') + ' · ' + rangoDeReserva(r);
-            view.appendChild(sub);
-
-            var meta = document.createElement('div');
-            meta.className = 'fa-quote';
-            meta.appendChild(quoteLine('Total', formatCOP(r.total)));
-            meta.appendChild(quoteLine('Pagado', formatCOP(r.montoAbonado)));
-            meta.appendChild(quoteLine('Saldo', formatCOP(r.saldoPendiente)));
-            if (r.estadoPago) {
-                meta.appendChild(quoteLine('Estado de pago', String(r.estadoPago)));
-            }
-            view.appendChild(meta);
-
-            if (r.items && r.items.length) {
-                var itemsTitle = document.createElement('p');
-                itemsTitle.className = 'fa-panel-title';
-                itemsTitle.style.marginTop = '12px';
-                itemsTitle.textContent = 'Muebles solicitados';
-                view.appendChild(itemsTitle);
-                r.items.forEach(function (item) {
-                    view.appendChild(quoteLine((item.nombre || 'Producto') + ' ×' + (item.cantidad || 0), ''));
-                });
-            }
-
+            // Estado del pedido (línea de tiempo).
             if (r.timeline && r.timeline.length) {
-                var tlTitle = document.createElement('p');
-                tlTitle.className = 'fa-panel-title';
-                tlTitle.style.marginTop = '12px';
-                tlTitle.textContent = 'Estado del pedido';
-                view.appendChild(tlTitle);
-                view.appendChild(buildTimeline(r.timeline));
+                view.appendChild(seccion('Estado del pedido', buildTimeline(r.timeline)));
             }
 
+            // Datos del evento.
+            var evento = [];
+            if (r.tipoEvento) {
+                evento.push(infoRow('tag', 'Tipo de evento', String(r.tipoEvento)));
+            }
+            if (r.horaEntrega) {
+                evento.push(infoRow('clock', 'Hora de entrega', String(r.horaEntrega)));
+            }
+            if (r.direccionEvento) {
+                evento.push(infoRow('pin', 'Dirección', String(r.direccionEvento)));
+            }
+            if (r.notasEvento) {
+                evento.push(infoRow('pencil', 'Notas', String(r.notasEvento)));
+            }
+            if (evento.length) {
+                view.appendChild(seccion('Datos del evento', evento));
+            }
+
+            // Muebles solicitados.
+            if (r.items && r.items.length) {
+                view.appendChild(seccion('Muebles solicitados', r.items.map(function (item) {
+                    return quoteLine(item.nombre || 'Producto', '×' + (item.cantidad || 0));
+                })));
+            }
+
+            // Resumen de pago con barra de progreso.
+            var pago = seccion('Resumen de pago', []);
+            var pct = Math.max(0, Math.min(100, Math.round(Number(r.porcentajePagado || 0))));
+            var bar = document.createElement('div');
+            bar.className = 'fa-res-bar';
+            var fill = document.createElement('span');
+            fill.style.width = pct + '%';
+            bar.appendChild(fill);
+            pago.appendChild(bar);
+            var barLabel = document.createElement('div');
+            barLabel.className = 'fa-res-bar-label';
+            var barLeft = document.createElement('span');
+            barLeft.textContent = 'Pagado';
+            var barRight = document.createElement('span');
+            barRight.textContent = pct + '%';
+            barLabel.appendChild(barLeft);
+            barLabel.appendChild(barRight);
+            pago.appendChild(barLabel);
+            pago.appendChild(quoteLine('Total', formatCOP(r.total)));
+            pago.appendChild(quoteLine('Pagado', formatCOP(r.montoAbonado)));
+            pago.appendChild(quoteLine('Saldo pendiente', formatCOP(r.saldoPendiente)));
+            if (r.estadoPago) {
+                pago.appendChild(quoteLine('Estado de pago', String(r.estadoPago)));
+            }
+            if (r.metodoPago) {
+                pago.appendChild(quoteLine('Método de pago', String(r.metodoPago)));
+            }
+            view.appendChild(pago);
+
+            // Pagos registrados.
             if (r.pagos && r.pagos.length) {
-                var payTitle = document.createElement('p');
-                payTitle.className = 'fa-panel-title';
-                payTitle.style.marginTop = '12px';
-                payTitle.textContent = 'Pagos registrados';
-                view.appendChild(payTitle);
-                r.pagos.forEach(function (pago) {
-                    view.appendChild(quoteLine(
-                        (pago.tipo || 'Pago') + (pago.fecha ? ' · ' + fmtFecha(pago.fecha.slice(0, 10)) : ''),
-                        formatCOP(pago.monto)
-                    ));
-                });
+                view.appendChild(seccion('Pagos registrados', r.pagos.map(function (pg) {
+                    return quoteLine(
+                        (pg.tipo || 'Pago') + (pg.fecha ? ' · ' + fmtFecha(pg.fecha.slice(0, 10)) : ''),
+                        formatCOP(pg.monto)
+                    );
+                })));
             }
         }
 
