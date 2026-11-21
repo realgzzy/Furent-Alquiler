@@ -1,0 +1,16 @@
+{
+  "name": "furent-alquiler",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Furent - Plataforma de alquiler de mobiliario para eventos",
+  "scripts": {
+    "build:css": "npm run build:css:public && npm run build:css:admin",
+    "build:css:public": "tailwindcss -c tailwind.config.js -i ./src/main/resources/css/tailwind.src.css -o ./src/main/resources/static/css/tailwind.css --minify",
+    "build:css:admin": "tailwindcss -c tailwind.admin.config.js -i ./src/main/resources/css/tailwind.src.css -o ./src/main/resources/static/css/tailwind-admin.css --minify",
+    "watch:css:public": "tailwindcss -c tailwind.config.js -i ./src/main/resources/css/tailwind.src.css -o ./src/main/resources/static/css/tailwind.css --watch",
+    "watch:css:admin": "tailwindcss -c tailwind.admin.config.js -i ./src/main/resources/css/tailwind.src.css -o ./src/main/resources/static/css/tailwind-admin.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

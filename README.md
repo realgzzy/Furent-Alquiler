@@ -132,6 +132,7 @@ presupuesto diario, tokens máximos, temperatura, retención) se ajustan con las
 * **Java SDK 17** o superior.
 * **MongoDB 7.0** ejecutándose de forma local o en la nube (Atlas).
 * **Maven 3.9+** (o utilizar el wrapper `./mvnw` provisto).
+* **Node.js 18+** (solo para compilar los estilos con Tailwind CSS).
 
 ### Ejecución Local
 1. Clonar el repositorio:
@@ -145,6 +146,14 @@ presupuesto diario, tokens máximos, temperatura, retención) se ajustan con las
    ./mvnw spring-boot:run
    ```
 4. Abrir en el navegador: **http://localhost:8080**
+
+### Estilos (Tailwind CSS)
+Los estilos se compilan localmente (no dependen de `cdn.tailwindcss.com`). La primera vez hay que instalar las dependencias:
+```bash
+npm install
+npm run build:css
+```
+Si modificas clases de Tailwind en las plantillas, vuelve a generar el CSS con `npm run build:css` (o usa `npm run watch:css:public` y `npm run watch:css:admin` en dos terminales). Los archivos generados son `src/main/resources/static/css/tailwind.css` y `tailwind-admin.css`.
 
 ### Con Docker Compose
 Puedes levantar todo el entorno (Aplicación + Base de datos MongoDB) en un solo paso:
