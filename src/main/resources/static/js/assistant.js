@@ -171,7 +171,7 @@
                 return;
             }
             hideChips();
-            appendUserBubble(text);
+            appendUserBubble(text, true);
             rememberMessage('USER', text);
             lastUserText = text;
             streamChat(text);
@@ -310,9 +310,9 @@
 
         // ───────────────────────── Burbujas ─────────────────────────
 
-        function appendUserBubble(text) {
+        function appendUserBubble(text, animate) {
             var row = document.createElement('div');
-            row.className = 'fa-row user';
+            row.className = animate ? 'fa-row user fa-enter' : 'fa-row user';
             var bubble = document.createElement('div');
             bubble.className = 'fa-bubble user';
             bubble.textContent = text;
@@ -323,7 +323,7 @@
 
         function beginAssistantReply() {
             var row = document.createElement('div');
-            row.className = 'fa-row';
+            row.className = 'fa-row fa-enter';
             row.setAttribute('data-pending', 'true');
             var bubble = document.createElement('div');
             bubble.className = 'fa-bubble assistant';
@@ -407,10 +407,10 @@
 
         function offerWhatsApp() {
             var row = document.createElement('div');
-            row.className = 'fa-row';
+            row.className = 'fa-row fa-enter';
             var wa = button('Continuar por WhatsApp', 'fa-btn-wa', function () {
                 abrirWhatsApp('Hola Furent, vengo del asistente virtual.', 'error');
-            });
+            }, ICONS.whatsapp);
             wa.style.maxWidth = '85%';
             row.appendChild(wa);
             els.messages.appendChild(row);
@@ -422,13 +422,13 @@
                 return;
             }
             var row = document.createElement('div');
-            row.className = 'fa-row';
+            row.className = 'fa-row fa-enter';
             var retry = button('Reintentar', 'fa-btn-ghost', function () {
                 row.remove();
                 if (!isStreaming) {
                     streamChat(text);
                 }
-            });
+            }, ICONS.sliders);
             retry.style.maxWidth = '85%';
             row.appendChild(retry);
             els.messages.appendChild(row);
@@ -486,11 +486,7 @@
             if (data.id && data.disponible !== false) {
                 var actions = document.createElement('div');
                 actions.className = 'fa-card-actions';
-                var add = document.createElement('button');
-                add.type = 'button';
-                add.className = 'fa-btn fa-btn-ghost';
-                add.textContent = 'Agregar a la bolsa';
-                add.addEventListener('click', function () {
+                actions.appendChild(button('Agregar a la bolsa', 'fa-btn-ghost', function () {
                     addLinesToBag([{
                         id: data.id,
                         nombre: data.nombre,
@@ -499,13 +495,12 @@
                         cantidad: 1,
                         stock: data.stock
                     }], { silentTotal: true });
-                });
-                actions.appendChild(add);
+                }, ICONS.cart));
                 card.appendChild(actions);
             }
 
             var row = document.createElement('div');
-            row.className = 'fa-row';
+            row.className = 'fa-row fa-enter';
             row.style.width = '100%';
             row.appendChild(card);
             els.messages.appendChild(row);
@@ -520,17 +515,26 @@
             var card = document.createElement('div');
             card.className = 'fa-quote';
 
+            var head = document.createElement('div');
+            head.className = 'fa-quote-head';
+            var badge = document.createElement('span');
+            badge.className = 'fa-quote-ico';
+            badge.appendChild(svgIcon(ICONS.receipt, 16));
+            head.appendChild(badge);
+            var headText = document.createElement('div');
+            headText.style.minWidth = '0';
             var title = document.createElement('h4');
             title.textContent = 'Cotización estimada';
-            card.appendChild(title);
-
+            headText.appendChild(title);
             var rango = rangoFechas(data);
             if (rango) {
                 var dates = document.createElement('p');
                 dates.className = 'fa-quote-dates';
                 dates.textContent = rango;
-                card.appendChild(dates);
+                headText.appendChild(dates);
             }
+            head.appendChild(headText);
+            card.appendChild(head);
 
             (data.items || []).forEach(function (item) {
                 card.appendChild(quoteItem(item));
@@ -577,34 +581,34 @@
                 actions.appendChild(button('Ajustar cantidades', 'fa-btn-ghost', function () {
                     trackAssistantEvent('assistant_quote_adjust');
                     els.input.focus();
-                }));
+                }, ICONS.sliders));
                 actions.appendChild(button('Hablar con un asesor', 'fa-btn-wa', function () {
                     abrirWhatsApp('Hola Furent, necesito ayuda con una cotización sin stock suficiente.', 'quote-stock');
-                }));
+                }, ICONS.whatsapp));
             } else if (authenticated) {
                 actions.appendChild(button('Reservar ahora', 'fa-btn-primary', function () {
                     trackAssistantEvent('assistant_checkout_click', { total: data.total });
                     prepararReserva(data);
                     goToCheckout(data.checkoutUrl);
-                }));
+                }, ICONS.cart));
                 actions.appendChild(button('Enviar por WhatsApp', 'fa-btn-wa', function () {
                     abrirWhatsApp(cotizacionTexto(data), 'quote');
-                }));
+                }, ICONS.whatsapp));
             } else {
                 actions.appendChild(button('Continuar por WhatsApp', 'fa-btn-wa', function () {
                     abrirWhatsApp(cotizacionTexto(data), 'quote');
-                }));
+                }, ICONS.whatsapp));
                 actions.appendChild(button('Crear cuenta y reservar', 'fa-btn-ghost', function () {
                     trackAssistantEvent('assistant_checkout_click', { total: data.total, via: 'login' });
                     prepararReserva(data);
                     goToCheckout(data.checkoutUrl);
-                }));
+                }, ICONS.userPlus));
             }
 
             card.appendChild(actions);
 
             var row = document.createElement('div');
-            row.className = 'fa-row';
+            row.className = 'fa-row fa-enter';
             row.style.width = '100%';
             row.appendChild(card);
             els.messages.appendChild(row);
@@ -612,14 +616,57 @@
             trackAssistantEvent('assistant_quote_view', { total: data.total, dias: data.dias });
         }
 
-        function button(label, className, onClick) {
+        function button(label, className, onClick, icon) {
             var element = document.createElement('button');
             element.type = 'button';
             element.className = 'fa-btn ' + className;
-            element.textContent = label;
+            if (icon) {
+                element.appendChild(svgIcon(icon, 15));
+            }
+            var span = document.createElement('span');
+            span.textContent = label;
+            element.appendChild(span);
             element.addEventListener('click', onClick);
             return element;
         }
+
+        /**
+         * Iconos SVG creados con nodos reales (nada de HTML crudo). `paths` es la lista de
+         * atributos `d` y se trazan en el mismo estilo lineal del resto del widget.
+         */
+        function svgIcon(paths, size) {
+            var ns = 'http://www.w3.org/2000/svg';
+            var svg = document.createElementNS(ns, 'svg');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('width', size || 16);
+            svg.setAttribute('height', size || 16);
+            svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke', 'currentColor');
+            svg.setAttribute('stroke-width', '1.9');
+            svg.setAttribute('stroke-linecap', 'round');
+            svg.setAttribute('stroke-linejoin', 'round');
+            svg.setAttribute('aria-hidden', 'true');
+            (paths || []).forEach(function (d) {
+                var path = document.createElementNS(ns, 'path');
+                path.setAttribute('d', d);
+                svg.appendChild(path);
+            });
+            return svg;
+        }
+
+        var ICONS = {
+            whatsapp: ['M20.5 11.5a8.5 8.5 0 0 1-12.6 7.4L3.5 20.5l1.6-4.3A8.5 8.5 0 1 1 20.5 11.5Z',
+                'M8.8 8.6c.5 2.4 2.2 4.1 4.6 4.6.5.1 1-.3 1-1v-.6l-1.4-.5-.7.6c-.9-.4-1.5-1-1.9-1.9l.6-.7-.5-1.4h-.6c-.7 0-1.1.5-1 1Z'],
+            cart: ['M3 4h2l2.3 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.2L20.5 7H6',
+                'M9.5 20.5a1 1 0 1 0 0-.01M17.5 20.5a1 1 0 1 0 0-.01'],
+            userPlus: ['M15.5 20v-1.8a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20',
+                'M8.75 10.5a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z',
+                'M19 7.5v5M21.5 10h-5'],
+            sliders: ['M4 20v-6M4 10V4M12 20v-9M12 7V4M20 20v-4M20 12V4M1.5 14h5M9.5 7h5M17.5 16h5'],
+            calendar: ['M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5'],
+            receipt: ['M6.75 3.75h10.5A1.5 1.5 0 0 1 18.75 5.25v13.9l-2.6-1.5-2.6 1.5-2.6-1.5-2.6 1.5V5.25A1.5 1.5 0 0 1 6.75 3.75Z',
+                'M9.5 8.5h5M9.5 12h3.5']
+        };
 
         function rangoFechas(data) {
             if (!data || !data.fechaInicio || !data.fechaFin) {
@@ -635,6 +682,15 @@
         function quoteItem(item) {
             var line = document.createElement('div');
             line.className = 'fa-quote-item';
+
+            if (item.imagen) {
+                var thumb = document.createElement('img');
+                thumb.className = 'fa-quote-thumb';
+                thumb.alt = '';
+                thumb.loading = 'lazy';
+                thumb.src = item.imagen;
+                line.appendChild(thumb);
+            }
 
             var main = document.createElement('div');
             main.className = 'fa-quote-item-main';
@@ -680,20 +736,15 @@
 
             var actions = document.createElement('div');
             actions.className = 'fa-quote-actions';
-            var button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'fa-btn fa-btn-wa';
-            button.textContent = 'Abrir WhatsApp';
             var url = (data && data.whatsappUrl) || whatsappUrl('Hola Furent, vengo del asistente virtual.');
-            button.addEventListener('click', function () {
+            actions.appendChild(button('Abrir WhatsApp', 'fa-btn-wa', function () {
                 trackAssistantEvent('assistant_whatsapp_click', { origen: 'escalation' });
                 window.open(url, '_blank');
-            });
-            actions.appendChild(button);
+            }, ICONS.whatsapp));
             card.appendChild(actions);
 
             var row = document.createElement('div');
-            row.className = 'fa-row';
+            row.className = 'fa-row fa-enter';
             row.style.width = '100%';
             row.appendChild(card);
             els.messages.appendChild(row);
@@ -1478,7 +1529,7 @@
             if (restored.length === 0) {
                 // Mensaje de bienvenida efímero.
                 var welcome = document.createElement('div');
-                welcome.className = 'fa-row';
+                welcome.className = 'fa-row fa-enter';
                 var bubble = document.createElement('div');
                 bubble.className = 'fa-bubble assistant';
                 bubble.textContent = '¡Hola! Soy el asistente de Furent. Cuéntame qué evento estás '
@@ -1490,7 +1541,7 @@
             }
             restored.forEach(function (message) {
                 if (message.rol === 'USER') {
-                    appendUserBubble(message.texto);
+                    appendUserBubble(message.texto, false);
                 } else {
                     var row = document.createElement('div');
                     row.className = 'fa-row';

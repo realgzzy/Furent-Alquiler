@@ -2,273 +2,360 @@
   Asistente virtual Furent — widget flotante.
   Se incluye desde fragments/layout.html solo si `assistantEnabled` es verdadero.
   Los estilos van embebidos y con prefijo `fa-` para no depender de la compilación de Tailwind.
+  El sistema visual (tokens) vive en `#furent-assistant-panel` / `#furent-assistant-launcher`.
 -->
 <div th:fragment="assistantWidget" xmlns:th="http://www.thymeleaf.org">
 
     <style>
+        /* ─────────────────────────────────────────────────────────────
+           Tokens del widget — "atelier cálido"
+           Toda medida de los componentes sale de aquí. Si un valor no
+           está en este bloque, no debería aparecer más abajo.
+           ───────────────────────────────────────────────────────────── */
         #furent-assistant-launcher,
-        #furent-assistant-panel { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        #furent-assistant-panel {
+            /* Tipografía (escala fija, Inter de marca) */
+            --fa-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            --fa-2xs: 10.5px;
+            --fa-xs: 11.5px;
+            --fa-sm: 12.5px;
+            --fa-md: 13.5px;
+            --fa-lg: 15px;
+            --fa-xl: 17px;
+
+            /* Espacio (base 4) */
+            --fa-s1: 4px;  --fa-s2: 8px;  --fa-s3: 12px;
+            --fa-s4: 16px; --fa-s5: 20px; --fa-s6: 24px;
+
+            /* Color: marfil cálido + un solo acento terracota */
+            --fa-surface: #ffffff;
+            --fa-surface-2: #faf6f1;
+            --fa-surface-3: #f4ede4;
+            --fa-ink: #241c15;
+            --fa-ink-2: #6b5f55;
+            --fa-ink-3: #9a8e82;
+            --fa-line: #efe7de;
+            --fa-line-2: #e6dacb;
+            --fa-accent: #e07a3a;
+            --fa-accent-strong: #c2630f;
+            --fa-accent-soft: #fff3e8;
+            --fa-accent-line: #f6d7bc;
+            --fa-online: #3fb950;
+
+            /* Forma */
+            --fa-r-xs: 8px; --fa-r-sm: 10px; --fa-r: 14px;
+            --fa-r-lg: 18px; --fa-r-xl: 22px; --fa-r-pill: 9999px;
+            --fa-shadow-1: 0 1px 2px rgba(36, 28, 21, .06);
+            --fa-shadow-2: 0 24px 60px -20px rgba(36, 28, 21, .35);
+            --fa-shadow-accent: 0 8px 18px -10px rgba(194, 99, 15, .8);
+
+            /* Movimiento */
+            --fa-dur-fast: 120ms;
+            --fa-dur: 200ms;
+            --fa-dur-slow: 320ms;
+            --fa-ease: cubic-bezier(.2, 0, 0, 1);
+            --fa-ease-out: cubic-bezier(.16, 1, .3, 1);
+
+            font-family: var(--fa-font);
+            -webkit-font-smoothing: antialiased;
+        }
+        #furent-assistant-panel,
+        #furent-assistant-panel *, #furent-assistant-panel *::before, #furent-assistant-panel *::after,
+        #furent-assistant-launcher,
+        #furent-assistant-launcher *, #furent-assistant-launcher *::before, #furent-assistant-launcher *::after {
+            box-sizing: border-box;
+        }
 
         /* ───────── Lanzador ───────── */
         #furent-assistant-launcher {
-            position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 111;
-            width: 58px; height: 58px; border: none; cursor: pointer;
-            border-radius: 9999px; color: #fff;
-            background: linear-gradient(135deg, #E07A3A, #C2630F);
-            box-shadow: 0 12px 30px -6px rgba(224, 122, 58, .55);
+            position: fixed; right: var(--fa-s6); bottom: var(--fa-s6); z-index: 111;
+            width: 60px; height: 60px; border: none; cursor: pointer;
+            border-radius: var(--fa-r-pill); color: #fff;
+            background: linear-gradient(140deg, #e88a4c, #c2630f);
+            box-shadow: 0 14px 32px -8px rgba(194, 99, 15, .55);
             display: flex; align-items: center; justify-content: center;
-            transition: transform .2s ease, box-shadow .2s ease;
+            transition: transform var(--fa-dur) var(--fa-ease-out), box-shadow var(--fa-dur) var(--fa-ease-out);
         }
-        #furent-assistant-launcher:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 16px 36px -6px rgba(224, 122, 58, .65); }
-        #furent-assistant-launcher:focus-visible { outline: 3px solid rgba(224, 122, 58, .45); outline-offset: 3px; }
+        #furent-assistant-launcher:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 20px 42px -10px rgba(194, 99, 15, .62); }
+        #furent-assistant-launcher:active { transform: translateY(-1px) scale(.98); }
+        #furent-assistant-launcher:focus-visible { outline: 3px solid rgba(224, 122, 58, .5); outline-offset: 3px; }
         #furent-assistant-launcher::after {
-            content: ''; position: absolute; inset: 0; border-radius: 9999px;
-            border: 2px solid rgba(224, 122, 58, .5); animation: fa-pulse 2.4s ease-out infinite;
+            content: ''; position: absolute; inset: 0; border-radius: var(--fa-r-pill);
+            border: 2px solid rgba(224, 122, 58, .45); animation: fa-pulse 2.6s var(--fa-ease-out) infinite;
         }
         @keyframes fa-pulse {
-            0% { transform: scale(1); opacity: .7; }
-            100% { transform: scale(1.7); opacity: 0; }
+            0% { transform: scale(1); opacity: .55; }
+            100% { transform: scale(1.75); opacity: 0; }
         }
         #furent-assistant-launcher[hidden] { display: none; }
         .fa-launcher-badge {
-            position: absolute; top: -2px; right: -2px; min-width: 18px; height: 18px; padding: 0 5px;
-            border-radius: 9999px; background: #1c1c1c; color: #fff; font-size: 11px; font-weight: 700;
+            position: absolute; top: -3px; right: -3px; min-width: 19px; height: 19px; padding: 0 5px;
+            border-radius: var(--fa-r-pill); background: #241c15; color: #fff; font-size: var(--fa-2xs); font-weight: 700;
             display: none; align-items: center; justify-content: center; border: 2px solid #fff;
         }
 
         /* ───────── Panel ───────── */
         #furent-assistant-panel {
-            position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 120;
-            width: min(400px, calc(100vw - 2rem));
-            height: min(640px, calc(100vh - 2rem));
-            background: #fff; border-radius: 24px; overflow: hidden;
+            position: fixed; right: var(--fa-s6); bottom: var(--fa-s6); z-index: 120;
+            width: min(408px, calc(100vw - 2rem));
+            height: min(660px, calc(100vh - 2rem));
+            height: min(660px, calc(100dvh - 2rem));
+            background: var(--fa-surface); border-radius: var(--fa-r-xl); overflow: hidden;
             display: flex; flex-direction: column;
-            border: 1px solid #F0F0F0;
-            box-shadow: 0 24px 70px -12px rgba(0, 0, 0, .28);
-            animation: fa-in .22s cubic-bezier(.4, 0, .2, 1);
+            border: 1px solid var(--fa-line);
+            box-shadow: var(--fa-shadow-2);
+            animation: fa-pop var(--fa-dur-slow) var(--fa-ease-out);
         }
         #furent-assistant-panel[hidden] { display: none; }
-        @keyframes fa-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes fa-pop {
+            from { opacity: 0; transform: translateY(16px) scale(.97); }
+            to { opacity: 1; transform: none; }
+        }
 
         .fa-header {
-            display: flex; align-items: center; gap: .75rem; padding: .9rem 1rem;
-            color: #fff; background: linear-gradient(135deg, #E07A3A, #C2630F); flex: 0 0 auto;
+            position: relative; display: flex; align-items: center; gap: var(--fa-s3);
+            padding: var(--fa-s3) var(--fa-s4);
+            color: #fff; background: linear-gradient(140deg, #e88a4c, #c2630f); flex: 0 0 auto;
         }
+        .fa-header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: rgba(255, 255, 255, .18); }
         .fa-avatar {
-            width: 40px; height: 40px; border-radius: 9999px; background: rgba(255,255,255,.22);
+            width: 42px; height: 42px; border-radius: var(--fa-r); background: rgba(255, 255, 255, .2);
+            border: 1px solid rgba(255, 255, 255, .28);
             display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
         }
-        .fa-header h2 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
-        .fa-header p { margin: 0; font-size: 11.5px; opacity: .85; display: flex; align-items: center; gap: .35rem; }
-        .fa-dot { width: 7px; height: 7px; border-radius: 9999px; background: #7CFC9A; display: inline-block; }
+        .fa-head-text { min-width: 0; }
+        .fa-header h2 { margin: 0; font-size: var(--fa-lg); font-weight: 800; letter-spacing: -.01em; }
+        .fa-header p { margin: 2px 0 0; font-size: var(--fa-xs); font-weight: 500; color: rgba(255, 255, 255, .92); display: flex; align-items: center; gap: 6px; }
+        .fa-status .fa-sep { opacity: .55; }
+        .fa-dot { width: 7px; height: 7px; border-radius: var(--fa-r-pill); background: var(--fa-online); box-shadow: 0 0 0 3px rgba(63, 185, 80, .3); display: inline-block; flex: 0 0 auto; }
         .fa-close {
-            margin-left: auto; background: rgba(255,255,255,.18); border: none; cursor: pointer;
-            width: 34px; height: 34px; border-radius: 12px; color: #fff; display: flex; align-items: center; justify-content: center;
-            transition: background .18s ease;
+            margin-left: auto; background: rgba(255, 255, 255, .18); border: none; cursor: pointer;
+            width: 36px; height: 36px; border-radius: var(--fa-r-sm); color: #fff; display: flex; align-items: center; justify-content: center;
+            transition: background var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease);
         }
-        .fa-close:hover { background: rgba(255,255,255,.32); }
+        .fa-close:hover { background: rgba(255, 255, 255, .34); }
+        .fa-close:active { transform: scale(.94); }
+        .fa-close:focus-visible { outline: 2px solid rgba(255, 255, 255, .75); outline-offset: 2px; }
 
         .fa-messages {
-            flex: 1 1 auto; overflow-y: auto; padding: 1rem;
-            background: #FAFAFA; display: flex; flex-direction: column; gap: .75rem; scroll-behavior: smooth;
+            flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: var(--fa-s4);
+            background: var(--fa-surface-2); display: flex; flex-direction: column; gap: var(--fa-s3);
+            scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: var(--fa-line-2) transparent;
         }
-        .fa-messages::-webkit-scrollbar { width: 6px; }
-        .fa-messages::-webkit-scrollbar-thumb { background: #d8d8d8; border-radius: 9999px; }
+        .fa-messages::-webkit-scrollbar { width: 8px; }
+        .fa-messages::-webkit-scrollbar-thumb { background: var(--fa-line-2); border-radius: var(--fa-r-pill); border: 2px solid transparent; background-clip: content-box; }
 
-        .fa-row { display: flex; gap: .5rem; max-width: 100%; }
+        .fa-row { display: flex; gap: var(--fa-s2); max-width: 100%; }
         .fa-row.user { justify-content: flex-end; }
+        .fa-enter { animation: fa-rise var(--fa-dur-slow) var(--fa-ease-out) both; }
+        @keyframes fa-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
         .fa-bubble {
-            max-width: 85%; padding: .65rem .85rem; border-radius: 16px;
-            font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+            max-width: 86%; padding: 10px 13px; border-radius: var(--fa-r-lg);
+            font-size: var(--fa-md); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
         }
-        .fa-bubble.assistant { background: #fff; color: #2b2b2b; border: 1px solid #EFEFEF; border-bottom-left-radius: 6px; }
-        .fa-bubble.user { background: #E07A3A; color: #fff; border-bottom-right-radius: 6px; }
-        .fa-bubble.error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+        .fa-bubble.assistant { background: var(--fa-surface); color: var(--fa-ink); border: 1px solid var(--fa-line); border-bottom-left-radius: var(--fa-r-xs); box-shadow: var(--fa-shadow-1); }
+        .fa-bubble.user { background: linear-gradient(140deg, #e88a4c, #c2630f); color: #fff; border-bottom-right-radius: var(--fa-r-xs); }
+        .fa-bubble.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
 
         /* Markdown mínimo que compone assistant.js con nodos seguros */
         .fa-bubble.assistant > *:first-child { margin-top: 0; }
         .fa-bubble.assistant > *:last-child { margin-bottom: 0; }
-        .fa-md-p { margin: 0 0 .5rem; }
-        .fa-md-h { margin: .2rem 0 .4rem; font-weight: 800; }
-        .fa-bubble ul, .fa-bubble ol { margin: .3rem 0 .5rem; padding-left: 1.15rem; }
-        .fa-bubble li { margin: .12rem 0; }
+        .fa-md-p { margin: 0 0 var(--fa-s2); }
+        .fa-md-h { margin: var(--fa-s1) 0 var(--fa-s2); font-weight: 800; }
+        .fa-bubble ul, .fa-bubble ol { margin: var(--fa-s1) 0 var(--fa-s2); padding-left: var(--fa-s4); }
+        .fa-bubble li { margin: 3px 0; }
         .fa-md-code {
-            background: rgba(0,0,0,.07); border-radius: 5px; padding: .05rem .32rem;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
+            background: rgba(36, 28, 21, .07); border-radius: 5px; padding: 1px 5px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--fa-sm);
         }
-        .fa-md-link { color: #C2630F; text-decoration: underline; word-break: break-word; }
+        .fa-md-link { color: var(--fa-accent-strong); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
 
-        .fa-typing { display: inline-flex; gap: 4px; align-items: center; }
-        .fa-typing span { width: 6px; height: 6px; border-radius: 9999px; background: #C2630F; opacity: .4; animation: fa-blink 1.2s infinite; }
+        .fa-typing { display: inline-flex; gap: 4px; align-items: center; padding: 2px 0; }
+        .fa-typing span { width: 6px; height: 6px; border-radius: var(--fa-r-pill); background: var(--fa-accent); opacity: .4; animation: fa-blink 1.2s infinite; }
         .fa-typing span:nth-child(2) { animation-delay: .18s; }
         .fa-typing span:nth-child(3) { animation-delay: .36s; }
         @keyframes fa-blink { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
 
-        /* ───────── Tarjetas ───────── */
-        .fa-card { background: #fff; border: 1px solid #EFEFEF; border-radius: 16px; overflow: hidden; width: 100%; }
-        .fa-card-media { display: flex; gap: .7rem; padding: .7rem; align-items: center; }
-        .fa-card-media img { width: 58px; height: 58px; border-radius: 12px; object-fit: cover; background: #F5F5F5; flex: 0 0 auto; }
-        .fa-card-name { font-size: 13.5px; font-weight: 700; color: #212121; margin: 0 0 2px; }
-        .fa-card-meta { font-size: 11.5px; color: #9E9E9E; margin: 0; }
-        .fa-card-price { font-size: 13.5px; font-weight: 800; color: #C2630F; white-space: nowrap; }
-        .fa-card-actions { display: flex; gap: .5rem; padding: 0 .7rem .7rem; }
+        /* ───────── Tarjetas de producto ───────── */
+        .fa-card { background: var(--fa-surface); border: 1px solid var(--fa-line); border-radius: var(--fa-r-lg); overflow: hidden; width: 100%; box-shadow: var(--fa-shadow-1); }
+        .fa-card-media { display: flex; gap: var(--fa-s3); padding: var(--fa-s3); align-items: center; }
+        .fa-card-media img { width: 58px; height: 58px; border-radius: var(--fa-r-sm); object-fit: cover; background: var(--fa-surface-3); flex: 0 0 auto; }
+        .fa-card-name { font-size: var(--fa-md); font-weight: 700; color: var(--fa-ink); margin: 0 0 2px; }
+        .fa-card-meta { font-size: var(--fa-xs); color: var(--fa-ink-3); margin: 0; }
+        .fa-card-price { font-size: var(--fa-md); font-weight: 800; color: var(--fa-accent-strong); white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .fa-card-actions { display: flex; gap: var(--fa-s2); padding: 0 var(--fa-s3) var(--fa-s3); }
+
+        /* ───────── Botones ───────── */
         .fa-btn {
-            flex: 1 1 auto; border: none; cursor: pointer; border-radius: 12px; padding: .55rem .7rem;
-            font-size: 12.5px; font-weight: 700; transition: background .18s ease, transform .1s ease;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            flex: 1 1 auto; border: none; cursor: pointer; border-radius: var(--fa-r-sm); padding: 10px 12px;
+            font-size: var(--fa-sm); font-weight: 700; font-family: inherit; line-height: 1.1;
+            transition: background var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease), box-shadow var(--fa-dur) var(--fa-ease);
         }
+        .fa-btn svg { flex: 0 0 auto; }
         .fa-btn:active { transform: scale(.97); }
-        .fa-btn-primary { background: #E07A3A; color: #fff; }
-        .fa-btn-primary:hover { background: #C2630F; }
-        .fa-btn-ghost { background: #F5F5F5; color: #424242; }
-        .fa-btn-ghost:hover { background: #EEEEEE; }
-        .fa-btn-wa { background: #25D366; color: #fff; }
-        .fa-btn-wa:hover { background: #1EBE5A; }
+        .fa-btn:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
+        .fa-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+        .fa-btn-primary { background: var(--fa-accent); color: #fff; box-shadow: var(--fa-shadow-accent); }
+        .fa-btn-primary:hover { background: var(--fa-accent-strong); }
+        .fa-btn-ghost { background: var(--fa-surface-3); color: var(--fa-ink-2); }
+        .fa-btn-ghost:hover { background: #ece2d6; }
+        .fa-btn-wa { background: #25d366; color: #fff; }
+        .fa-btn-wa:hover { background: #1ebe5a; }
 
-        .fa-quote { background: #fff; border: 1px solid #EFEFEF; border-radius: 16px; padding: .85rem; width: 100%; }
-        .fa-quote h4 { margin: 0 0 .5rem; font-size: 13px; font-weight: 800; color: #212121; }
-        .fa-quote-item { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-size: 12.5px; padding: .28rem 0; color: #424242; }
-        .fa-quote-item span:last-child { font-weight: 700; white-space: nowrap; }
-        .fa-quote-total { display: flex; justify-content: space-between; font-size: 14px; font-weight: 800; color: #212121; margin-top: .5rem; padding-top: .5rem; border-top: 1px dashed #E0E0E0; }
-        .fa-quote-note { font-size: 11px; color: #9E9E9E; margin: .5rem 0 0; line-height: 1.45; }
-        .fa-quote-actions { display: flex; gap: .5rem; margin-top: .7rem; }
-        .fa-quote-dates { margin: -.1rem 0 .55rem; font-size: 11.5px; color: #757575; font-weight: 600; }
-        .fa-quote-item-main { display: flex; flex-direction: column; min-width: 0; }
-        .fa-quote-item-name { font-weight: 700; color: #424242; }
-        .fa-quote-item-unit { font-size: 11px; color: #9E9E9E; }
-        .fa-quote-item-sub { font-weight: 800; white-space: nowrap; }
+        /* ───────── Tarjeta de cotización (recibo) ───────── */
+        .fa-quote { background: var(--fa-surface); border: 1px solid var(--fa-line); border-radius: var(--fa-r-lg); padding: var(--fa-s3); width: 100%; box-shadow: var(--fa-shadow-1); }
+        .fa-quote-head { display: flex; align-items: center; gap: var(--fa-s2); margin-bottom: var(--fa-s3); }
+        .fa-quote-ico { width: 28px; height: 28px; border-radius: var(--fa-r-xs); background: var(--fa-accent-soft); color: var(--fa-accent-strong); display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+        .fa-quote h4 { margin: 0; font-size: var(--fa-md); font-weight: 800; color: var(--fa-ink); }
+        .fa-quote-dates { margin: 1px 0 0; font-size: var(--fa-xs); color: var(--fa-ink-3); font-weight: 600; }
+        .fa-quote-item { display: flex; justify-content: space-between; align-items: center; gap: var(--fa-s2); font-size: var(--fa-sm); padding: var(--fa-s2) 0; color: var(--fa-ink-2); }
+        .fa-quote-item + .fa-quote-item { border-top: 1px solid var(--fa-line); }
+        .fa-quote-thumb { width: 34px; height: 34px; border-radius: var(--fa-r-xs); object-fit: cover; background: var(--fa-surface-3); flex: 0 0 auto; }
+        .fa-quote-item-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+        .fa-quote-item-name { font-weight: 700; color: var(--fa-ink); font-size: var(--fa-sm); overflow: hidden; text-overflow: ellipsis; }
+        .fa-quote-item-unit { font-size: var(--fa-2xs); color: var(--fa-ink-3); }
+        .fa-quote-item-sub { font-weight: 800; white-space: nowrap; color: var(--fa-ink); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+        .fa-quote-total { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fa-lg); font-weight: 800; color: var(--fa-ink); margin-top: var(--fa-s3); padding-top: var(--fa-s3); border-top: 1px dashed var(--fa-line-2); }
+        .fa-quote-total span:last-child { font-variant-numeric: tabular-nums; }
+        .fa-quote-note { font-size: var(--fa-2xs); color: var(--fa-ink-3); margin: var(--fa-s2) 0 0; line-height: 1.5; }
+        .fa-quote-actions { display: flex; flex-wrap: wrap; gap: var(--fa-s2); margin-top: var(--fa-s3); }
+        /* Si dos etiquetas largas no caben en una línea, cada botón pasa a ocupar
+           una fila completa y ninguna se parte a mitad de frase. */
+        .fa-quote-actions .fa-btn, .fa-card-actions .fa-btn, .fa-calendar-actions .fa-btn { flex: 1 1 auto; white-space: nowrap; }
         .fa-quote-stock {
-            margin: .55rem 0 0; padding: .45rem .6rem; font-size: 11.5px; color: #B45309;
-            background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 10px;
+            margin: var(--fa-s3) 0 0; padding: var(--fa-s2) var(--fa-s3); font-size: var(--fa-xs); color: #b45309;
+            background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--fa-r-sm);
         }
 
-        /* ───────── Chips ───────── */
-        .fa-chips { display: flex; flex-wrap: wrap; gap: .4rem; padding: .75rem 1rem 0; background: #FAFAFA; }
+        /* ───────── Chips de sugerencia ───────── */
+        .fa-chips { display: flex; flex-wrap: wrap; gap: var(--fa-s2); padding: var(--fa-s3) var(--fa-s4) 0; background: var(--fa-surface-2); }
         .fa-chip {
-            border: 1px solid #FED7AA; background: #FFF7F0; color: #C2630F; cursor: pointer;
-            border-radius: 9999px; padding: .38rem .7rem; font-size: 12px; font-weight: 600;
-            transition: background .18s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+            border: 1px solid var(--fa-accent-line); background: var(--fa-surface); color: var(--fa-accent-strong); cursor: pointer;
+            border-radius: var(--fa-r-pill); padding: 7px 12px; font-size: var(--fa-sm); font-weight: 600; font-family: inherit;
+            transition: background var(--fa-dur) var(--fa-ease), border-color var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease);
         }
-        .fa-chip:hover { background: #FFEDD5; }
+        .fa-chip:hover { background: var(--fa-accent-soft); border-color: var(--fa-accent); }
+        .fa-chip:active { transform: scale(.97); }
+        .fa-chip:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
+        .fa-chip svg { color: var(--fa-accent); flex: 0 0 auto; }
 
-        /* ───────── Composer ───────── */
-        .fa-composer { flex: 0 0 auto; border-top: 1px solid #F0F0F0; background: #fff; padding: .6rem .7rem .7rem; }
-        .fa-input-row { display: flex; gap: .5rem; align-items: flex-end; }
+        /* ───────── Compositor ───────── */
+        .fa-composer { flex: 0 0 auto; border-top: 1px solid var(--fa-line); background: var(--fa-surface); padding: var(--fa-s3) var(--fa-s4) var(--fa-s2); }
+        .fa-input-row { display: flex; gap: var(--fa-s2); align-items: flex-end; }
         .fa-input {
-            flex: 1 1 auto; resize: none; max-height: 120px; min-height: 42px;
-            border: 1px solid #E0E0E0; border-radius: 14px; padding: .6rem .75rem;
-            font-size: 13.5px; font-family: inherit; line-height: 1.4; color: #212121; outline: none;
-            transition: border-color .18s ease, box-shadow .18s ease;
+            flex: 1 1 auto; resize: none; max-height: 120px; min-height: 44px;
+            border: 1px solid var(--fa-line-2); border-radius: var(--fa-r); padding: 11px 13px;
+            font-size: var(--fa-md); font-family: inherit; line-height: 1.4; color: var(--fa-ink);
+            background: var(--fa-surface); outline: none;
+            transition: border-color var(--fa-dur) var(--fa-ease), box-shadow var(--fa-dur) var(--fa-ease);
         }
-        .fa-input:focus { border-color: #E07A3A; box-shadow: 0 0 0 3px rgba(224, 122, 58, .14); }
+        .fa-input::placeholder { color: var(--fa-ink-3); }
+        .fa-input:focus { border-color: var(--fa-accent); box-shadow: 0 0 0 3px rgba(224, 122, 58, .16); }
         .fa-send {
-            flex: 0 0 auto; width: 42px; height: 42px; border: none; cursor: pointer; border-radius: 14px;
-            background: #E07A3A; color: #fff; display: flex; align-items: center; justify-content: center;
-            transition: background .18s ease;
+            flex: 0 0 auto; width: 44px; height: 44px; border: none; cursor: pointer; border-radius: var(--fa-r);
+            background: var(--fa-accent); color: #fff; display: flex; align-items: center; justify-content: center;
+            box-shadow: var(--fa-shadow-accent);
+            transition: background var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease), box-shadow var(--fa-dur) var(--fa-ease);
         }
-        .fa-send:hover { background: #C2630F; }
-        .fa-send:disabled { opacity: .5; cursor: not-allowed; }
-        .fa-disclaimer { font-size: 10.5px; color: #BDBDBD; text-align: center; margin: .5rem 0 0; }
+        .fa-send:hover { background: var(--fa-accent-strong); }
+        .fa-send:active { transform: scale(.94); }
+        .fa-send:focus-visible { outline: 3px solid rgba(224, 122, 58, .4); outline-offset: 2px; }
+        .fa-send:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+        .fa-disclaimer { font-size: var(--fa-2xs); color: var(--fa-ink-3); text-align: center; margin: var(--fa-s2) 0 0; line-height: 1.4; }
 
         /* ───────── Fechas / calendario ───────── */
-        .fa-dates { padding: .55rem .7rem 0; }
+        .fa-dates { padding: var(--fa-s2) var(--fa-s4) 0; }
         .fa-dates-pill {
-            display: inline-flex; align-items: center; gap: .4rem; cursor: pointer;
-            border: 1px dashed #FED7AA; background: #FFF7F0; color: #C2630F;
-            border-radius: 9999px; padding: .34rem .7rem; font-size: 12px; font-weight: 700;
-            transition: background .18s ease, border-color .18s ease;
+            display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+            border: 1px dashed var(--fa-accent-line); background: var(--fa-accent-soft); color: var(--fa-accent-strong);
+            border-radius: var(--fa-r-pill); padding: 6px 12px; font-size: var(--fa-sm); font-weight: 700; font-family: inherit;
+            transition: background var(--fa-dur) var(--fa-ease), border-color var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease);
         }
-        .fa-dates-pill:hover { background: #FFEDD5; }
-        .fa-dates-pill:focus-visible { outline: 2px solid rgba(224, 122, 58, .45); outline-offset: 2px; }
-        .fa-dates-pill[data-active="true"] {
-            border-style: solid; border-color: #E07A3A; background: #E07A3A; color: #fff;
-        }
+        .fa-dates-pill:hover { background: #ffead6; }
+        .fa-dates-pill:active { transform: scale(.98); }
+        .fa-dates-pill:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
+        .fa-dates-pill[data-active="true"] { border-style: solid; border-color: var(--fa-accent); background: var(--fa-accent); color: #fff; }
         .fa-dates-pill svg { flex: 0 0 auto; }
 
         .fa-calendar {
-            margin: .55rem .7rem 0; padding: .6rem .6rem .55rem;
-            border: 1px solid #F0F0F0; border-radius: 16px; background: #fff;
+            margin: var(--fa-s2) var(--fa-s4) 0; padding: var(--fa-s3);
+            border: 1px solid var(--fa-line); border-radius: var(--fa-r-lg); background: var(--fa-surface);
         }
         .fa-calendar[hidden] { display: none; }
+        .fa-calendar:not([hidden]) { animation: fa-rise var(--fa-dur) var(--fa-ease-out); }
         .fa-calendar-host { display: flex; justify-content: center; }
-        .fa-calendar-host .flatpickr-calendar {
-            box-shadow: none; border: none; width: 100%; max-width: 320px; background: transparent;
-        }
+        .fa-calendar-host .flatpickr-calendar { box-shadow: none; border: none; width: 100%; max-width: 320px; background: transparent; }
         .fa-calendar-host .flatpickr-calendar.inline { top: 0; }
-        .fa-calendar-host .flatpickr-months .flatpickr-month { color: #212121; fill: #212121; }
+        .fa-calendar-host .flatpickr-months .flatpickr-month { color: var(--fa-ink); fill: var(--fa-ink); }
         .fa-calendar-host .flatpickr-current-month .flatpickr-monthDropdown-months { font-weight: 700; }
-        .fa-calendar-host .flatpickr-weekday { color: #9E9E9E; font-weight: 700; }
-        .fa-calendar-host .flatpickr-day { border-radius: 10px; color: #333; font-weight: 600; }
-        .fa-calendar-host .flatpickr-day:hover { background: #FFEDD5; border-color: #FFEDD5; }
-        .fa-calendar-host .flatpickr-day.today { border-color: #E07A3A; }
+        .fa-calendar-host .flatpickr-weekday { color: var(--fa-ink-3); font-weight: 700; }
+        .fa-calendar-host .flatpickr-day { border-radius: var(--fa-r-sm); color: var(--fa-ink-2); font-weight: 600; }
+        .fa-calendar-host .flatpickr-day:hover { background: var(--fa-accent-soft); border-color: var(--fa-accent-soft); }
+        .fa-calendar-host .flatpickr-day.today { border-color: var(--fa-accent); }
         .fa-calendar-host .flatpickr-day.selected,
         .fa-calendar-host .flatpickr-day.startRange,
-        .fa-calendar-host .flatpickr-day.endRange {
-            background: #E07A3A; border-color: #E07A3A; color: #fff;
-        }
-        .fa-calendar-host .flatpickr-day.inRange {
-            background: #FFE3C7; border-color: #FFE3C7; color: #8A4712; box-shadow: none;
-        }
+        .fa-calendar-host .flatpickr-day.endRange { background: var(--fa-accent); border-color: var(--fa-accent); color: #fff; }
+        .fa-calendar-host .flatpickr-day.inRange { background: #ffe3c7; border-color: #ffe3c7; color: #8a4712; box-shadow: none; }
         .fa-calendar-host .flatpickr-day.flatpickr-disabled,
-        .fa-calendar-host .flatpickr-day.flatpickr-disabled:hover {
-            color: #CFCFCF; background: transparent; text-decoration: line-through;
-        }
+        .fa-calendar-host .flatpickr-day.flatpickr-disabled:hover { color: #cfcfcf; background: transparent; text-decoration: line-through; }
         .fa-calendar-host .flatpickr-day.is-reserved {
-            color: #C0C0C0; background: repeating-linear-gradient(45deg, #F5F5F5, #F5F5F5 4px, #ECECEC 4px, #ECECEC 8px);
+            color: #c0c0c0; background: repeating-linear-gradient(45deg, #f5f5f5, #f5f5f5 4px, #ececec 4px, #ececec 8px);
             text-decoration: line-through; cursor: not-allowed;
         }
-        .fa-calendar-hint { margin: .45rem .2rem .5rem; font-size: 11px; color: #9E9E9E; text-align: center; }
-        .fa-calendar-hint[data-tone="warn"] { color: #B45309; font-weight: 600; }
-        .fa-calendar-actions { display: flex; gap: .5rem; }
+        .fa-calendar-hint { margin: var(--fa-s2) 0; font-size: var(--fa-xs); color: var(--fa-ink-3); text-align: center; }
+        .fa-calendar-hint[data-tone="warn"] { color: #b45309; font-weight: 600; }
+        .fa-calendar-actions { display: flex; gap: var(--fa-s2); }
 
-        .fa-native-dates { display: flex; flex-direction: column; gap: .5rem; width: 100%; }
-        .fa-native-field { display: flex; flex-direction: column; gap: .2rem; font-size: 11px; color: #757575; font-weight: 600; }
+        .fa-native-dates { display: flex; flex-direction: column; gap: var(--fa-s2); width: 100%; }
+        .fa-native-field { display: flex; flex-direction: column; gap: 2px; font-size: var(--fa-xs); color: var(--fa-ink-2); font-weight: 600; }
         .fa-native-field input {
-            border: 1px solid #E0E0E0; border-radius: 12px; padding: .45rem .55rem;
-            font-size: 13px; font-family: inherit; color: #212121; outline: none;
+            border: 1px solid var(--fa-line-2); border-radius: var(--fa-r-sm); padding: 8px 10px;
+            font-size: var(--fa-md); font-family: inherit; color: var(--fa-ink); background: var(--fa-surface); outline: none;
         }
-        .fa-native-field input:focus { border-color: #E07A3A; box-shadow: 0 0 0 3px rgba(224, 122, 58, .14); }
+        .fa-native-field input:focus { border-color: var(--fa-accent); box-shadow: 0 0 0 3px rgba(224, 122, 58, .16); }
 
         .fa-sr {
             position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
             clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
         }
 
-        /* ───────── Oscuro ───────── */
-        .dark #furent-assistant-panel { background: #1e1e1e; border-color: #2f2f2f; }
-        .dark .fa-messages, .dark .fa-chips { background: #161616; }
-        .dark .fa-bubble.assistant, .dark .fa-card, .dark .fa-quote { background: #232323; border-color: #333; color: #ECECEC; }
-        .dark .fa-card-name, .dark .fa-quote h4, .dark .fa-quote-total { color: #F5F5F5; }
-        .dark .fa-input { background: #232323; border-color: #3a3a3a; color: #ECECEC; }
-        .dark .fa-composer { background: #1e1e1e; border-color: #2f2f2f; }
-        .dark .fa-quote-dates { color: #9E9E9E; }
-        .dark .fa-quote-item-name { color: #DDDDDD; }
-        .dark .fa-quote-stock { color: #FCD9A8; background: #3A2A12; border-color: #6B4A1E; }
-        .dark .fa-md-code { background: rgba(255,255,255,.1); }
-        .dark .fa-md-link { color: #F0A868; }
-
-        .dark .fa-dates-pill { border-color: #6B4A1E; background: #3A2A12; color: #F5C088; }
-        .dark .fa-dates-pill:hover { background: #4A3618; }
-        .dark .fa-calendar { background: #232323; border-color: #333; }
-        .dark .fa-calendar-host .flatpickr-calendar { background: transparent; }
-        .dark .fa-calendar-host .flatpickr-months .flatpickr-month,
-        .dark .fa-calendar-host .flatpickr-current-month .flatpickr-monthDropdown-months { color: #ECECEC; fill: #ECECEC; }
-        .dark .fa-calendar-host .flatpickr-weekday { color: #9E9E9E; }
-        .dark .fa-calendar-host .flatpickr-day { color: #DDDDDD; }
-        .dark .fa-calendar-host .flatpickr-day.prevMonthDay,
-        .dark .fa-calendar-host .flatpickr-day.nextMonthDay { color: #666; }
-        .dark .fa-calendar-host .flatpickr-day:hover { background: #4A3618; border-color: #4A3618; }
-        .dark .fa-calendar-host .flatpickr-day.inRange { background: #4A3618; border-color: #4A3618; color: #F5C088; }
-        .dark .fa-calendar-host .flatpickr-day.flatpickr-disabled { color: #555; }
-        .dark .fa-calendar-host .flatpickr-day.is-reserved {
-            color: #555; background: repeating-linear-gradient(45deg, #2a2a2a, #2a2a2a 4px, #333 4px, #333 8px);
+        /* ───────── Oscuro (cálido) ───────── */
+        .dark #furent-assistant-panel { --fa-surface: #2a231d; --fa-surface-2: #1a1511; --fa-surface-3: #352c24; --fa-ink: #f5efe7; --fa-ink-2: #cbbdaf; --fa-ink-3: #a89b8d; --fa-line: #3a3028; --fa-line-2: #453a30; background: #211b16; border-color: #352c24; }
+        .dark #furent-assistant-panel .fa-composer { background: #211b16; }
+        .dark #furent-assistant-panel .fa-bubble.assistant { box-shadow: none; }
+        .dark #furent-assistant-panel .fa-md-code { background: rgba(255, 255, 255, .1); }
+        .dark #furent-assistant-panel .fa-md-link { color: #f0a868; }
+        .dark #furent-assistant-panel .fa-quote-ico { background: #3a2a1c; color: #f0b483; }
+        .dark #furent-assistant-panel .fa-btn-ghost:hover { background: #3f342a; }
+        .dark #furent-assistant-panel .fa-dates-pill { background: #2a231d; border-color: #54371d; color: #f0b483; }
+        .dark #furent-assistant-panel .fa-dates-pill:hover { background: #3a2a1c; }
+        .dark #furent-assistant-panel .fa-dates-pill[data-active="true"] { background: var(--fa-accent); color: #fff; border-color: var(--fa-accent); }
+        .dark #furent-assistant-panel .fa-chip { background: #2a231d; border-color: #54371d; color: #f0b483; }
+        .dark #furent-assistant-panel .fa-chip:hover { background: #3a2a1c; }
+        .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.prevMonthDay,
+        .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.nextMonthDay { color: #6b5f55; }
+        .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.inRange { background: #4a3618; border-color: #4a3618; color: #f5c088; }
+        .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.flatpickr-disabled { color: #6b5f55; }
+        .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.is-reserved {
+            color: #6b5f55; background: repeating-linear-gradient(45deg, #2a231d, #2a231d 4px, #352c24 4px, #352c24 8px);
         }
-        .dark .fa-calendar-host .flatpickr-day.today { border-color: #E07A3A; }
-        .dark .fa-native-field { color: #9E9E9E; }
-        .dark .fa-native-field input { background: #232323; border-color: #3a3a3a; color: #ECECEC; }
+        .dark #furent-assistant-panel .fa-quote-stock { color: #fcd9a8; background: #3a2a12; border-color: #6b4a1e; }
 
         @media (max-width: 480px) {
-            #furent-assistant-panel { right: .5rem; bottom: .5rem; width: calc(100vw - 1rem); height: calc(100vh - 1rem); border-radius: 20px; }
-            #furent-assistant-launcher { right: 1rem; bottom: 1rem; }
+            /* `width: 100%` (no `100vw`): en un elemento fixed resuelve contra el viewport
+               sin contar la barra de scroll, así el panel no provoca desborde horizontal. */
+            #furent-assistant-panel { left: 0; right: 0; bottom: 0; width: 100%; height: 100vh; height: 100dvh; border-radius: var(--fa-r-xl) var(--fa-r-xl) 0 0; border-bottom: none; }
+            #furent-assistant-launcher { right: var(--fa-s4); bottom: var(--fa-s4); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #furent-assistant-panel, .fa-enter, .fa-calendar:not([hidden]),
+            #furent-assistant-launcher::after, .fa-typing span { animation: none !important; }
+            #furent-assistant-launcher, .fa-btn, .fa-chip, .fa-send, .fa-dates-pill, .fa-close { transition: none !important; }
+            .fa-messages { scroll-behavior: auto; }
         }
     </style>
 
@@ -290,9 +377,9 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z"/>
                 </svg>
             </div>
-            <div>
+            <div class="fa-head-text">
                 <h2 id="furent-assistant-title">Asistente Furent</h2>
-                <p><span class="fa-dot" aria-hidden="true"></span> En línea · responde al instante</p>
+                <p class="fa-status"><span class="fa-dot" aria-hidden="true"></span> En línea <span class="fa-sep">·</span> responde al instante</p>
             </div>
             <button type="button" class="fa-close" id="furent-assistant-close" aria-label="Cerrar asistente">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -304,10 +391,22 @@
         <div class="fa-messages" id="furent-assistant-messages" role="log" aria-live="polite"></div>
 
         <div class="fa-chips" id="furent-assistant-chips">
-            <button type="button" class="fa-chip" data-prompt="Necesito sillas y mesas para una boda">Sillas para una boda</button>
-            <button type="button" class="fa-chip" data-prompt="¿Qué mobiliario tienen para eventos corporativos?">Evento corporativo</button>
-            <button type="button" class="fa-chip" data-prompt="¿Cómo funcionan los envíos y el montaje?">Envíos y montaje</button>
-            <button type="button" class="fa-chip" data-prompt="Quiero cotizar para 100 invitados">Cotizar mi evento</button>
+            <button type="button" class="fa-chip" data-prompt="Necesito sillas y mesas para una boda">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"/></svg>
+                Sillas para una boda
+            </button>
+            <button type="button" class="fa-chip" data-prompt="¿Qué mobiliario tienen para eventos corporativos?">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3.75h6a1.5 1.5 0 0 1 1.5 1.5v1.5H20a1.5 1.5 0 0 1 1.5 1.5v10.5A1.5 1.5 0 0 1 20 20.25H4a1.5 1.5 0 0 1-1.5-1.5V8.25A1.5 1.5 0 0 1 4 6.75h3.5v-1.5A1.5 1.5 0 0 1 9 3.75Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12.75h19M12 11.25v3"/></svg>
+                Evento corporativo
+            </button>
+            <button type="button" class="fa-chip" data-prompt="¿Cómo funcionan los envíos y el montaje?">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M1.5 4.5h13.5v11.25H1.5zM15 8.25h3.75L21 11.25v4.5h-6z"/><circle cx="6" cy="18" r="1.9"/><circle cx="17.25" cy="18" r="1.9"/></svg>
+                Envíos y montaje
+            </button>
+            <button type="button" class="fa-chip" data-prompt="Quiero cotizar para 100 invitados">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/></svg>
+                Cotizar mi evento
+            </button>
         </div>
 
         <div class="fa-composer">
@@ -335,7 +434,7 @@
             <div class="fa-input-row">
                 <label class="fa-sr" for="furent-assistant-input">Escribe tu mensaje</label>
                 <textarea id="furent-assistant-input" class="fa-input" rows="1" maxlength="1000"
-                          placeholder="Escribe tu duda o lo que necesitas…"></textarea>
+                          placeholder="Escribe tu duda o lo que necesitas..."></textarea>
                 <button type="button" class="fa-send" id="furent-assistant-send" aria-label="Enviar mensaje">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/>
