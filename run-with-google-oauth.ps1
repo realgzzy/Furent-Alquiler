@@ -10,6 +10,9 @@ if (-not $env:JAVA_HOME -or -not (Test-Path "$env:JAVA_HOME\bin\javac.exe")) {
     }
 }
 
+# Perfil de desarrollo: activa el asistente virtual y carga application-local.properties
+$env:SPRING_PROFILES_ACTIVE = 'dev,local'
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Furent - Inicio con Google OAuth2" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
