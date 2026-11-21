@@ -1431,6 +1431,9 @@
             openSelect.trigger.setAttribute('aria-expanded', 'false');
             openSelect.trigger.classList.remove('is-open');
             openSelect.control.classList.remove('is-open');
+            if (openSelect.wrap) {
+                openSelect.wrap.classList.remove('is-open');
+            }
             openSelect = null;
         }
 
@@ -1564,7 +1567,8 @@
                 trigger.setAttribute('aria-expanded', 'true');
                 trigger.classList.add('is-open');
                 control.classList.add('is-open');
-                openSelect = { control: control, menu: menu, trigger: trigger };
+                wrap.classList.add('is-open');
+                openSelect = { control: control, menu: menu, trigger: trigger, wrap: wrap };
                 positionSelectMenu(menu, trigger);
                 var current = hidden.value;
                 var found = -1;

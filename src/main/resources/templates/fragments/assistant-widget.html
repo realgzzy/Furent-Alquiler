@@ -470,7 +470,10 @@
         /* ───────── Formulario del evento (panel lateral) ───────── */
         .fa-form { display: flex; flex-direction: column; gap: var(--fa-s4); }
         .fa-form-desc { margin: 0; font-size: var(--fa-xs); color: var(--fa-ink-3); line-height: 1.5; }
-        .fa-field { display: flex; flex-direction: column; gap: 6px; animation: fa-rise var(--fa-dur-slow) var(--fa-ease-out) both; }
+        .fa-field { display: flex; flex-direction: column; gap: 6px; animation: fa-rise var(--fa-dur-slow) var(--fa-ease-out) backwards; }
+        /* Mientras un desplegable está abierto, su campo se eleva por encima de los siguientes
+           para que el menú no quede atrapado bajo el contexto de apilado de la animación. */
+        .fa-field.is-open { position: relative; z-index: 30; }
         .fa-field-head { display: flex; align-items: center; gap: 6px; font-size: var(--fa-xs); font-weight: 800; color: var(--fa-ink-2); letter-spacing: .01em; }
         .fa-field-head > svg { color: var(--fa-accent-strong); flex: 0 0 auto; }
         .fa-field-req { color: var(--fa-accent-strong); }
@@ -615,6 +618,22 @@
         }
 
         /* ───────── Flatpickr con el estilo de la pasarela de cotización ───────── */
+        /* El popup del calendario se monta en <body>, fuera del panel, por lo que no hereda
+           los tokens --fa-*. Los redefinimos aquí (solo el popup, no el calendario inline) para
+           que los días seleccionados/extremos no queden con fondo transparente y texto blanco. */
+        .fa-fp.flatpickr-calendar:not(.inline) {
+            --fa-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            --fa-surface: #ffffff;
+            --fa-ink: #241c15;
+            --fa-ink-2: #6b5f55;
+            --fa-ink-3: #9a8e82;
+            --fa-line: #efe7de;
+            --fa-line-2: #e6dacb;
+            --fa-accent: #e07a3a;
+            --fa-accent-strong: #c2630f;
+            --fa-accent-soft: #fff3e8;
+            --fa-accent-line: #f6d7bc;
+        }
         .fa-fp.flatpickr-calendar {
             background: #fff; border: none !important;
             box-shadow: 0 25px 50px -12px rgba(36, 28, 21, .3) !important;
