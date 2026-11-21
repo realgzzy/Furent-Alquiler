@@ -141,6 +141,14 @@
             || '/api/asistente/conversations';
         var authenticated = panel.getAttribute('data-authenticated') === 'true';
         var DEFAULT_WHATSAPP = '573105782442';
+
+        // Para invitados el asistente pide iniciar sesión o registrarse; "Mis chats" no aplica.
+        if (!authenticated) {
+            var guestChats = document.getElementById('furent-assistant-quick-chats');
+            if (guestChats) {
+                guestChats.hidden = true;
+            }
+        }
         var headerAvatar = panel.querySelector('.fa-avatar img');
         var avatarSrc = headerAvatar ? headerAvatar.getAttribute('src') : '/images/furi.png';
 
@@ -152,6 +160,7 @@
         var lastUserText = '';
         var sideVista = null;
         var chatList = [];
+        var authGateShown = false;
 
         // Estado del calendario de fechas.
         var fp = null;                 // instancia de flatpickr (null si no está disponible)
@@ -432,6 +441,10 @@
             if (!text) {
                 return;
             }
+            if (!authenticated) {
+                showAuthGate();
+                return;
+            }
             els.input.value = '';
             els.input.style.height = 'auto';
             sendUserMessage(text);
@@ -444,6 +457,10 @@
             }
             collapseSuggestions();
             collapseQuick();
+            if (!authenticated) {
+                showAuthGate();
+                return;
+            }
             appendUserBubble(text, true);
             lastUserText = text;
             streamChat(text);
@@ -479,6 +496,11 @@
                 }
                 return readStream(response.body);
             }).catch(function (error) {
+                if (error && error.codigo === 'AUTH_REQUIRED') {
+                    closePendingBubble();
+                    showAuthGate();
+                    return;
+                }
                 failReply(error && error.mensaje
                     ? error.mensaje
                     : 'No pude responder ahora mismo. Puedes intentar de nuevo o escribirnos por WhatsApp.');
@@ -781,6 +803,64 @@
             }, ICONS.sliders);
             retry.style.maxWidth = '85%';
             row.appendChild(retry);
+            els.messages.appendChild(row);
+            scrollDown();
+        }
+
+        /** Destino interno seguro para volver tras iniciar sesión o registrarse. */
+        function authRedirectTarget() {
+            var path = window.location.pathname + window.location.search;
+            return path && path.charAt(0) === '/' ? path : '/';
+        }
+
+        /**
+         * Muestra el candado para visitantes: para hablar con Furi hace falta una cuenta.
+         * Ofrece iniciar sesión o registrarse y conserva la página actual como destino de vuelta.
+         */
+        function showAuthGate() {
+            if (authGateShown) {
+                scrollDown();
+                return;
+            }
+            authGateShown = true;
+
+            var card = document.createElement('div');
+            card.className = 'fa-quote fa-auth-gate';
+
+            var head = document.createElement('div');
+            head.className = 'fa-quote-head';
+            var ico = document.createElement('span');
+            ico.className = 'fa-quote-ico';
+            ico.appendChild(svgIcon(ICONS.lock, 16));
+            var title = document.createElement('h4');
+            title.textContent = 'Necesitas una cuenta para hablar conmigo';
+            head.appendChild(ico);
+            head.appendChild(title);
+            card.appendChild(head);
+
+            var note = document.createElement('p');
+            note.className = 'fa-quote-note';
+            note.textContent = 'Crea tu cuenta gratis o inicia sesión y con gusto te ayudo con tu evento: '
+                + 'recomendaciones, precios y disponibilidad en tiempo real.';
+            card.appendChild(note);
+
+            var actions = document.createElement('div');
+            actions.className = 'fa-quote-actions';
+            var target = authRedirectTarget();
+            actions.appendChild(button('Iniciar sesión', 'fa-btn-primary', function () {
+                trackAssistantEvent('assistant_auth_gate', { accion: 'login' });
+                window.location.href = '/login?redirect=' + encodeURIComponent(target);
+            }, ICONS.user));
+            actions.appendChild(button('Crear cuenta', 'fa-btn-ghost', function () {
+                trackAssistantEvent('assistant_auth_gate', { accion: 'register' });
+                window.location.href = '/registro?redirect=' + encodeURIComponent(target);
+            }, ICONS.userPlus));
+            card.appendChild(actions);
+
+            var row = document.createElement('div');
+            row.className = 'fa-row assistant fa-enter';
+            row.style.width = '100%';
+            row.appendChild(card);
             els.messages.appendChild(row);
             scrollDown();
         }
@@ -1120,6 +1200,9 @@
             bolt: ['M13.5 3 5.5 13.5h5l-1 7.5 8-10.5h-5Z'],
             leaf: ['M4.5 19.5C4.5 10.5 10.5 4.5 19.5 4.5c0 9-6 15-15 15Z', 'M4.5 19.5 13 11'],
             minimal: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M8.25 12h7.5'],
+            lock: ['M6.75 10.5h10.5a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5V12a1.5 1.5 0 0 1 1.5-1.5Z',
+                'M8.25 10.5V8.25a3.75 3.75 0 0 1 7.5 0v2.25'],
+            user: ['M12 12.5a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', 'M4.9 20.5a7.1 7.1 0 0 1 14.2 0'],
             eraser: ['M4 20h16',
                 'M13.5 5.5 8 11l3.5 3.5 5.5-5.5a2.47 2.47 0 0 0-3.5-3.5Z',
                 'm9.5 12.5-3 3a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l3-3']
@@ -3025,19 +3108,31 @@
 
         function parseError(status, body) {
             var mensaje = 'No pude procesar tu solicitud.';
+            var codigo = null;
             try {
                 var parsed = JSON.parse(body);
-                if (parsed && parsed.mensaje) {
-                    mensaje = parsed.mensaje;
+                if (parsed) {
+                    if (parsed.mensaje) {
+                        mensaje = parsed.mensaje;
+                    }
+                    if (parsed.codigo) {
+                        codigo = parsed.codigo;
+                    }
                 }
             } catch (e) {
-                if (status === 429) {
+                if (status === 401) {
+                    mensaje = 'Inicia sesión o crea una cuenta para usar el asistente.';
+                    codigo = 'AUTH_REQUIRED';
+                } else if (status === 429) {
                     mensaje = 'Demasiadas solicitudes. Espera un momento e intenta de nuevo.';
                 } else if (status === 503) {
                     mensaje = 'El asistente no está disponible en este momento.';
                 }
             }
-            return { mensaje: mensaje };
+            if (status === 401 && !codigo) {
+                codigo = 'AUTH_REQUIRED';
+            }
+            return { mensaje: mensaje, codigo: codigo, status: status };
         }
 
         function formatCOP(value) {

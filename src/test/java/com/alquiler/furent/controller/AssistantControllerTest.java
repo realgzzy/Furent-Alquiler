@@ -7,6 +7,7 @@ import com.alquiler.furent.assistant.ToolContext;
 import com.alquiler.furent.config.AssistantProperties;
 import com.alquiler.furent.config.FeatureFlags;
 import com.alquiler.furent.model.AssistantConversation;
+import com.alquiler.furent.model.User;
 import com.alquiler.furent.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -19,6 +20,8 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.scheduling.concurrent.ConcurrentTaskExecutor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -82,6 +85,18 @@ class AssistantControllerTest {
         executorService.shutdownNow();
     }
 
+    /** Principal autenticado con un usuario existente, para las rutas que exigen sesión. */
+    private Authentication authPrincipal() {
+        when(userService.findByEmail("ana@example.com")).thenReturn(Optional.of(user("user-1")));
+        return new UsernamePasswordAuthenticationToken("ana@example.com", "n/a", List.of());
+    }
+
+    private static User user(String id) {
+        User usuario = new User();
+        usuario.setId(id);
+        return usuario;
+    }
+
     @Test
     void sinFlagResponde503() throws Exception {
         featureFlags.setAssistantEnabled(false);
@@ -106,10 +121,20 @@ class AssistantControllerTest {
     @Test
     void mensajeVacioResponde400() throws Exception {
         mockMvc.perform(post("/api/asistente/chat")
+                        .principal(authPrincipal())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\":\"  \"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.codigo").value("INVALID_INPUT"));
+    }
+
+    @Test
+    void chatAnonimoResponde401() throws Exception {
+        mockMvc.perform(post("/api/asistente/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"hola\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.codigo").value("AUTH_REQUIRED"));
     }
 
     @Test
@@ -130,6 +155,7 @@ class AssistantControllerTest {
         }).when(orchestrator).handle(any(), any(ToolContext.class), any(AssistantStream.class));
 
         MvcResult result = mockMvc.perform(post("/api/asistente/chat")
+                        .principal(authPrincipal())
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.TEXT_EVENT_STREAM)
                         .content("{\"message\":\"hola\"}"))
@@ -155,7 +181,7 @@ class AssistantControllerTest {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute(AssistantController.SESSION_ATTR, "session-1");
 
-        mockMvc.perform(get("/api/asistente/conversations/conv-1").session(session))
+        mockMvc.perform(get("/api/asistente/conversations/conv-1").session(session).principal(authPrincipal()))
                 .andExpect(status().isNotFound());
     }
 
@@ -171,7 +197,7 @@ class AssistantControllerTest {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute(AssistantController.SESSION_ATTR, "session-1");
 
-        mockMvc.perform(get("/api/asistente/conversations/conv-1").session(session))
+        mockMvc.perform(get("/api/asistente/conversations/conv-1").session(session).principal(authPrincipal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.conversationId").value("conv-1"))
                 .andExpect(jsonPath("$.messages").isArray());
@@ -188,7 +214,7 @@ class AssistantControllerTest {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute(AssistantController.SESSION_ATTR, "session-1");
 
-        mockMvc.perform(post("/api/asistente/conversations/conv-1/close").session(session))
+        mockMvc.perform(post("/api/asistente/conversations/conv-1/close").session(session).principal(authPrincipal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.conversationId").value("conv-1"));
     }
@@ -205,7 +231,7 @@ class AssistantControllerTest {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute(AssistantController.SESSION_ATTR, "session-1");
 
-        mockMvc.perform(get("/api/asistente/conversations").session(session))
+        mockMvc.perform(get("/api/asistente/conversations").session(session).principal(authPrincipal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.conversations[0].conversationId").value("conv-1"))
                 .andExpect(jsonPath("$.conversations[0].titulo").value("Cumpleaños de Ana"))
@@ -231,7 +257,7 @@ class AssistantControllerTest {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute(AssistantController.SESSION_ATTR, "session-1");
 
-        mockMvc.perform(delete("/api/asistente/conversations/conv-1").session(session))
+        mockMvc.perform(delete("/api/asistente/conversations/conv-1").session(session).principal(authPrincipal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.eliminada").value(true));
 
@@ -249,7 +275,14 @@ class AssistantControllerTest {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute(AssistantController.SESSION_ATTR, "session-1");
 
-        mockMvc.perform(delete("/api/asistente/conversations/conv-1").session(session))
+        mockMvc.perform(delete("/api/asistente/conversations/conv-1").session(session).principal(authPrincipal()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void listarConversacionesAnonimoResponde401() throws Exception {
+        mockMvc.perform(get("/api/asistente/conversations"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.codigo").value("AUTH_REQUIRED"));
     }
 }

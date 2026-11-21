@@ -24,6 +24,7 @@
 
                     <!-- Form -->
                     <form id="registerForm" th:action="@{/registro}" method="post" class="space-y-4" novalidate>
+                        <input type="hidden" name="redirect" th:if="${param.redirect != null}" th:value="${param.redirect[0]}">
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-medium text-surface-600 uppercase tracking-wider mb-2">Nombre</label>
@@ -105,7 +106,7 @@
                     <!-- Login link -->
                     <p class="text-center text-sm text-surface-500 mt-6">
                         ¿Ya tienes cuenta?
-                        <a th:href="@{/login}" class="text-furent-500 hover:text-furent-600 font-medium transition-colors">Iniciar sesión</a>
+                        <a th:href="${param.redirect != null} ? @{/login(redirect=${param.redirect[0]})} : @{/login}" class="text-furent-500 hover:text-furent-600 font-medium transition-colors">Iniciar sesión</a>
                     </p>
                 </div>
             </div>

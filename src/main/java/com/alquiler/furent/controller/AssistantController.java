@@ -94,12 +94,18 @@ public class AssistantController {
                     "El asistente no está disponible en este momento.");
         }
 
+        String userId = resolveUserId(authentication);
+        if (userId == null) {
+            return error(HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED",
+                    "Inicia sesión o crea una cuenta para hablar con Furi.");
+        }
+
         String invalid = validate(request);
         if (invalid != null) {
             return error(HttpStatus.BAD_REQUEST, "INVALID_INPUT", invalid);
         }
 
-        ToolContext context = resolveContext(authentication, httpRequest, request.getBag());
+        ToolContext context = resolveContext(userId, httpRequest, request.getBag());
         String tenantId = TenantContext.getCurrentTenant();
 
         SseEmitter emitter = new SseEmitter(properties.getEmitterTimeoutMillis());
@@ -135,7 +141,12 @@ public class AssistantController {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "UNAVAILABLE",
                     "El asistente no está disponible en este momento.");
         }
-        ToolContext context = resolveContext(authentication, httpRequest, null);
+        String userId = resolveUserId(authentication);
+        if (userId == null) {
+            return error(HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED",
+                    "Inicia sesión o crea una cuenta para hablar con Furi.");
+        }
+        ToolContext context = resolveContext(userId, httpRequest, null);
         Optional<AssistantConversation> found = conversations.find(id);
         if (found.isEmpty() || !conversations.owns(found.get(), context)) {
             return error(HttpStatus.NOT_FOUND, "NOT_FOUND", "No encontré esa conversación.");
@@ -154,7 +165,12 @@ public class AssistantController {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "UNAVAILABLE",
                     "El asistente no está disponible en este momento.");
         }
-        ToolContext context = resolveContext(authentication, httpRequest, null);
+        String userId = resolveUserId(authentication);
+        if (userId == null) {
+            return error(HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED",
+                    "Inicia sesión o crea una cuenta para hablar con Furi.");
+        }
+        ToolContext context = resolveContext(userId, httpRequest, null);
         List<Map<String, Object>> items = new java.util.ArrayList<>();
         for (AssistantConversation conversation : conversations.list(context, limit)) {
             items.add(conversationSummary(conversation));
@@ -175,7 +191,12 @@ public class AssistantController {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "UNAVAILABLE",
                     "El asistente no está disponible en este momento.");
         }
-        ToolContext context = resolveContext(authentication, httpRequest, null);
+        String userId = resolveUserId(authentication);
+        if (userId == null) {
+            return error(HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED",
+                    "Inicia sesión o crea una cuenta para hablar con Furi.");
+        }
+        ToolContext context = resolveContext(userId, httpRequest, null);
         Optional<AssistantConversation> found = conversations.find(id);
         if (found.isEmpty() || !conversations.owns(found.get(), context)) {
             return error(HttpStatus.NOT_FOUND, "NOT_FOUND", "No encontré esa conversación.");
@@ -198,7 +219,12 @@ public class AssistantController {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "UNAVAILABLE",
                     "El asistente no está disponible en este momento.");
         }
-        ToolContext context = resolveContext(authentication, httpRequest, null);
+        String userId = resolveUserId(authentication);
+        if (userId == null) {
+            return error(HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED",
+                    "Inicia sesión o crea una cuenta para hablar con Furi.");
+        }
+        ToolContext context = resolveContext(userId, httpRequest, null);
         Optional<AssistantConversation> found = conversations.find(id);
         if (found.isEmpty() || !conversations.owns(found.get(), context)) {
             return error(HttpStatus.NOT_FOUND, "NOT_FOUND", "No encontré esa conversación.");
@@ -226,9 +252,8 @@ public class AssistantController {
         return null;
     }
 
-    private ToolContext resolveContext(Authentication authentication, HttpServletRequest request,
+    private ToolContext resolveContext(String userId, HttpServletRequest request,
                                        List<AssistantChatRequest.BagLine> bag) {
-        String userId = resolveUserId(authentication);
         HttpSession session = request.getSession(true);
         Object existing = session.getAttribute(SESSION_ATTR);
         String sessionId;

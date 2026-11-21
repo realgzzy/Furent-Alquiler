@@ -434,15 +434,30 @@ public class PageController {
     public String registerUser(@RequestParam String email, @RequestParam String password,
             @RequestParam String nombre, @RequestParam String apellido,
             @RequestParam(required = false) String telefono,
+            @RequestParam(required = false) String redirect,
             RedirectAttributes redirectAttributes) {
+        String returnQuery = safeReturnQuery(redirect);
         try {
             userService.register(email, password, nombre, apellido, telefono != null ? telefono : "");
             redirectAttributes.addFlashAttribute("success", "¡Cuenta creada exitosamente! Inicia sesión.");
-            return "redirect:/login";
+            return "redirect:/login" + returnQuery;
         } catch (RuntimeException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
-            return "redirect:/registro";
+            return "redirect:/registro" + returnQuery;
         }
+    }
+
+    /**
+     * Construye {@code ?redirect=...} para volver a la página de origen tras iniciar sesión,
+     * solo si el destino es una ruta interna segura. Devuelve cadena vacía en caso contrario.
+     */
+    private static String safeReturnQuery(String redirect) {
+        if (redirect == null || redirect.isBlank()) {
+            return "";
+        }
+        String value = redirect.trim();
+        boolean safe = value.startsWith("/") && !value.startsWith("//") && !value.contains("\\");
+        return safe ? "?redirect=" + java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8) : "";
     }
 
     @GetMapping("/configuracion")

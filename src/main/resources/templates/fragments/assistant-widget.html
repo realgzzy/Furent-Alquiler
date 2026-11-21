@@ -354,6 +354,8 @@
             margin: var(--fa-s3) 0 0; padding: var(--fa-s2) var(--fa-s3); font-size: var(--fa-xs); color: #b45309;
             background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--fa-r-sm);
         }
+        /* Tarjeta que invita a iniciar sesión o registrarse (visitantes). */
+        .fa-auth-gate { border-color: var(--fa-accent-line); background: linear-gradient(180deg, var(--fa-accent-soft), var(--fa-surface) 62%); }
 
         /* ───────── Sugerencias (desplegable bajo el input) ───────── */
         /* Envuelven en varias filas: el texto completo siempre queda visible, sin recortes. */
@@ -777,6 +779,7 @@
             color: #6b5f55; background: repeating-linear-gradient(45deg, #2a231d, #2a231d 4px, #352c24 4px, #352c24 8px);
         }
         .dark #furent-assistant-panel .fa-quote-stock { color: #fcd9a8; background: #3a2a12; border-color: #6b4a1e; }
+        .dark #furent-assistant-panel .fa-auth-gate { border-color: #54371d; background: linear-gradient(180deg, #33261a, #2a231d 62%); }
 
         @media (max-width: 640px) {
             /* `width: 100%` (no `100vw`): en un elemento fixed resuelve contra el viewport
