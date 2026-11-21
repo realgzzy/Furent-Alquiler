@@ -90,9 +90,6 @@
         var reservedRanges = [];       // rangos ocupados vigentes para el contexto actual
         var nativeDates = false;       // true si se degradó a <input type="date">
 
-        initDatePicker();
-        boot();
-
         els.launcher.addEventListener('click', openPanel);
         els.close.addEventListener('click', closePanel);
         els.send.addEventListener('click', function () { submitFromInput(); });
@@ -2230,12 +2227,6 @@
             }
         }
 
-        function showBadge() {
-            if (els.badge) {
-                els.badge.style.display = 'inline-flex';
-            }
-        }
-
         function scrollDown() {
             els.messages.scrollTop = els.messages.scrollHeight;
         }
@@ -2494,9 +2485,9 @@
             return null;
         }
 
-        // Mostrar el badge si el panel arranca cerrado.
-        if (!isOpen) {
-            showBadge();
-        }
+        // Arranque: se difiere hasta aquí porque renderWelcome usa ICONS y boot usa varios
+        // objetos (VIEWS, SIDE_TITLES) que se definen más abajo en este mismo ámbito.
+        initDatePicker();
+        boot();
     }
 })();
