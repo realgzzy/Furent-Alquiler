@@ -5,149 +5,435 @@
 </head>
 <body>
     <main>
-        <div class="px-10 py-8 max-w-[90rem] mx-auto font-['Outfit']">
+        <div class="px-6 sm:px-10 py-8 max-w-[90rem] mx-auto font-['Outfit']">
 
-            <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
-                <div>
-                    <h1 class="text-3xl font-black tracking-tight text-surface-900 leading-none">Asistente IA</h1>
-                    <p class="text-sm font-medium text-surface-500 mt-2">Conversaciones, cotizaciones y escalados del asistente virtual.</p>
-                    <p class="text-xs font-bold text-surface-400 mt-1"
-                       th:text="${'Total conversaciones: ' + totalConversaciones + ' | Mostrando página ' + (currentPage + 1) + ' de ' + (totalPages == 0 ? 1 : totalPages)}">
-                        Total conversaciones: 0
-                    </p>
-                </div>
-                <a th:href="@{/admin/asistente/export.csv(estado=${filtroEstado}, cotizo=${filtroCotizo}, desde=${filtroDesde}, hasta=${filtroHasta}, q=${filtroQ})}"
-                   class="inline-flex items-center gap-2 px-6 py-3 bg-surface-900 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-surface-800 transition-colors shadow-sm">
-                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-                    Exportar CSV
-                </a>
-            </div>
+            <style>
+                /* ============================================================
+                   Asistente · listado (estilos de la página, no globales)
+                   ============================================================ */
 
-            <!-- Métricas -->
-            <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4 mb-8">
-                <div class="bg-white rounded-[1.75rem] shadow-glass border border-surface-100 p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-surface-400">Total</p>
-                    <p class="text-2xl font-black text-surface-900 mt-2" th:text="${statsTotal}">0</p>
-                </div>
-                <div class="bg-white rounded-[1.75rem] shadow-glass border border-surface-100 p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-surface-400">Activas</p>
-                    <p class="text-2xl font-black text-green-600 mt-2" th:text="${statsActivas}">0</p>
-                </div>
-                <div class="bg-white rounded-[1.75rem] shadow-glass border border-surface-100 p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-surface-400">Escaladas</p>
-                    <p class="text-2xl font-black text-amber-600 mt-2" th:text="${statsEscaladas}">0</p>
-                </div>
-                <div class="bg-white rounded-[1.75rem] shadow-glass border border-surface-100 p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-surface-400">Cerradas</p>
-                    <p class="text-2xl font-black text-surface-500 mt-2" th:text="${statsCerradas}">0</p>
-                </div>
-                <div class="bg-white rounded-[1.75rem] shadow-glass border border-surface-100 p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-surface-400">Cotizadas</p>
-                    <p class="text-2xl font-black text-furent-600 mt-2" th:text="${statsCotizadas}">0</p>
-                </div>
-                <div class="bg-white rounded-[1.75rem] shadow-glass border border-surface-100 p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-surface-400">Hoy</p>
-                    <p class="text-2xl font-black text-surface-900 mt-2" th:text="${statsHoy}">0</p>
-                </div>
-                <div class="bg-white rounded-[1.75rem] shadow-glass border border-surface-100 p-5 col-span-2 md:col-span-2 xl:col-span-1">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-surface-400">Cotizado</p>
-                    <p class="text-xl font-black text-furent-600 mt-2"
-                       th:text="${'$ ' + #numbers.formatInteger(statsTotalCotizado, 0, 'POINT')}">$ 0</p>
-                </div>
-            </div>
+                /* Etiquetas micro (legibles en claro y oscuro) */
+                .asx-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #71717a; }
+                html.dark .asx-label { color: #a1a1aa; }
 
-            <!-- Filtros -->
+                /* Entrada escalonada (respeta prefers-reduced-motion) */
+                .asx-rise { animation: asxRise .55s cubic-bezier(.16, 1, .3, 1) both; }
+                .asx-d1 { animation-delay: .06s; }
+                .asx-d2 { animation-delay: .12s; }
+                .asx-d3 { animation-delay: .18s; }
+                .asx-d4 { animation-delay: .24s; }
+                @keyframes asxRise {
+                    from { opacity: 0; transform: translateY(12px); }
+                    to { opacity: 1; transform: none; }
+                }
+
+                /* Punto de aviso (escaladas) */
+                .asx-live { animation: asxLive 2.4s ease-in-out infinite; }
+                @keyframes asxLive {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: .4; transform: scale(.8); }
+                }
+
+                /* Celda de métrica */
+                .asx-statcell { transition: background-color .16s ease; }
+                .asx-statcell:hover { background-color: #fafafa; }
+                html.dark .asx-statcell:hover { background-color: #1c1c20; }
+
+                /* Tarjeta de dinero (tinta sólida, sin degradados) */
+                .asx-money { background: #18181b; border: 1px solid #27272a; }
+                html.dark .asx-money { background: #141417; border-color: #27272a; }
+
+                /* Botón primario neutro (tinta) */
+                .asx-btn-ink { background: #18181b; color: #fff; }
+                .asx-btn-ink:hover { background: #27272a; }
+                html.dark .asx-btn-ink { background: #2a2a30; }
+                html.dark .asx-btn-ink:hover { background: #3f3f46; }
+
+                /* Aviso de escaladas */
+                html.dark .asx-escaladas { color: #fbbf24; }
+
+                /* Píldoras de estado */
+                .asx-pill {
+                    display: inline-flex; align-items: center; gap: .4rem;
+                    padding: .3rem .6rem; border-radius: .55rem;
+                    font-size: .62rem; font-weight: 800; letter-spacing: .1em;
+                    text-transform: uppercase; border: 1px solid transparent; white-space: nowrap;
+                }
+                .asx-pill .asx-dot { width: .38rem; height: .38rem; border-radius: 9999px; background: currentColor; }
+                .asx-pill-green { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+                .asx-pill-amber { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+                .asx-pill-slate { background: #f4f4f5; color: #52525b; border-color: #e4e4e7; }
+                html.dark .asx-pill-green { background: rgba(16, 185, 129, .12); color: #34d399; border-color: rgba(16, 185, 129, .26); }
+                html.dark .asx-pill-amber { background: rgba(245, 158, 11, .12); color: #fbbf24; border-color: rgba(245, 158, 11, .26); }
+                html.dark .asx-pill-slate { background: rgba(113, 113, 122, .14); color: #a1a1aa; border-color: rgba(113, 113, 122, .3); }
+
+                /* Campos de filtro */
+                .asx-field {
+                    width: 100%; border-radius: .75rem; border: 1px solid #e4e4e7;
+                    background: #fafafa; padding: .6rem .75rem; font-size: .8125rem;
+                    font-weight: 600; color: #27272a;
+                    transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+                }
+                .asx-field::placeholder { color: #a1a1aa; font-weight: 500; }
+                .asx-field:focus {
+                    outline: none; border-color: #FDBA74; background: #fff;
+                    box-shadow: 0 0 0 4px rgba(224, 122, 58, .1);
+                }
+                html.dark .asx-field { background: #111113; border-color: #27272a; color: #e4e4e7; }
+                html.dark .asx-field:focus { background: #111113; border-color: rgba(224, 122, 58, .5); box-shadow: 0 0 0 4px rgba(224, 122, 58, .12); }
+
+                /* Filas de la tabla */
+                .asx-row { transition: background-color .16s ease; }
+                .asx-row:hover { background-color: #fafafa; }
+                html.dark .asx-row:hover { background-color: #1c1c20; }
+                .asx-row > td:first-child { position: relative; }
+                .asx-row > td:first-child::before {
+                    content: ''; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px;
+                    border-radius: 0 3px 3px 0; background: #E07A3A;
+                    transform: scaleY(0); transform-origin: center; transition: transform .18s ease;
+                }
+                .asx-row:hover > td:first-child::before { transform: scaleY(1); }
+
+                /* Botones de acción en la fila */
+                .asx-iconbtn {
+                    display: inline-flex; align-items: center; justify-content: center;
+                    width: 2.4rem; height: 2.4rem; border-radius: .7rem;
+                    border: 1px solid #e4e4e7; background: #fff; color: #71717a;
+                    transition: all .16s ease;
+                }
+                .asx-iconbtn:hover { border-color: #FDBA74; color: #C2630F; background: #FFF7F0; }
+                .asx-iconbtn:active { transform: scale(.94); }
+                .asx-iconbtn-danger:hover { border-color: #fecaca; color: #dc2626; background: #fef2f2; }
+                html.dark .asx-iconbtn { background: #18181b; border-color: #27272a; color: #a1a1aa; }
+                html.dark .asx-iconbtn:hover { background: rgba(224, 122, 58, .12); border-color: rgba(224, 122, 58, .4); color: #FDBA74; }
+                html.dark .asx-iconbtn-danger:hover { background: rgba(239, 68, 68, .12); border-color: rgba(239, 68, 68, .35); color: #f87171; }
+
+                /* Paginación */
+                .asx-pager {
+                    display: inline-flex; align-items: center; gap: .35rem;
+                    padding: .5rem .9rem; border-radius: .7rem; border: 1px solid #e4e4e7;
+                    background: #fff; color: #3f3f46; font-size: .72rem; font-weight: 800;
+                    letter-spacing: .04em; transition: all .16s ease;
+                }
+                .asx-pager:hover { border-color: #FDBA74; color: #C2630F; background: #FFF7F0; }
+                .asx-pager:active { transform: scale(.97); }
+                .asx-pager-off {
+                    display: inline-flex; align-items: center; gap: .35rem;
+                    padding: .5rem .9rem; border-radius: .7rem; border: 1px solid #f4f4f5;
+                    color: #d4d4d8; font-size: .72rem; font-weight: 800;
+                    letter-spacing: .04em; cursor: not-allowed;
+                }
+                html.dark .asx-pager { background: #18181b; border-color: #27272a; color: #d4d4d8; }
+                html.dark .asx-pager:hover { background: rgba(224, 122, 58, .12); border-color: rgba(224, 122, 58, .4); color: #FDBA74; }
+                html.dark .asx-pager-off { background: transparent; border-color: #1e1e22; color: #3f3f46; }
+
+                @media (prefers-reduced-motion: reduce) {
+                    .asx-rise, .asx-live { animation: none !important; opacity: 1 !important; transform: none !important; }
+                    .asx-row > td:first-child::before { transition: none !important; }
+                    .asx-iconbtn:active, .asx-pager:active { transform: none !important; }
+                }
+            </style>
+
+            <!-- ============================ Cabecera ============================ -->
+            <header class="asx-rise flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between mb-6">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2.5 mb-3">
+                        <span class="inline-flex size-9 items-center justify-center rounded-xl bg-surface-900 text-furent-400 border border-surface-800 shrink-0">
+                            <svg class="size-[1.15rem]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z"/>
+                            </svg>
+                        </span>
+                        <span class="text-[11px] font-black uppercase tracking-[0.18em] text-surface-400">Panel · Asistente IA</span>
+                    </div>
+                    <h1 class="text-[2rem] leading-none font-black tracking-tight text-surface-900">Conversaciones</h1>
+                    <p class="text-sm font-medium text-surface-500 mt-2.5">Chats de los clientes con Furi: estado, actividad y cotizaciones en un vistazo.</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <a th:if="${statsEscaladas > 0}" th:href="@{/admin/asistente(estado='ESCALADA')}"
+                       class="asx-escaladas group inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-black uppercase tracking-widest hover:bg-amber-100 transition-colors">
+                        <span class="asx-live block size-2 rounded-full bg-amber-500"></span>
+                        <span th:text="${statsEscaladas + (statsEscaladas == 1 ? ' escalada' : ' escaladas')}">Escaladas</span>
+                    </a>
+
+                    <a th:href="@{/admin/asistente(estado=${filtroEstado}, cotizo=${filtroCotizo}, desde=${filtroDesde}, hasta=${filtroHasta}, q=${filtroQ}, size=${pageSize})}"
+                       title="Actualizar" aria-label="Actualizar listado"
+                       class="group inline-flex items-center justify-center size-11 rounded-xl bg-white border border-surface-200 text-surface-500 hover:text-surface-900 hover:border-surface-300 transition-colors shadow-sm">
+                        <svg class="size-[1.15rem] transition-transform duration-500 group-hover:rotate-180" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
+                        </svg>
+                    </a>
+
+                    <a th:href="@{/admin/asistente/export.csv(estado=${filtroEstado}, cotizo=${filtroCotizo}, desde=${filtroDesde}, hasta=${filtroHasta}, q=${filtroQ})}"
+                       class="inline-flex items-center gap-2.5 px-5 py-3 bg-furent-500 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-furent-600 active:scale-[.98] transition-all shadow-sm">
+                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+                        </svg>
+                        Exportar CSV
+                    </a>
+                </div>
+            </header>
+
+            <!-- ============================ Resumen ============================ -->
+            <section class="asx-rise asx-d1 grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
+
+                <!-- Rail de métricas -->
+                <div class="xl:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-px rounded-3xl overflow-hidden border border-surface-100 bg-surface-100 shadow-glass">
+                    <div class="asx-statcell bg-white p-5 flex flex-col gap-4">
+                        <span class="inline-flex size-9 items-center justify-center rounded-xl bg-surface-100 text-surface-500">
+                            <svg class="size-[1.1rem]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <p class="asx-label">Total</p>
+                            <p class="text-[1.75rem] font-black leading-none text-surface-900 tabular-nums mt-2" th:text="${statsTotal}">0</p>
+                        </div>
+                    </div>
+
+                    <div class="asx-statcell bg-white p-5 flex flex-col gap-4">
+                        <span class="inline-flex size-9 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                            <svg class="size-[1.1rem]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h3.75l2.25 6 4.5-12 2.25 6h3.75"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <p class="asx-label">Activas</p>
+                            <p class="text-[1.75rem] font-black leading-none text-green-600 tabular-nums mt-2" th:text="${statsActivas}">0</p>
+                        </div>
+                    </div>
+
+                    <div class="asx-statcell bg-white p-5 flex flex-col gap-4">
+                        <span class="inline-flex size-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                            <svg class="size-[1.1rem]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <p class="asx-label">Escaladas</p>
+                            <p class="text-[1.75rem] font-black leading-none text-amber-600 tabular-nums mt-2" th:text="${statsEscaladas}">0</p>
+                        </div>
+                    </div>
+
+                    <div class="asx-statcell bg-white p-5 flex flex-col gap-4">
+                        <span class="inline-flex size-9 items-center justify-center rounded-xl bg-surface-100 text-surface-500">
+                            <svg class="size-[1.1rem]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <p class="asx-label">Cerradas</p>
+                            <p class="text-[1.75rem] font-black leading-none text-surface-500 tabular-nums mt-2" th:text="${statsCerradas}">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta de cotizaciones -->
+                <div class="asx-money rounded-3xl p-6 flex flex-col justify-between shadow-glass">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.16em] text-white/45">Total cotizado</p>
+                            <p class="text-4xl font-black leading-none text-furent-400 tabular-nums mt-3"
+                               th:text="${statsTotalCotizado != null ? '$ ' + #numbers.formatInteger(statsTotalCotizado, 0, 'POINT') : '$ 0'}">$ 0</p>
+                        </div>
+                        <span class="inline-flex size-10 items-center justify-center rounded-xl bg-white/5 text-furent-400 border border-white/10 shrink-0">
+                            <svg class="size-[1.15rem]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z"/>
+                            </svg>
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-4 pt-5 mt-6 border-t border-white/10">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-white/40">Cotizadas</p>
+                            <p class="text-lg font-black text-white tabular-nums mt-1" th:text="${statsCotizadas}">0</p>
+                        </div>
+                        <span class="w-px h-9 bg-white/10"></span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-white/40">Hoy</p>
+                            <p class="text-lg font-black text-white tabular-nums mt-1" th:text="${statsHoy}">0</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================ Filtros ============================ -->
             <form method="get" th:action="@{/admin/asistente}"
-                  class="bg-white rounded-[2rem] shadow-glass border border-surface-100 p-6 mb-6 flex flex-wrap gap-4 items-end">
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-400" for="fEstado">Estado</label>
-                    <select id="fEstado" name="estado"
-                            class="px-4 py-3 bg-surface-50/60 border border-surface-200 rounded-xl text-sm font-bold text-surface-800 focus:outline-none focus:ring-4 focus:ring-furent-500/5 focus:border-furent-200">
-                        <option value="ALL" th:selected="${filtroEstado == 'ALL'}">Todos</option>
-                        <option value="ACTIVA" th:selected="${filtroEstado == 'ACTIVA'}">Activa</option>
-                        <option value="ESCALADA" th:selected="${filtroEstado == 'ESCALADA'}">Escalada</option>
-                        <option value="CERRADA" th:selected="${filtroEstado == 'CERRADA'}">Cerrada</option>
-                    </select>
+                  class="asx-rise asx-d2 bg-white rounded-3xl shadow-glass border border-surface-100 p-5 sm:p-6 mb-6">
+                <input type="hidden" name="size" th:value="${pageSize}">
+
+                <div class="flex items-center gap-2 mb-5">
+                    <svg class="size-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z"/>
+                    </svg>
+                    <span class="asx-label">Filtros</span>
                 </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-400" for="fCotizo">Cotización</label>
-                    <select id="fCotizo" name="cotizo"
-                            class="px-4 py-3 bg-surface-50/60 border border-surface-200 rounded-xl text-sm font-bold text-surface-800 focus:outline-none focus:ring-4 focus:ring-furent-500/5 focus:border-furent-200">
-                        <option value="ALL" th:selected="${filtroCotizo == 'ALL'}">Todas</option>
-                        <option value="true" th:selected="${filtroCotizo == 'true'}">Solo cotizadas</option>
-                        <option value="false" th:selected="${filtroCotizo == 'false'}">Sin cotizar</option>
-                    </select>
+
+                <div class="grid grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+                    <label class="col-span-1 lg:col-span-2 flex flex-col gap-1.5 min-w-0">
+                        <span class="asx-label">Estado</span>
+                        <div class="relative">
+                            <svg class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/>
+                            </svg>
+                            <select name="estado" class="asx-field appearance-none pl-9 pr-8 cursor-pointer">
+                                <option value="ALL" th:selected="${filtroEstado == 'ALL'}">Todos</option>
+                                <option value="ACTIVA" th:selected="${filtroEstado == 'ACTIVA'}">Activa</option>
+                                <option value="ESCALADA" th:selected="${filtroEstado == 'ESCALADA'}">Escalada</option>
+                                <option value="CERRADA" th:selected="${filtroEstado == 'CERRADA'}">Cerrada</option>
+                            </select>
+                            <svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 size-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                        </div>
+                    </label>
+
+                    <label class="col-span-1 lg:col-span-2 flex flex-col gap-1.5 min-w-0">
+                        <span class="asx-label">Cotización</span>
+                        <div class="relative">
+                            <svg class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2Z"/>
+                            </svg>
+                            <select name="cotizo" class="asx-field appearance-none pl-9 pr-8 cursor-pointer">
+                                <option value="ALL" th:selected="${filtroCotizo == 'ALL'}">Todas</option>
+                                <option value="true" th:selected="${filtroCotizo == 'true'}">Solo cotizadas</option>
+                                <option value="false" th:selected="${filtroCotizo == 'false'}">Sin cotizar</option>
+                            </select>
+                            <svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 size-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                        </div>
+                    </label>
+
+                    <label class="col-span-1 lg:col-span-2 flex flex-col gap-1.5 min-w-0">
+                        <span class="asx-label">Desde</span>
+                        <div class="relative">
+                            <svg class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
+                            </svg>
+                            <input type="date" name="desde" th:value="${filtroDesde}" class="asx-field pl-9">
+                        </div>
+                    </label>
+
+                    <label class="col-span-1 lg:col-span-2 flex flex-col gap-1.5 min-w-0">
+                        <span class="asx-label">Hasta</span>
+                        <div class="relative">
+                            <svg class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
+                            </svg>
+                            <input type="date" name="hasta" th:value="${filtroHasta}" class="asx-field pl-9">
+                        </div>
+                    </label>
+
+                    <label class="col-span-2 lg:col-span-4 flex flex-col gap-1.5 min-w-0">
+                        <span class="asx-label">Buscar</span>
+                        <div class="relative">
+                            <svg class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
+                            </svg>
+                            <input type="text" name="q" th:value="${filtroQ}" placeholder="Página, ID o motivo de escalado" class="asx-field pl-9">
+                        </div>
+                    </label>
+
+                    <div class="col-span-2 lg:col-span-12 flex flex-col sm:flex-row sm:justify-end gap-2.5 pt-1">
+                        <a th:href="@{/admin/asistente}"
+                           class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-surface-100 text-surface-600 text-xs font-black uppercase tracking-widest hover:bg-surface-200 active:scale-[.98] transition-all">
+                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                            Limpiar
+                        </a>
+                        <button type="submit"
+                                class="asx-btn-ink inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest active:scale-[.98] transition-all shadow-sm">
+                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
+                            Aplicar filtros
+                        </button>
+                    </div>
                 </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-400" for="fDesde">Desde</label>
-                    <input id="fDesde" type="date" name="desde" th:value="${filtroDesde}"
-                           class="px-4 py-3 bg-surface-50/60 border border-surface-200 rounded-xl text-sm font-bold text-surface-800 focus:outline-none focus:ring-4 focus:ring-furent-500/5 focus:border-furent-200">
-                </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-400" for="fHasta">Hasta</label>
-                    <input id="fHasta" type="date" name="hasta" th:value="${filtroHasta}"
-                           class="px-4 py-3 bg-surface-50/60 border border-surface-200 rounded-xl text-sm font-bold text-surface-800 focus:outline-none focus:ring-4 focus:ring-furent-500/5 focus:border-furent-200">
-                </div>
-                <div class="flex flex-col gap-1.5 flex-1 min-w-[200px]">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-surface-400" for="fQ">Buscar</label>
-                    <input id="fQ" type="text" name="q" th:value="${filtroQ}" placeholder="Página, ID o motivo de escalado"
-                           class="px-4 py-3 bg-surface-50/60 border border-surface-200 rounded-xl text-sm font-bold text-surface-800 focus:outline-none focus:ring-4 focus:ring-furent-500/5 focus:border-furent-200">
-                </div>
-                <button type="submit" class="px-6 py-3 bg-furent-500 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-furent-600 transition-colors shadow-sm">Aplicar</button>
-                <a th:href="@{/admin/asistente}" class="px-6 py-3 bg-surface-100 text-surface-600 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-surface-200 transition-colors">Limpiar</a>
             </form>
 
-            <!-- Tabla -->
-            <div class="bg-white rounded-[2.5rem] shadow-glass border border-surface-100 overflow-hidden">
+            <!-- ============================ Tabla ============================ -->
+            <section class="asx-rise asx-d3 bg-white rounded-3xl shadow-glass border border-surface-100 overflow-hidden">
+
+                <div class="flex items-center justify-between gap-4 px-6 py-4 border-b border-surface-100">
+                    <h2 class="asx-label">Conversaciones</h2>
+                    <span th:if="${totalConversaciones > 0}"
+                          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-surface-100 text-[11px] font-black text-surface-600 tabular-nums"
+                          th:text="${totalConversaciones + (totalConversaciones == 1 ? ' resultado' : ' resultados')}">0 resultados</span>
+                </div>
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse whitespace-nowrap">
                         <thead class="bg-surface-50/50 border-b border-surface-100">
                             <tr>
-                                <th class="px-8 py-6 text-[11px] font-black uppercase tracking-widest text-surface-400">Conversación</th>
-                                <th class="px-6 py-6 text-[11px] font-black uppercase tracking-widest text-surface-400">Estado</th>
-                                <th class="px-6 py-6 text-[11px] font-black uppercase tracking-widest text-surface-400">Mensajes</th>
-                                <th class="px-6 py-6 text-[11px] font-black uppercase tracking-widest text-surface-400">Cotización</th>
-                                <th class="px-6 py-6 text-[11px] font-black uppercase tracking-widest text-surface-400">Último mensaje</th>
-                                <th class="px-8 py-6 text-[11px] font-black uppercase tracking-widest text-surface-400 text-right">Ver</th>
+                                <th class="px-6 py-4 asx-label">Conversación</th>
+                                <th class="px-6 py-4 asx-label">Estado</th>
+                                <th class="px-6 py-4 asx-label">Mensajes</th>
+                                <th class="px-6 py-4 asx-label">Cotización</th>
+                                <th class="px-6 py-4 asx-label">Último mensaje</th>
+                                <th class="px-6 py-4 asx-label text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-surface-100/50">
-                            <tr th:each="c : ${conversaciones}" class="group hover:bg-surface-50/40 transition-colors">
-                                <td class="px-8 py-5">
-                                    <p class="text-sm font-black text-surface-900" th:text="${'#' + #strings.substring(c.id, 0, 8)}">#abc</p>
-                                    <p class="text-[10px] font-bold text-surface-400 uppercase tracking-widest mt-1"
-                                       th:text="${c.userId != null ? 'Usuario registrado' : 'Invitado'}">Invitado</p>
+                            <tr th:each="c : ${conversaciones}" class="asx-row group">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <span class="inline-flex size-10 items-center justify-center rounded-xl bg-surface-100 text-surface-400 shrink-0">
+                                            <svg class="size-[1.15rem]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM21 12c0 4.556-4.03 8.25-9 8.25-1.02 0-2.005-.16-2.92-.454l-4.08 1.204 1.204-4.08A7.967 7.967 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"/>
+                                            </svg>
+                                        </span>
+                                        <div class="min-w-0">
+                                            <a th:href="@{'/admin/asistente/' + ${c.id}}"
+                                               class="block text-sm font-bold text-surface-900 truncate hover:text-furent-600 transition-colors"
+                                               th:text="${!#strings.isEmpty(c.titulo) ? #strings.abbreviate(c.titulo, 52) : ('Conversación #' + (#strings.length(c.id) >= 8 ? #strings.substring(c.id, 0, 8) : c.id))}">Conversación</a>
+                                            <p class="flex items-center gap-1.5 mt-1 text-[11px] font-semibold text-surface-400">
+                                                <span class="font-mono" th:text="${'#' + (#strings.length(c.id) >= 8 ? #strings.substring(c.id, 0, 8) : c.id)}">#abc12345</span>
+                                                <span class="block size-1 rounded-full bg-surface-300"></span>
+                                                <span th:text="${c.userId != null ? 'Registrado' : 'Invitado'}">Invitado</span>
+                                            </p>
+                                        </div>
+                                    </div>
                                 </td>
-                                <td class="px-6 py-5">
-                                    <span class="inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
-                                          th:classappend="${c.estado == 'ACTIVA' ? 'bg-green-50 text-green-700' : (c.estado == 'ESCALADA' ? 'bg-amber-50 text-amber-700' : 'bg-surface-100 text-surface-500')}"
-                                          th:text="${c.estado}">ACTIVA</span>
+
+                                <td class="px-6 py-4">
+                                    <span class="asx-pill"
+                                          th:classappend="${c.estado == 'ACTIVA' ? 'asx-pill-green' : (c.estado == 'ESCALADA' ? 'asx-pill-amber' : 'asx-pill-slate')}">
+                                        <span class="asx-dot"></span>
+                                        <span th:text="${c.estado}">ACTIVA</span>
+                                    </span>
                                 </td>
-                                <td class="px-6 py-5">
-                                    <span class="text-sm font-black text-surface-800" th:text="${c.totalMensajes}">0</span>
-                                    <span class="text-[10px] font-bold text-surface-400 block mt-1"
-                                          th:text="${(c.tokensEntrada + c.tokensSalida) + ' tokens'}">0 tokens</span>
+
+                                <td class="px-6 py-4">
+                                    <span class="text-sm font-black text-surface-800 tabular-nums" th:text="${c.totalMensajes}">0</span>
+                                    <span class="block mt-1 text-[10px] font-bold uppercase tracking-widest text-surface-400 tabular-nums"
+                                          th:text="${#numbers.formatInteger(c.tokensEntrada + c.tokensSalida, 0, 'POINT') + ' tokens'}">0 tokens</span>
                                 </td>
-                                <td class="px-6 py-5">
-                                    <span th:if="${c.cotizo}" class="text-sm font-black text-furent-600"
-                                          th:text="${'$ ' + #numbers.formatInteger(c.totalCotizado, 0, 'POINT')}">$ 0</span>
+
+                                <td class="px-6 py-4">
+                                    <span th:if="${c.cotizo}" class="inline-flex items-center gap-1.5 text-sm font-black text-furent-600 tabular-nums">
+                                        <span class="block size-1.5 rounded-full bg-furent-500"></span>
+                                        <span th:text="${'$ ' + #numbers.formatInteger(c.totalCotizado, 0, 'POINT')}">$ 0</span>
+                                    </span>
                                     <span th:unless="${c.cotizo}" class="text-xs font-bold text-surface-300">—</span>
                                 </td>
-                                <td class="px-6 py-5">
-                                    <span class="text-xs font-bold text-surface-600"
+
+                                <td class="px-6 py-4">
+                                    <span class="text-xs font-bold text-surface-600 tabular-nums"
                                           th:text="${T(com.alquiler.furent.util.DateDisplay).dateTime(c.ultimoMensaje)}">01/01/2026 12:00</span>
                                 </td>
-                                <td class="px-8 py-5 text-right">
-                                    <div class="inline-flex items-center gap-2">
-                                        <a th:href="@{'/admin/asistente/' + ${c.id}}"
-                                           class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-surface-200 rounded-xl text-xs font-black text-surface-600 hover:border-furent-200 hover:text-furent-600 transition-all">
-                                            Ver detalle
+
+                                <td class="px-6 py-4">
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <a th:href="@{'/admin/asistente/' + ${c.id}}" title="Ver conversación" aria-label="Ver conversación"
+                                           class="asx-iconbtn">
+                                            <svg class="size-[1.15rem]" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                                            </svg>
                                         </a>
-                                        <form th:action="@{'/admin/asistente/' + ${c.id} + '/eliminar'}" method="post"
+                                        <form th:action="@{'/admin/asistente/' + ${c.id} + '/eliminar'}" method="post" class="inline-flex m-0"
                                               onsubmit="return confirm('¿Eliminar esta conversación y todos sus mensajes? Esta acción no se puede deshacer.');">
-                                            <button type="submit"
-                                                    class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-red-200 rounded-xl text-xs font-black text-red-600 hover:bg-red-50 transition-all">
-                                                Eliminar
+                                            <button type="submit" title="Eliminar conversación" aria-label="Eliminar conversación"
+                                                    class="asx-iconbtn asx-iconbtn-danger">
+                                                <svg class="size-[1.15rem]" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+                                                </svg>
                                             </button>
                                         </form>
                                     </div>
@@ -157,32 +443,54 @@
                     </table>
                 </div>
 
-                <div th:if="${#lists.isEmpty(conversaciones)}" class="px-10 py-32 text-center">
-                    <div class="size-20 bg-surface-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-surface-100 text-surface-200">
-                        <svg class="size-10" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM21 12c0 4.556-4.03 8.25-9 8.25-1.02 0-2.005-.16-2.92-.454l-4.08 1.204 1.204-4.08A7.967 7.967 0 013 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg>
+                <!-- Estado vacío -->
+                <div th:if="${#lists.isEmpty(conversaciones)}" class="px-8 py-24 text-center">
+                    <div class="inline-flex size-16 items-center justify-center rounded-2xl bg-surface-50 border border-surface-100 text-surface-300 mb-5">
+                        <svg class="size-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM21 12c0 4.556-4.03 8.25-9 8.25-1.02 0-2.005-.16-2.92-.454l-4.08 1.204 1.204-4.08A7.967 7.967 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"/>
+                        </svg>
                     </div>
-                    <h3 class="text-base font-black text-surface-900">Todavía no hay conversaciones</h3>
-                    <p class="text-sm font-medium text-surface-400 mt-2">Cuando los clientes hablen con el asistente, aparecerán aquí.</p>
+                    <h3 class="text-base font-black text-surface-900">Aún no hay conversaciones</h3>
+                    <p class="text-sm font-medium text-surface-400 mt-2 max-w-sm mx-auto">Cuando los clientes hablen con Furi, sus chats aparecerán aquí con su estado y cotizaciones.</p>
                 </div>
 
-                <div class="px-10 py-6 border-t border-surface-100 flex items-center justify-between gap-4 flex-wrap">
-                    <a th:if="${currentPage > 0}"
-                       th:href="@{/admin/asistente(page=${currentPage - 1}, size=${pageSize}, estado=${filtroEstado}, cotizo=${filtroCotizo}, desde=${filtroDesde}, hasta=${filtroHasta}, q=${filtroQ})}"
-                       class="px-4 py-2 rounded-xl text-xs font-black border border-surface-200 text-surface-700 hover:bg-surface-50 transition-colors">Anterior</a>
-                    <span th:unless="${currentPage > 0}" class="px-4 py-2 rounded-xl text-xs font-black border border-surface-100 text-surface-300 cursor-not-allowed">Anterior</span>
+                <!-- Paginación -->
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-surface-100 bg-surface-50/50">
+                    <p th:if="${totalConversaciones > 0}"
+                       class="text-xs font-semibold text-surface-400 tabular-nums"
+                       th:text="${'Mostrando ' + (currentPage * pageSize + 1) + '–' + ((currentPage + 1) * pageSize > totalConversaciones ? totalConversaciones : (currentPage + 1) * pageSize) + ' de ' + totalConversaciones}">
+                        Mostrando 1–25 de 25
+                    </p>
+                    <span th:unless="${totalConversaciones > 0}" class="text-xs font-semibold text-surface-400">Sin datos todavía</span>
 
-                    <div class="flex items-center gap-2 text-xs font-bold text-surface-500">
-                        <span th:text="${'Página ' + (currentPage + 1)}">Página 1</span>
-                        <span>/</span>
-                        <span th:text="${totalPages == 0 ? 1 : totalPages}">1</span>
+                    <div class="flex items-center gap-2">
+                        <a th:if="${currentPage > 0}"
+                           th:href="@{/admin/asistente(page=${currentPage - 1}, size=${pageSize}, estado=${filtroEstado}, cotizo=${filtroCotizo}, desde=${filtroDesde}, hasta=${filtroHasta}, q=${filtroQ})}"
+                           class="asx-pager">
+                            <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
+                            Anterior
+                        </a>
+                        <span th:unless="${currentPage > 0}" class="asx-pager-off">
+                            <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
+                            Anterior
+                        </span>
+
+                        <span class="px-3 text-xs font-black text-surface-500 tabular-nums"
+                              th:text="${'Página ' + (currentPage + 1) + ' de ' + (totalPages == 0 ? 1 : totalPages)}">Página 1 de 1</span>
+
+                        <a th:if="${currentPage + 1 < totalPages}"
+                           th:href="@{/admin/asistente(page=${currentPage + 1}, size=${pageSize}, estado=${filtroEstado}, cotizo=${filtroCotizo}, desde=${filtroDesde}, hasta=${filtroHasta}, q=${filtroQ})}"
+                           class="asx-pager">
+                            Siguiente
+                            <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                        </a>
+                        <span th:unless="${currentPage + 1 < totalPages}" class="asx-pager-off">
+                            Siguiente
+                            <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                        </span>
                     </div>
-
-                    <a th:if="${currentPage + 1 < totalPages}"
-                       th:href="@{/admin/asistente(page=${currentPage + 1}, size=${pageSize}, estado=${filtroEstado}, cotizo=${filtroCotizo}, desde=${filtroDesde}, hasta=${filtroHasta}, q=${filtroQ})}"
-                       class="px-4 py-2 rounded-xl text-xs font-black border border-surface-200 text-surface-700 hover:bg-surface-50 transition-colors">Siguiente</a>
-                    <span th:unless="${currentPage + 1 < totalPages}" class="px-4 py-2 rounded-xl text-xs font-black border border-surface-100 text-surface-300 cursor-not-allowed">Siguiente</span>
                 </div>
-            </div>
+            </section>
         </div>
     </main>
 </body>
