@@ -370,7 +370,13 @@ document.addEventListener('click', function(e) {
     </div>
 
     <!-- Asistente virtual (solo si el flag está activo y hay API key) -->
-    <div th:if="${assistantEnabled}" th:replace="~{fragments/assistant-widget :: assistantWidget}"></div>
+    <!--
+      El th:if va en un th:block contenedor: sobre el mismo elemento, th:replace
+      tiene mayor precedencia que th:if y la condición nunca se evaluaría.
+    -->
+    <th:block th:if="${assistantEnabled}">
+        <div th:replace="~{fragments/assistant-widget :: assistantWidget}"></div>
+    </th:block>
 
     <!-- Global Toast Container -->
     <div id="toast-container" class="fixed top-24 right-5 z-[200] flex flex-col gap-4 pointer-events-none w-full max-w-sm"></div>
