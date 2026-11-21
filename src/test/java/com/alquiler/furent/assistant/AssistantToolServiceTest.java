@@ -1,8 +1,10 @@
 package com.alquiler.furent.assistant;
 
 import com.alquiler.furent.config.AssistantProperties;
+import com.alquiler.furent.model.Payment;
 import com.alquiler.furent.model.Product;
 import com.alquiler.furent.model.Reservation;
+import com.alquiler.furent.repository.PaymentRepository;
 import com.alquiler.furent.repository.ReservationRepository;
 import com.alquiler.furent.service.CouponService;
 import com.alquiler.furent.service.ProductService;
@@ -44,6 +46,8 @@ class AssistantToolServiceTest {
     @Mock
     private ReservationRepository reservationRepository;
     @Mock
+    private PaymentRepository paymentRepository;
+    @Mock
     private CouponService couponService;
     @Mock
     private AssistantKnowledgeService knowledgeService;
@@ -66,7 +70,8 @@ class AssistantToolServiceTest {
         properties = new AssistantProperties();
         properties.setWhatsappNumber("573105782442");
         service = new AssistantToolService(productService, reservationService, reservationRepository,
-                couponService, knowledgeService, toolDefinitions, properties, metrics, mapper);
+                couponService, knowledgeService, toolDefinitions, properties, metrics, mapper,
+                paymentRepository);
         lenient().when(toolDefinitions.exists(anyString())).thenReturn(true);
     }
 
@@ -265,5 +270,118 @@ class AssistantToolServiceTest {
         ToolResult result = service.execute("informacion_negocio", args("{\"tema\":\"envios\"}"), GUEST);
 
         assertTrue(result.payload().path("informacion").asText().contains("domicilio"));
+    }
+
+    // ───────────────────────── Bolsa ─────────────────────────
+
+    @Test
+    void miBolsaDevuelveItemsConPreciosRealesYEventoPanel() {
+        ToolContext conBolsa = new ToolContext(USER, "session-1",
+                List.of(new BagItem("p1", "Silla vieja", 3, BigDecimal.valueOf(1))));
+        when(productService.getProductById("p1"))
+                .thenReturn(Optional.of(product("p1", "Silla Tiffany", 5000, 100)));
+
+        ToolResult result = service.execute("mi_bolsa", args("{}"), conBolsa);
+
+        assertEquals(1, result.payload().path("items").size());
+        assertEquals("Silla Tiffany", result.payload().path("items").get(0).path("nombre").asText());
+        assertEquals(0, result.payload().path("totalDia").decimalValue()
+                .compareTo(BigDecimal.valueOf(15000)));
+        assertEquals(UiEvent.PANEL, result.uiEvents().get(0).type());
+        assertEquals("bolsa", result.uiEvents().get(0).data().path("vista").asText());
+    }
+
+    @Test
+    void editarBolsaEmiteEventoBag() {
+        when(productService.getProductById("p1"))
+                .thenReturn(Optional.of(product("p1", "Silla Tiffany", 5000, 100)));
+
+        ToolResult result = service.execute("editar_bolsa",
+                args("{\"operacion\":\"agregar\",\"items\":[{\"productoId\":\"p1\",\"cantidad\":4}]}"),
+                GUEST);
+
+        assertTrue(result.payload().path("ok").asBoolean());
+        assertEquals("agregar", result.payload().path("operacion").asText());
+        assertEquals(UiEvent.BAG, result.uiEvents().get(0).type());
+        assertEquals(4, result.uiEvents().get(0).data().path("items").get(0).path("cantidad").asInt());
+    }
+
+    @Test
+    void editarBolsaSinItemsEsErrorSalvoVaciar() {
+        ToolResult sinItems = service.execute("editar_bolsa", args("{\"operacion\":\"agregar\"}"), GUEST);
+        assertTrue(sinItems.payload().has("error"));
+
+        ToolResult vaciar = service.execute("editar_bolsa", args("{\"operacion\":\"vaciar\"}"), GUEST);
+        assertTrue(vaciar.payload().path("ok").asBoolean());
+        assertEquals(UiEvent.BAG, vaciar.uiEvents().get(0).type());
+    }
+
+    // ───────────────────────── Recomendación y panel ─────────────────────────
+
+    @Test
+    void recomendarEventoEmitePanelConCantidades() {
+        Product sillas = product("s1", "Silla Tiffany", 5000, 500);
+        sillas.setCategoriaNombre("Sillas");
+        Product mesas = product("m1", "Mesa Redonda", 20000, 50);
+        mesas.setCategoriaNombre("Mesas");
+        when(productService.searchProducts(anyString())).thenReturn(List.of(sillas, mesas));
+        when(knowledgeService.buscarOcasion("boda")).thenReturn(List.of());
+
+        ToolResult result = service.execute("recomendar_evento",
+                args("{\"tipoEvento\":\"boda\",\"invitados\":80,\"estilo\":\"elegante\"}"), GUEST);
+
+        assertEquals(80, result.payload().path("invitados").asInt());
+        assertTrue(result.payload().path("totalEstimado").decimalValue().compareTo(BigDecimal.ZERO) > 0);
+        assertTrue(result.payload().path("items").size() >= 1);
+        assertEquals(UiEvent.PANEL, result.uiEvents().get(0).type());
+        assertEquals("recomendacion", result.uiEvents().get(0).data().path("vista").asText());
+    }
+
+    @Test
+    void pedirDatosEventoEmitePanelDeFormulario() {
+        ToolResult result = service.execute("pedir_datos_evento", args("{}"), GUEST);
+
+        assertTrue(result.payload().path("ok").asBoolean());
+        assertEquals(UiEvent.PANEL, result.uiEvents().get(0).type());
+        JsonNode data = result.uiEvents().get(0).data();
+        assertEquals("form", data.path("vista").asText());
+        assertTrue(data.path("fields").size() >= 6);
+    }
+
+    @Test
+    void consultarAlquilerRequiereSesion() {
+        ToolResult result = service.execute("consultar_alquiler", args("{}"), GUEST);
+
+        assertTrue(result.payload().has("error"));
+    }
+
+    @Test
+    void consultarAlquilerDevuelvePagosYLineaDeTiempo() {
+        Reservation reserva = new Reservation();
+        reserva.setId("r1");
+        reserva.setUsuarioId(USER);
+        reserva.setEstado("CONFIRMADA");
+        reserva.setFechaInicio(LocalDate.now().plusDays(2));
+        reserva.setFechaFin(LocalDate.now().plusDays(3));
+        reserva.setTotal(BigDecimal.valueOf(200000));
+        reserva.setMontoAbonado(BigDecimal.valueOf(50000));
+        reserva.setEstadoPago("ABONO");
+        when(reservationService.getById("r1")).thenReturn(Optional.of(reserva));
+
+        Payment pago = new Payment();
+        pago.setMonto(BigDecimal.valueOf(50000));
+        pago.setMetodoPago("TARJETA");
+        pago.setEstado("APROBADO");
+        pago.setTipoPago("ANTICIPO");
+        when(paymentRepository.findByReservaId("r1")).thenReturn(List.of(pago));
+
+        ToolResult result = service.execute("consultar_alquiler", args("{\"referencia\":\"r1\"}"), AUTH);
+
+        JsonNode detalle = result.payload().path("reserva");
+        assertEquals("r1", detalle.path("id").asText());
+        assertEquals(1, detalle.path("pagos").size());
+        assertEquals("APROBADO", detalle.path("pagos").get(0).path("estado").asText());
+        assertEquals(4, detalle.path("timeline").size());
+        assertEquals(UiEvent.RESERVATION, result.uiEvents().get(0).type());
     }
 }

@@ -3,26 +3,22 @@
  *
  * - Habla con POST /api/asistente/chat y consume el stream SSE con fetch + ReadableStream.
  * - Renderiza todo con textContent/createElement: el texto del modelo nunca se inyecta como HTML.
- * - Un Markdown mínimo (negrita, itálica, listas y enlaces) se renderiza con nodos seguros al
- *   terminar cada respuesta; durante el streaming se ve el texto plano con el cursor.
- * - Guarda el conversationId y el texto de la conversación en localStorage para restaurar el hilo.
- * - Integra cotizaciones con la bolsa (`furent_bag`) y el checkout de la web, y ofrece una ruta
- *   de conversión según el usuario: invitado → WhatsApp; autenticado → checkout.
+ * - Markdown mínimo (negrita, itálica, resaltado ==texto==, listas y enlaces) con nodos seguros.
+ * - El historial de chats vive en el servidor: al cargar siempre se empieza un chat nuevo y el
+ *   botón "Mis chats" (izquierda) lista las conversaciones propias para abrir o borrar.
+ * - Las entradas estructuradas (formulario de evento, calendario de fechas, bolsa y seguimiento
+ *   del alquiler) se muestran en el panel lateral izquierdo del chat.
+ * - Integra cotizaciones con la bolsa (`furent_bag`) y el checkout de la web.
  */
 (function () {
     'use strict';
 
-    var STORAGE_KEY = 'furent_assistant_state_v1';
-    var MAX_RESTORE = 60;
-    var MAX_STORED_MESSAGES = 40;
-    // Las conversaciones son temporales: el hilo local se descarta a las 24 h.
-    var STORAGE_TTL_MS = 24 * 60 * 60 * 1000;
     var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
         'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    var BAG_KEY = 'furent_bag';
 
-    // Tokens de Markdown inline. Vive en el ámbito del módulo porque `renderRestored()` (que se
-    // ejecuta al iniciar) también renderiza Markdown, antes de que se declaren los `var` de `init`.
-    var INLINE_RE = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*\n]+\*|_[^_\n]+_|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
+    // Tokens de Markdown inline. `==texto==` resalta datos importantes.
+    var INLINE_RE = /(\*\*[^*]+\*\*|__[^_]+__|==[^=]+==|\*[^*\n]+\*|_[^_\n]+_|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
 
     document.addEventListener('DOMContentLoaded', init);
 
@@ -40,28 +36,50 @@
             input: document.getElementById('furent-assistant-input'),
             send: document.getElementById('furent-assistant-send'),
             close: document.getElementById('furent-assistant-close'),
-            chips: document.getElementById('furent-assistant-chips'),
-            chipsToggle: document.getElementById('furent-assistant-chips-toggle'),
             badge: document.getElementById('furent-assistant-badge'),
-            datesPill: document.getElementById('furent-assistant-dates-pill'),
-            datesLabel: document.getElementById('furent-assistant-dates-label'),
-            calendar: document.getElementById('furent-assistant-calendar'),
+            plus: document.getElementById('furent-assistant-plus'),
+            quick: document.getElementById('furent-assistant-quick'),
+            quickDates: document.getElementById('furent-assistant-quick-dates'),
+            quickEvent: document.getElementById('furent-assistant-quick-event'),
+            quickBag: document.getElementById('furent-assistant-quick-bag'),
+            quickSuggest: document.getElementById('furent-assistant-quick-suggest'),
+            chips: document.getElementById('furent-assistant-chips'),
+            side: document.getElementById('furent-assistant-side'),
+            sideTitle: document.getElementById('furent-assistant-side-title'),
+            sideClose: document.getElementById('furent-assistant-side-close'),
+            viewForm: document.getElementById('furent-assistant-view-form'),
+            viewFechas: document.getElementById('furent-assistant-view-fechas'),
+            viewBolsa: document.getElementById('furent-assistant-view-bolsa'),
+            viewReco: document.getElementById('furent-assistant-view-reco'),
+            viewAlquiler: document.getElementById('furent-assistant-view-alquiler'),
             calendarHost: document.getElementById('furent-assistant-calendar-host'),
             datesInput: document.getElementById('furent-assistant-dates-input'),
             calendarClear: document.getElementById('furent-assistant-calendar-clear'),
             calendarUse: document.getElementById('furent-assistant-calendar-use'),
-            calendarHint: document.getElementById('furent-assistant-calendar-hint')
+            calendarHint: document.getElementById('furent-assistant-calendar-hint'),
+            historyToggle: document.getElementById('furent-assistant-history-toggle'),
+            history: document.getElementById('furent-assistant-history'),
+            historyList: document.getElementById('furent-assistant-history-list'),
+            historyClose: document.getElementById('furent-assistant-history-close'),
+            historyNew: document.getElementById('furent-assistant-history-new')
         };
 
         var chatUrl = panel.getAttribute('data-chat-url') || '/api/asistente/chat';
+        var listUrl = (els.history && els.history.getAttribute('data-list-url'))
+            || '/api/asistente/conversations';
         var authenticated = panel.getAttribute('data-authenticated') === 'true';
-        var state = loadState();
+        var DEFAULT_WHATSAPP = '573105782442';
+        var headerAvatar = panel.querySelector('.fa-avatar img');
+        var avatarSrc = headerAvatar ? headerAvatar.getAttribute('src') : '/images/furent-logo.png';
+
+        var state = { conversationId: null, whatsapp: null };
         var isOpen = false;
         var isStreaming = false;
         var currentBubble = null;
         var lastFocused = null;
         var lastUserText = '';
-        var DEFAULT_WHATSAPP = '573105782442';
+        var sideVista = null;
+        var chatList = [];
 
         // Estado del calendario de fechas.
         var fp = null;                 // instancia de flatpickr (null si no está disponible)
@@ -73,8 +91,7 @@
         var nativeDates = false;       // true si se degradó a <input type="date">
 
         initDatePicker();
-
-        renderRestored();
+        boot();
 
         els.launcher.addEventListener('click', openPanel);
         els.close.addEventListener('click', closePanel);
@@ -89,66 +106,137 @@
             els.input.style.height = 'auto';
             els.input.style.height = Math.min(els.input.scrollHeight, 120) + 'px';
         });
+
+        if (els.plus) {
+            els.plus.addEventListener('click', toggleQuick);
+        }
+        if (els.quickDates) {
+            els.quickDates.addEventListener('click', function () { openSidePanel('fechas'); });
+        }
+        if (els.quickEvent) {
+            els.quickEvent.addEventListener('click', function () { openSidePanel('form', defaultFormData()); });
+        }
+        if (els.quickBag) {
+            els.quickBag.addEventListener('click', function () { openSidePanel('bolsa'); });
+        }
+        if (els.quickSuggest) {
+            els.quickSuggest.addEventListener('click', toggleSuggestions);
+        }
+        if (els.sideClose) {
+            els.sideClose.addEventListener('click', function () { closeSidePanel(); collapseQuick(); });
+        }
+
         els.chips.addEventListener('click', function (event) {
             var chip = event.target.closest('.fa-chip');
             if (chip && chip.getAttribute('data-prompt')) {
-                els.input.value = chip.getAttribute('data-prompt');
-                submitFromInput();
+                collapseSuggestions();
+                collapseQuick();
+                sendUserMessage(chip.getAttribute('data-prompt'));
             }
         });
-        if (els.chipsToggle) {
-            els.chipsToggle.addEventListener('click', toggleSuggestions);
+
+        if (els.historyToggle) {
+            els.historyToggle.addEventListener('click', function () {
+                if (els.history && !els.history.hidden) {
+                    closeHistory();
+                } else {
+                    openHistory();
+                }
+            });
+        }
+        if (els.historyClose) {
+            els.historyClose.addEventListener('click', closeHistory);
+        }
+        if (els.historyNew) {
+            els.historyNew.addEventListener('click', newChat);
         }
 
         document.addEventListener('click', function (event) {
             if (!isOpen) {
                 return;
             }
-            if (els.calendar && !els.calendar.hidden
-                    && !els.calendar.contains(event.target)
-                    && !els.datesPill.contains(event.target)) {
-                closeCalendar();
+            if (els.quick && !els.quick.hidden
+                    && !els.quick.contains(event.target)
+                    && els.plus && !els.plus.contains(event.target)
+                    && !(els.chips && els.chips.contains(event.target))) {
+                collapseQuick();
             }
             if (els.chips && !els.chips.hidden
                     && !els.chips.contains(event.target)
-                    && els.chipsToggle && !els.chipsToggle.contains(event.target)) {
+                    && els.quickSuggest && !els.quickSuggest.contains(event.target)) {
                 collapseSuggestions();
             }
         });
 
         document.addEventListener('keydown', function (event) {
-            if (!isOpen) {
-                return;
-            }
             if (event.key === 'Escape') {
-                // Cierra primero los desplegables; el panel solo si ya están cerrados.
-                if (els.calendar && !els.calendar.hidden) {
-                    closeCalendar();
+                if (els.history && !els.history.hidden) {
+                    closeHistory();
+                } else if (!isOpen) {
+                    return;
+                } else if (els.side && !els.side.hidden) {
+                    closeSidePanel();
                 } else if (els.chips && !els.chips.hidden) {
                     collapseSuggestions();
+                } else if (els.quick && !els.quick.hidden) {
+                    collapseQuick();
                 } else {
                     closePanel();
                 }
-            } else if (event.key === 'Tab') {
+            } else if (event.key === 'Tab' && isOpen) {
                 trapFocus(event);
             }
         });
 
+        // ───────────────────────── Arranque ─────────────────────────
+
+        function boot() {
+            els.messages.textContent = '';
+            state.conversationId = null;
+            currentBubble = null;
+            closeSidePanel();
+            updateHistoryActive();
+            renderWelcome();
+            scrollDown();
+            loadChatList();
+        }
+
+        function renderWelcome() {
+            appendAssistantBubble('Hola, soy Furi. ¿En qué puedo ayudarte?', true);
+            appendNote('Este chat es temporal: se conserva 24 h. Soy un asistente con IA; '
+                + 'confirma precios y disponibilidad antes de reservar.');
+            var row = document.createElement('div');
+            row.className = 'fa-row fa-enter';
+            row.style.flexWrap = 'wrap';
+            row.appendChild(button('Organizar mi evento', 'fa-btn-primary', function () {
+                openSidePanel('form', defaultFormData());
+            }, ICONS.sparkles));
+            row.appendChild(button('Elegir fechas', 'fa-btn-ghost', function () {
+                openSidePanel('fechas');
+            }, ICONS.calendar));
+            els.messages.appendChild(row);
+        }
+
+        function appendNote(text) {
+            var row = document.createElement('div');
+            row.className = 'fa-note-row fa-enter';
+            var note = document.createElement('div');
+            note.className = 'fa-note';
+            note.textContent = text;
+            row.appendChild(note);
+            els.messages.appendChild(row);
+        }
+
         // ───────────────────────── Panel ─────────────────────────
 
         function openPanel() {
-            if (isOpen) {
-                return;
+            if (!isOpen) {
+                lastFocused = document.activeElement;
             }
-            lastFocused = document.activeElement;
             isOpen = true;
             els.panel.hidden = false;
             els.launcher.hidden = true;
             els.launcher.setAttribute('aria-expanded', 'true');
-            // El chat es temporal: si el hilo guardado superó las 24 h, se empieza de cero.
-            if (isStateExpired()) {
-                resetConversation();
-            }
             hideBadge();
             window.setTimeout(function () { els.input.focus(); }, 60);
         }
@@ -161,8 +249,8 @@
             els.launcher.hidden = false;
             els.launcher.setAttribute('aria-expanded', 'false');
             isOpen = false;
-            closeCalendar();
             collapseSuggestions();
+            collapseQuick();
             if (lastFocused && typeof lastFocused.focus === 'function') {
                 lastFocused.focus();
             }
@@ -170,7 +258,7 @@
 
         function trapFocus(event) {
             var focusable = els.panel.querySelectorAll(
-                'button, [href], textarea, input, [tabindex]:not([tabindex="-1"])');
+                'button, [href], textarea, input, select, [tabindex]:not([tabindex="-1"])');
             if (focusable.length === 0) {
                 return;
             }
@@ -206,8 +294,8 @@
                 return;
             }
             collapseSuggestions();
+            collapseQuick();
             appendUserBubble(text, true);
-            rememberMessage('USER', text);
             lastUserText = text;
             streamChat(text);
         }
@@ -217,7 +305,11 @@
             els.send.disabled = true;
             beginAssistantReply();
 
-            var payload = { message: text, pageContext: window.location.pathname };
+            var payload = {
+                message: text,
+                pageContext: window.location.pathname,
+                bag: readBagLines()
+            };
             if (state.conversationId) {
                 payload.conversationId = state.conversationId;
             }
@@ -248,6 +340,7 @@
                 els.send.disabled = false;
                 updateDatesUI();
                 finishReply();
+                updateHistoryActive();
             });
         }
 
@@ -305,16 +398,10 @@
             switch (type) {
                 case 'meta':
                     if (data && data.conversationId) {
-                        if (state.conversationId !== data.conversationId) {
-                            // Conversación nueva: reinicia la cuenta de 24 h del hilo local.
-                            state.conversationId = data.conversationId;
-                            state.expiresAt = Date.now() + STORAGE_TTL_MS;
-                        }
-                        saveState();
+                        state.conversationId = data.conversationId;
                     }
                     if (data && data.whatsapp) {
                         state.whatsapp = String(data.whatsapp);
-                        saveState();
                     }
                     break;
                 case 'token':
@@ -329,6 +416,17 @@
                 case 'quote':
                     closePendingBubble();
                     appendQuoteCard(data);
+                    break;
+                case 'panel':
+                    if (data && data.vista) {
+                        openSidePanel(data.vista, data);
+                    }
+                    break;
+                case 'bag':
+                    applyBagEvent(data);
+                    break;
+                case 'reservation':
+                    openSidePanel('alquiler', data);
                     break;
                 case 'escalation':
                     closePendingBubble();
@@ -349,6 +447,23 @@
 
         // ───────────────────────── Burbujas ─────────────────────────
 
+        function assistantRow() {
+            var row = document.createElement('div');
+            row.className = 'fa-row assistant fa-enter';
+            var avatar = document.createElement('div');
+            avatar.className = 'fa-avatar-sm';
+            avatar.setAttribute('aria-hidden', 'true');
+            var img = document.createElement('img');
+            img.src = avatarSrc;
+            img.alt = '';
+            avatar.appendChild(img);
+            var bubble = document.createElement('div');
+            bubble.className = 'fa-bubble assistant';
+            row.appendChild(avatar);
+            row.appendChild(bubble);
+            return { row: row, bubble: bubble };
+        }
+
         function appendUserBubble(text, animate) {
             var row = document.createElement('div');
             row.className = animate ? 'fa-row user fa-enter' : 'fa-row user';
@@ -360,21 +475,27 @@
             scrollDown();
         }
 
+        function appendAssistantBubble(text, animate) {
+            var built = assistantRow();
+            if (!animate) {
+                built.row.classList.remove('fa-enter');
+            }
+            renderMarkdown(built.bubble, text);
+            els.messages.appendChild(built.row);
+            scrollDown();
+        }
+
         function beginAssistantReply() {
-            var row = document.createElement('div');
-            row.className = 'fa-row fa-enter';
-            row.setAttribute('data-pending', 'true');
-            var bubble = document.createElement('div');
-            bubble.className = 'fa-bubble assistant';
+            var built = assistantRow();
+            built.row.setAttribute('data-pending', 'true');
             var typing = document.createElement('span');
             typing.className = 'fa-typing';
             typing.appendChild(document.createElement('span'));
             typing.appendChild(document.createElement('span'));
             typing.appendChild(document.createElement('span'));
-            bubble.appendChild(typing);
-            row.appendChild(bubble);
-            els.messages.appendChild(row);
-            currentBubble = bubble;
+            built.bubble.appendChild(typing);
+            els.messages.appendChild(built.row);
+            currentBubble = built.bubble;
             currentBubble._textSpan = null;
             currentBubble._raw = '';
             scrollDown();
@@ -401,8 +522,6 @@
 
         function closePendingBubble() {
             if (currentBubble) {
-                // Las burbujas de error se conservan: su texto va en un nodo suelto, no en el
-                // span incremental, así que no deben tratarse como una respuesta vacía.
                 if (currentBubble.classList.contains('error')) {
                     currentBubble.parentNode.removeAttribute('data-pending');
                     currentBubble = null;
@@ -410,17 +529,13 @@
                 }
                 var raw = stripLeakedMarkup(currentBubble._raw || '');
                 if (!raw) {
-                    // Si tras limpiar el marcado filtrado no queda texto, no se muestra burbuja.
                     var row = currentBubble.parentNode;
                     if (row) {
                         row.remove();
                     }
                 } else {
-                    // El Markdown solo se compone al cerrar la burbuja: así no se muestran
-                    // etiquetas a medias mientras llegan los tokens.
                     renderMarkdown(currentBubble, raw);
                     currentBubble.parentNode.removeAttribute('data-pending');
-                    rememberMessage('ASSISTANT', raw);
                 }
                 currentBubble = null;
             }
@@ -534,7 +649,7 @@
                         precioDia: data.precioDia,
                         cantidad: 1,
                         stock: data.stock
-                    }], { silentTotal: true });
+                    }]);
                 }, ICONS.cart));
                 card.appendChild(actions);
             }
@@ -656,6 +771,78 @@
             trackAssistantEvent('assistant_quote_view', { total: data.total, dias: data.dias });
         }
 
+        function appendEscalationCard(data) {
+            var card = document.createElement('div');
+            card.className = 'fa-quote';
+            var title = document.createElement('h4');
+            title.textContent = 'Te conecto con un asesor';
+            card.appendChild(title);
+            var note = document.createElement('p');
+            note.className = 'fa-quote-note';
+            note.textContent = 'Puedes continuar la conversación por WhatsApp con el equipo de Furent.';
+            card.appendChild(note);
+
+            var actions = document.createElement('div');
+            actions.className = 'fa-quote-actions';
+            var url = (data && data.whatsappUrl) || whatsappUrl('Hola Furent, vengo del asistente virtual.');
+            actions.appendChild(button('Abrir WhatsApp', 'fa-btn-wa', function () {
+                trackAssistantEvent('assistant_whatsapp_click', { origen: 'escalation' });
+                window.open(url, '_blank');
+            }, ICONS.whatsapp));
+            card.appendChild(actions);
+
+            var row = document.createElement('div');
+            row.className = 'fa-row fa-enter';
+            row.style.width = '100%';
+            row.appendChild(card);
+            els.messages.appendChild(row);
+            scrollDown();
+        }
+
+        function quoteItem(item) {
+            var line = document.createElement('div');
+            line.className = 'fa-quote-item';
+
+            if (item.imagen) {
+                var thumb = document.createElement('img');
+                thumb.className = 'fa-quote-thumb';
+                thumb.alt = '';
+                thumb.loading = 'lazy';
+                thumb.src = item.imagen;
+                line.appendChild(thumb);
+            }
+
+            var main = document.createElement('div');
+            main.className = 'fa-quote-item-main';
+            var name = document.createElement('span');
+            name.className = 'fa-quote-item-name';
+            name.textContent = (item.nombre || 'Producto') + ' ×' + (item.cantidad || 0);
+            main.appendChild(name);
+            var unit = document.createElement('span');
+            unit.className = 'fa-quote-item-unit';
+            unit.textContent = formatCOP(item.precioDia) + ' / día';
+            main.appendChild(unit);
+            line.appendChild(main);
+
+            var sub = document.createElement('span');
+            sub.className = 'fa-quote-item-sub';
+            sub.textContent = formatCOP(item.subtotal);
+            line.appendChild(sub);
+            return line;
+        }
+
+        function quoteLine(label, value) {
+            var line = document.createElement('div');
+            line.className = 'fa-quote-item';
+            var left = document.createElement('span');
+            left.textContent = label;
+            var right = document.createElement('span');
+            right.textContent = value;
+            line.appendChild(left);
+            line.appendChild(right);
+            return line;
+        }
+
         function button(label, className, onClick, icon) {
             var element = document.createElement('button');
             element.type = 'button';
@@ -705,7 +892,10 @@
             sliders: ['M4 20v-6M4 10V4M12 20v-9M12 7V4M20 20v-4M20 12V4M1.5 14h5M9.5 7h5M17.5 16h5'],
             calendar: ['M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5'],
             receipt: ['M6.75 3.75h10.5A1.5 1.5 0 0 1 18.75 5.25v13.9l-2.6-1.5-2.6 1.5-2.6-1.5-2.6 1.5V5.25A1.5 1.5 0 0 1 6.75 3.75Z',
-                'M9.5 8.5h5M9.5 12h3.5']
+                'M9.5 8.5h5M9.5 12h3.5'],
+            sparkles: ['M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z',
+                'M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z'],
+            trash: ['M4.5 6.75h15M9.75 6.75V5.25A1.5 1.5 0 0 1 11.25 3.75h1.5a1.5 1.5 0 0 1 1.5 1.5v1.5M6.75 6.75l.75 12a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l.75-12']
         };
 
         function rangoFechas(data) {
@@ -719,96 +909,702 @@
             return rango;
         }
 
-        function quoteItem(item) {
-            var line = document.createElement('div');
-            line.className = 'fa-quote-item';
+        // ───────────────────────── Panel lateral ─────────────────────────
 
-            if (item.imagen) {
-                var thumb = document.createElement('img');
-                thumb.className = 'fa-quote-thumb';
-                thumb.alt = '';
-                thumb.loading = 'lazy';
-                thumb.src = item.imagen;
-                line.appendChild(thumb);
+        var VIEWS = {
+            form: function () { return els.viewForm; },
+            fechas: function () { return els.viewFechas; },
+            bolsa: function () { return els.viewBolsa; },
+            recomendacion: function () { return els.viewReco; },
+            alquiler: function () { return els.viewAlquiler; }
+        };
+
+        var SIDE_TITLES = {
+            form: 'Cuéntame de tu evento',
+            fechas: 'Fechas del alquiler',
+            bolsa: 'Tu bolsa',
+            recomendacion: 'Recomendación',
+            alquiler: 'Tu alquiler'
+        };
+
+        function openSidePanel(vista, data) {
+            if (!els.side || !VIEWS[vista]) {
+                return;
+            }
+            sideVista = vista;
+            els.side.hidden = false;
+            els.panel.classList.add('fa-wide');
+            Object.keys(VIEWS).forEach(function (key) {
+                var el = VIEWS[key]();
+                if (el) {
+                    el.hidden = key !== vista;
+                }
+            });
+            els.sideTitle.textContent = (data && data.titulo) || SIDE_TITLES[vista] || 'Detalle';
+
+            if (vista === 'fechas') {
+                if (authenticated) {
+                    loadReservedDays();
+                }
+                updateDatesUI();
+            } else if (vista === 'bolsa') {
+                renderBagPanel(data && data.items);
+            } else if (vista === 'form') {
+                renderFormPanel(data && data.fields ? data : defaultFormData());
+            } else if (vista === 'recomendacion') {
+                renderRecommendation(data || {});
+            } else if (vista === 'alquiler') {
+                renderReservation(data || {});
+            }
+        }
+
+        function closeSidePanel() {
+            if (!els.side) {
+                return;
+            }
+            els.side.hidden = true;
+            els.panel.classList.remove('fa-wide');
+            sideVista = null;
+        }
+
+        // ── Vista: formulario del evento ──
+
+        function defaultFormData() {
+            return {
+                vista: 'form',
+                titulo: 'Cuéntame de tu evento',
+                descripcion: 'Con estos datos te recomiendo el mobiliario ideal.',
+                submitLabel: 'Recomendar mobiliario',
+                fields: [
+                    { name: 'tipoEvento', label: 'Tipo de evento', type: 'select', required: true, options: [
+                        { value: 'boda', label: 'Boda' }, { value: 'cumpleanos', label: 'Cumpleaños' },
+                        { value: 'corporativo', label: 'Evento corporativo' }, { value: 'grado', label: 'Grado' },
+                        { value: 'baby_shower', label: 'Baby shower' }, { value: 'otro', label: 'Otro' }] },
+                    { name: 'invitados', label: 'Número de personas', type: 'number', required: true, placeholder: '120' },
+                    { name: 'estilo', label: 'Estilo', type: 'select', options: [
+                        { value: 'elegante', label: 'Elegante' }, { value: 'moderno', label: 'Moderno' },
+                        { value: 'rustico', label: 'Rústico' }, { value: 'minimalista', label: 'Minimalista' }] },
+                    { name: 'presupuesto', label: 'Presupuesto aproximado (COP)', type: 'number', placeholder: '3000000' },
+                    { name: 'fechaInicio', label: 'Desde', type: 'date' },
+                    { name: 'fechaFin', label: 'Hasta', type: 'date' },
+                    { name: 'nota', label: 'Nota (opcional)', type: 'textarea', placeholder: 'Ej: colores, temática, requerimientos especiales' }
+                ]
+            };
+        }
+
+        function renderFormPanel(data) {
+            var view = els.viewForm;
+            if (!view) {
+                return;
+            }
+            view.textContent = '';
+            var form = document.createElement('form');
+            form.className = 'fa-form';
+            form.setAttribute('novalidate', 'novalidate');
+
+            if (data.descripcion) {
+                var desc = document.createElement('p');
+                desc.className = 'fa-form-desc';
+                desc.textContent = data.descripcion;
+                form.appendChild(desc);
             }
 
-            var main = document.createElement('div');
-            main.className = 'fa-quote-item-main';
-            var name = document.createElement('span');
-            name.className = 'fa-quote-item-name';
-            name.textContent = (item.nombre || 'Producto') + ' ×' + (item.cantidad || 0);
-            main.appendChild(name);
-            var unit = document.createElement('span');
-            unit.className = 'fa-quote-item-unit';
-            unit.textContent = formatCOP(item.precioDia) + ' / día';
-            main.appendChild(unit);
-            line.appendChild(main);
+            var inputs = {};
+            (data.fields || []).forEach(function (field) {
+                var wrap = document.createElement('label');
+                wrap.className = 'fa-field';
+                var labelText = document.createElement('span');
+                labelText.textContent = field.label || field.name;
+                if (field.required) {
+                    var req = document.createElement('span');
+                    req.className = 'fa-field-req';
+                    req.textContent = ' *';
+                    labelText.appendChild(req);
+                }
+                wrap.appendChild(labelText);
 
-            var sub = document.createElement('span');
-            sub.className = 'fa-quote-item-sub';
-            sub.textContent = formatCOP(item.subtotal);
-            line.appendChild(sub);
-            return line;
+                var input;
+                if (field.type === 'select') {
+                    input = document.createElement('select');
+                    var placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.textContent = 'Selecciona...';
+                    input.appendChild(placeholder);
+                    (field.options || []).forEach(function (opt) {
+                        var option = document.createElement('option');
+                        option.value = opt.value != null ? opt.value : opt;
+                        option.textContent = opt.label != null ? opt.label : opt;
+                        input.appendChild(option);
+                    });
+                } else if (field.type === 'textarea') {
+                    input = document.createElement('textarea');
+                    input.rows = 3;
+                    if (field.placeholder) {
+                        input.placeholder = field.placeholder;
+                    }
+                } else {
+                    input = document.createElement('input');
+                    input.type = field.type === 'number' ? 'number' : (field.type === 'date' ? 'date' : 'text');
+                    if (field.type === 'number') {
+                        input.min = '0';
+                    }
+                    if (field.type === 'date') {
+                        input.min = todayIso();
+                    }
+                    if (field.placeholder) {
+                        input.placeholder = field.placeholder;
+                    }
+                }
+                input.name = field.name;
+                if (field.required) {
+                    input.required = true;
+                }
+                inputs[field.name] = input;
+                wrap.appendChild(input);
+                form.appendChild(wrap);
+            });
+
+            var error = document.createElement('p');
+            error.className = 'fa-form-error';
+            error.hidden = true;
+            form.appendChild(error);
+
+            var submit = document.createElement('button');
+            submit.type = 'submit';
+            submit.className = 'fa-btn fa-btn-primary';
+            submit.textContent = data.submitLabel || 'Enviar';
+            form.appendChild(submit);
+
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                var lines = [];
+                var missing = null;
+                (data.fields || []).forEach(function (field) {
+                    var value = (inputs[field.name] && inputs[field.name].value || '').trim();
+                    if (field.required && !value && !missing) {
+                        missing = field.label || field.name;
+                    }
+                    if (value) {
+                        lines.push('- ' + (field.label || field.name) + ': ' + value);
+                    }
+                });
+                if (missing) {
+                    error.textContent = 'Completa: ' + missing + '.';
+                    error.hidden = false;
+                    return;
+                }
+                if (lines.length === 0) {
+                    error.textContent = 'Completa al menos un dato.';
+                    error.hidden = false;
+                    return;
+                }
+                closeSidePanel();
+                sendUserMessage('Datos de mi evento:\n' + lines.join('\n'));
+            });
+
+            view.appendChild(form);
         }
 
-        function quoteLine(label, value) {
-            var line = document.createElement('div');
-            line.className = 'fa-quote-item';
-            var left = document.createElement('span');
-            left.textContent = label;
-            var right = document.createElement('span');
-            right.textContent = value;
-            line.appendChild(left);
-            line.appendChild(right);
-            return line;
-        }
+        // ── Vista: recomendación ──
 
-        function appendEscalationCard(data) {
-            var card = document.createElement('div');
-            card.className = 'fa-quote';
-            var title = document.createElement('h4');
-            title.textContent = 'Te conecto con un asesor';
-            card.appendChild(title);
-            var note = document.createElement('p');
-            note.className = 'fa-quote-note';
-            note.textContent = 'Puedes continuar la conversación por WhatsApp con el equipo de Furent.';
-            card.appendChild(note);
+        function renderRecommendation(data) {
+            var view = els.viewReco;
+            if (!view) {
+                return;
+            }
+            view.textContent = '';
+            var sub = document.createElement('p');
+            sub.className = 'fa-panel-sub';
+            var bits = [];
+            if (data.invitados) {
+                bits.push(data.invitados + ' personas');
+            }
+            if (data.estilo) {
+                bits.push('estilo ' + data.estilo);
+            }
+            if (data.dias) {
+                bits.push(data.dias + (data.dias === 1 ? ' día' : ' días'));
+            }
+            sub.textContent = bits.length ? ('Para ' + bits.join(' · ')) : 'Propuesta de mobiliario para tu evento.';
+            view.appendChild(sub);
+
+            var items = data.items || [];
+            if (items.length === 0) {
+                var empty = document.createElement('p');
+                empty.className = 'fa-bag-empty';
+                empty.textContent = 'No hay una recomendación todavía.';
+                view.appendChild(empty);
+                return;
+            }
+
+            items.forEach(function (item) {
+                var line = document.createElement('div');
+                line.className = 'fa-bag-item';
+                if (item.imagen) {
+                    var thumb = document.createElement('img');
+                    thumb.className = 'fa-bag-thumb';
+                    thumb.alt = '';
+                    thumb.loading = 'lazy';
+                    thumb.src = item.imagen;
+                    line.appendChild(thumb);
+                }
+                var main = document.createElement('div');
+                main.className = 'fa-bag-main';
+                var name = document.createElement('p');
+                name.className = 'fa-bag-name';
+                name.textContent = (item.nombre || 'Producto') + ' ×' + (item.cantidad || 0);
+                main.appendChild(name);
+                var price = document.createElement('p');
+                price.className = 'fa-bag-price';
+                price.textContent = formatCOP(item.precioDia) + ' / día';
+                main.appendChild(price);
+                line.appendChild(main);
+                var sub2 = document.createElement('span');
+                sub2.className = 'fa-quote-item-sub';
+                sub2.textContent = formatCOP(item.subtotalDia);
+                line.appendChild(sub2);
+                view.appendChild(line);
+            });
+
+            if (data.totalEstimado != null) {
+                var total = document.createElement('div');
+                total.className = 'fa-bag-total';
+                total.appendChild(textSpan('Total estimado'));
+                total.appendChild(textSpan(formatCOP(data.totalEstimado)));
+                view.appendChild(total);
+            }
+            if (data.presupuesto) {
+                var budget = document.createElement('p');
+                budget.className = 'fa-reco-budget';
+                budget.textContent = 'Presupuesto indicado: ' + formatCOP(data.presupuesto) + '.';
+                view.appendChild(budget);
+            }
 
             var actions = document.createElement('div');
             actions.className = 'fa-quote-actions';
-            var url = (data && data.whatsappUrl) || whatsappUrl('Hola Furent, vengo del asistente virtual.');
-            actions.appendChild(button('Abrir WhatsApp', 'fa-btn-wa', function () {
-                trackAssistantEvent('assistant_whatsapp_click', { origen: 'escalation' });
-                window.open(url, '_blank');
-            }, ICONS.whatsapp));
-            card.appendChild(actions);
+            actions.appendChild(button('Agregar a mi bolsa', 'fa-btn-primary', function () {
+                setBagFromLines(items);
+                toast('Recomendación agregada a tu bolsa', 'success');
+                openSidePanel('bolsa');
+            }, ICONS.cart));
+            actions.appendChild(button('Elegir fechas', 'fa-btn-ghost', function () {
+                openSidePanel('fechas');
+            }, ICONS.calendar));
+            view.appendChild(actions);
+        }
 
-            var row = document.createElement('div');
-            row.className = 'fa-row fa-enter';
-            row.style.width = '100%';
-            row.appendChild(card);
-            els.messages.appendChild(row);
-            scrollDown();
+        // ── Vista: bolsa ──
+
+        function renderBagPanel(serverItems) {
+            var view = els.viewBolsa;
+            if (!view) {
+                return;
+            }
+            if (serverItems && serverItems.length) {
+                mergeBagFromServer(serverItems);
+            }
+            view.textContent = '';
+            var bag = readBag();
+            if (bag.length === 0) {
+                var empty = document.createElement('p');
+                empty.className = 'fa-bag-empty';
+                empty.textContent = 'Tu bolsa está vacía. Pídeme recomendaciones o agrega productos '
+                    + 'desde el catálogo.';
+                view.appendChild(empty);
+                return;
+            }
+
+            var totalDia = 0;
+            bag.forEach(function (item) {
+                var line = document.createElement('div');
+                line.className = 'fa-bag-item';
+                if (item.image) {
+                    var thumb = document.createElement('img');
+                    thumb.className = 'fa-bag-thumb';
+                    thumb.alt = '';
+                    thumb.loading = 'lazy';
+                    thumb.src = item.image;
+                    line.appendChild(thumb);
+                }
+                var main = document.createElement('div');
+                main.className = 'fa-bag-main';
+                var name = document.createElement('p');
+                name.className = 'fa-bag-name';
+                name.textContent = item.name || 'Producto';
+                main.appendChild(name);
+                var price = document.createElement('p');
+                price.className = 'fa-bag-price';
+                price.textContent = formatCOP(item.price) + ' / día';
+                main.appendChild(price);
+                line.appendChild(main);
+
+                var qty = document.createElement('div');
+                qty.className = 'fa-qty';
+                qty.appendChild(qtyButton('-', function () {
+                    changeBagQty(item.id, -1);
+                    renderBagPanel();
+                }));
+                var value = document.createElement('span');
+                value.textContent = item.qty || 0;
+                qty.appendChild(value);
+                qty.appendChild(qtyButton('+', function () {
+                    changeBagQty(item.id, 1);
+                    renderBagPanel();
+                }));
+                line.appendChild(qty);
+                view.appendChild(line);
+
+                totalDia += (Number(item.price) || 0) * (Number(item.qty) || 0);
+            });
+
+            var total = document.createElement('div');
+            total.className = 'fa-bag-total';
+            total.appendChild(textSpan('Total por día'));
+            total.appendChild(textSpan(formatCOP(totalDia)));
+            view.appendChild(total);
+
+            var actions = document.createElement('div');
+            actions.className = 'fa-quote-actions';
+            actions.appendChild(button('Cotizar mi bolsa', 'fa-btn-primary', function () {
+                closeSidePanel();
+                sendUserMessage('Quiero cotizar lo que tengo en mi bolsa.');
+            }, ICONS.receipt));
+            actions.appendChild(button('Vaciar', 'fa-btn-ghost', function () {
+                writeBag([]);
+                renderBagPanel();
+                toast('Bolsa vaciada', 'success');
+            }, ICONS.trash));
+            view.appendChild(actions);
+        }
+
+        function qtyButton(label, onClick) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = label;
+            b.addEventListener('click', onClick);
+            return b;
+        }
+
+        // ── Vista: seguimiento del alquiler ──
+
+        function renderReservation(data) {
+            var view = els.viewAlquiler;
+            if (!view) {
+                return;
+            }
+            view.textContent = '';
+            if (data.reserva) {
+                renderReservationDetail(view, data.reserva);
+                return;
+            }
+            var list = data.reservas || [];
+            if (list.length === 0) {
+                var empty = document.createElement('p');
+                empty.className = 'fa-bag-empty';
+                empty.textContent = 'No encuentro alquileres en tu cuenta.';
+                view.appendChild(empty);
+                return;
+            }
+            list.forEach(function (r) {
+                var box = document.createElement('div');
+                box.className = 'fa-quote';
+                box.style.marginBottom = '10px';
+                var title = document.createElement('h4');
+                title.textContent = '#' + shortId(r.id);
+                box.appendChild(title);
+                var meta = document.createElement('p');
+                meta.className = 'fa-quote-dates';
+                meta.textContent = (r.estado || '') + ' · ' + rangoDeReserva(r);
+                box.appendChild(meta);
+                if (r.total != null) {
+                    box.appendChild(quoteLine('Total', formatCOP(r.total)));
+                }
+                view.appendChild(box);
+            });
+        }
+
+        function renderReservationDetail(view, r) {
+            var title = document.createElement('p');
+            title.className = 'fa-panel-title';
+            title.textContent = 'Alquiler #' + shortId(r.id);
+            view.appendChild(title);
+
+            var sub = document.createElement('p');
+            sub.className = 'fa-panel-sub';
+            sub.textContent = (r.estado || '') + ' · ' + rangoDeReserva(r);
+            view.appendChild(sub);
+
+            var meta = document.createElement('div');
+            meta.className = 'fa-quote';
+            meta.appendChild(quoteLine('Total', formatCOP(r.total)));
+            meta.appendChild(quoteLine('Pagado', formatCOP(r.montoAbonado)));
+            meta.appendChild(quoteLine('Saldo', formatCOP(r.saldoPendiente)));
+            if (r.estadoPago) {
+                meta.appendChild(quoteLine('Estado de pago', String(r.estadoPago)));
+            }
+            view.appendChild(meta);
+
+            if (r.items && r.items.length) {
+                var itemsTitle = document.createElement('p');
+                itemsTitle.className = 'fa-panel-title';
+                itemsTitle.style.marginTop = '12px';
+                itemsTitle.textContent = 'Muebles solicitados';
+                view.appendChild(itemsTitle);
+                r.items.forEach(function (item) {
+                    view.appendChild(quoteLine((item.nombre || 'Producto') + ' ×' + (item.cantidad || 0), ''));
+                });
+            }
+
+            if (r.timeline && r.timeline.length) {
+                var tlTitle = document.createElement('p');
+                tlTitle.className = 'fa-panel-title';
+                tlTitle.style.marginTop = '12px';
+                tlTitle.textContent = 'Estado del pedido';
+                view.appendChild(tlTitle);
+                view.appendChild(buildTimeline(r.timeline));
+            }
+
+            if (r.pagos && r.pagos.length) {
+                var payTitle = document.createElement('p');
+                payTitle.className = 'fa-panel-title';
+                payTitle.style.marginTop = '12px';
+                payTitle.textContent = 'Pagos registrados';
+                view.appendChild(payTitle);
+                r.pagos.forEach(function (pago) {
+                    view.appendChild(quoteLine(
+                        (pago.tipo || 'Pago') + (pago.fecha ? ' · ' + fmtFecha(pago.fecha.slice(0, 10)) : ''),
+                        formatCOP(pago.monto)
+                    ));
+                });
+            }
+        }
+
+        function buildTimeline(steps) {
+            var wrap = document.createElement('div');
+            wrap.className = 'fa-timeline';
+            steps.forEach(function (step) {
+                var row = document.createElement('div');
+                row.className = 'fa-step' + (step.completado ? ' done' : '') + (step.actual ? ' current' : '');
+                var col = document.createElement('div');
+                col.className = 'fa-step-col';
+                var dot = document.createElement('span');
+                dot.className = 'fa-step-dot';
+                col.appendChild(dot);
+                var line = document.createElement('span');
+                line.className = 'fa-step-line';
+                col.appendChild(line);
+                row.appendChild(col);
+                var label = document.createElement('span');
+                label.className = 'fa-step-label';
+                label.textContent = step.estado || '';
+                row.appendChild(label);
+                wrap.appendChild(row);
+            });
+            return wrap;
+        }
+
+        function rangoDeReserva(r) {
+            if (!r.fechaInicio || !r.fechaFin) {
+                return '';
+            }
+            return fmtFecha(r.fechaInicio) + ' – ' + fmtFecha(r.fechaFin);
+        }
+
+        function textSpan(text) {
+            var span = document.createElement('span');
+            span.textContent = text;
+            return span;
+        }
+
+        // ───────────────────────── Historial (servidor) ─────────────────────────
+
+        function loadChatList() {
+            if (!els.historyList) {
+                return;
+            }
+            fetch(listUrl, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('conversations ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function (data) {
+                    chatList = (data && data.conversations) || [];
+                    renderHistoryList();
+                })
+                .catch(function () {
+                    chatList = [];
+                    renderHistoryList(true);
+                });
+        }
+
+        function renderHistoryList(failed) {
+            if (!els.historyList) {
+                return;
+            }
+            els.historyList.textContent = '';
+            if (chatList.length === 0) {
+                var empty = document.createElement('p');
+                empty.className = 'fa-hist-empty';
+                empty.textContent = failed
+                    ? 'No se pudo cargar tu historial. El chat sigue disponible.'
+                    : 'Aún no tienes chats.';
+                els.historyList.appendChild(empty);
+                return;
+            }
+            chatList.forEach(function (conversation) {
+                var item = document.createElement('div');
+                item.className = 'fa-hist-item';
+
+                var open = document.createElement('button');
+                open.type = 'button';
+                open.className = 'fa-hist-open';
+                open.setAttribute('role', 'listitem');
+                if (state.conversationId === conversation.conversationId) {
+                    open.setAttribute('data-active', 'true');
+                }
+                var title = document.createElement('span');
+                title.className = 'fa-hist-title';
+                title.textContent = conversation.titulo || 'Nuevo chat';
+                open.appendChild(title);
+                var meta = document.createElement('span');
+                meta.className = 'fa-hist-meta';
+                var total = conversation.totalMensajes || 0;
+                meta.textContent = total + (total === 1 ? ' mensaje' : ' mensajes')
+                    + (conversation.ultimoMensaje ? ' · ' + fmtFecha(conversation.ultimoMensaje.slice(0, 10)) : '');
+                open.appendChild(meta);
+                open.addEventListener('click', function () {
+                    openConversation(conversation.conversationId);
+                });
+                item.appendChild(open);
+
+                var del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'fa-hist-del';
+                del.setAttribute('aria-label', 'Eliminar chat');
+                del.appendChild(svgIcon(ICONS.trash, 15));
+                del.addEventListener('click', function () {
+                    deleteConversation(conversation.conversationId);
+                });
+                item.appendChild(del);
+
+                els.historyList.appendChild(item);
+            });
+        }
+
+        function updateHistoryActive() {
+            if (!els.historyList) {
+                return;
+            }
+            var buttons = els.historyList.querySelectorAll('.fa-hist-open');
+            for (var i = 0; i < buttons.length; i++) {
+                var isActive = buttons[i].querySelector('.fa-hist-title')
+                    && chatList[i] && chatList[i].conversationId === state.conversationId;
+                if (isActive) {
+                    buttons[i].setAttribute('data-active', 'true');
+                } else {
+                    buttons[i].removeAttribute('data-active');
+                }
+            }
+        }
+
+        function openConversation(id) {
+            if (!id) {
+                return;
+            }
+            fetch(listUrl + '/' + encodeURIComponent(id), {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('conversation ' + response.status);
+                }
+                return response.json();
+            }).then(function (data) {
+                state.conversationId = id;
+                els.messages.textContent = '';
+                currentBubble = null;
+                var messages = (data && data.messages) || [];
+                messages.forEach(function (message) {
+                    if (message.rol === 'USER' && message.contenido) {
+                        appendUserBubble(message.contenido, false);
+                    } else if (message.rol === 'ASSISTANT' && message.contenido) {
+                        appendAssistantBubble(message.contenido, false);
+                    }
+                });
+                if (messages.length === 0) {
+                    renderWelcome();
+                }
+                closeSidePanel();
+                closeHistory();
+                openPanel();
+                updateHistoryActive();
+                window.setTimeout(scrollDown, 40);
+            }).catch(function () {
+                toast('No se pudo abrir ese chat', 'error');
+            });
+        }
+
+        function deleteConversation(id) {
+            if (!id || !window.confirm('¿Eliminar este chat? Esta acción no se puede deshacer.')) {
+                return;
+            }
+            fetch(listUrl + '/' + encodeURIComponent(id), {
+                method: 'DELETE',
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('delete ' + response.status);
+                }
+                chatList = chatList.filter(function (c) { return c.conversationId !== id; });
+                renderHistoryList();
+                if (state.conversationId === id) {
+                    boot();
+                }
+            }).catch(function () {
+                toast('No se pudo eliminar el chat', 'error');
+            });
+        }
+
+        function newChat() {
+            closeHistory();
+            openPanel();
+            boot();
+        }
+
+        function openHistory() {
+            if (!els.history) {
+                return;
+            }
+            els.history.hidden = false;
+            if (els.historyToggle) {
+                els.historyToggle.setAttribute('aria-expanded', 'true');
+            }
+            loadChatList();
+        }
+
+        function closeHistory() {
+            if (!els.history) {
+                return;
+            }
+            els.history.hidden = true;
+            if (els.historyToggle) {
+                els.historyToggle.setAttribute('aria-expanded', 'false');
+            }
         }
 
         // ───────────────────────── Fechas / calendario ─────────────────────────
-        //
-        // El compositor ofrece un calendario de rango (flatpickr inline). Al elegir un rango de
-        // 1 a 7 días se guarda en `furent_selected_dates` y se envía al asistente como un mensaje
-        // con las fechas ISO, para que confirme disponibilidad y cotice. Para usuarios
-        // autenticados se marcan los días ocupados reutilizando /api/productos/availability.
 
         function initDatePicker() {
-            if (!els.calendar || !els.datesPill || !els.datesInput) {
+            if (!els.datesInput || !els.calendarUse) {
                 return;
             }
-            els.datesPill.addEventListener('click', toggleCalendar);
             if (els.calendarClear) {
                 els.calendarClear.addEventListener('click', clearDates);
             }
-            if (els.calendarUse) {
-                els.calendarUse.addEventListener('click', useDates);
-            }
+            els.calendarUse.addEventListener('click', useDates);
 
             if (typeof window.flatpickr === 'function') {
                 try {
@@ -881,34 +1677,6 @@
             return { wrap: wrap, input: input };
         }
 
-        function toggleCalendar() {
-            if (!els.calendar) {
-                return;
-            }
-            if (els.calendar.hidden) {
-                openCalendar();
-            } else {
-                closeCalendar();
-            }
-        }
-
-        function openCalendar() {
-            collapseSuggestions();
-            els.calendar.hidden = false;
-            els.datesPill.setAttribute('aria-expanded', 'true');
-            if (authenticated) {
-                loadReservedDays();
-            }
-        }
-
-        function closeCalendar() {
-            if (!els.calendar) {
-                return;
-            }
-            els.calendar.hidden = true;
-            els.datesPill.setAttribute('aria-expanded', 'false');
-        }
-
         function onDatesChange(selectedDates) {
             if (!selectedDates || selectedDates.length === 0) {
                 pendingStart = null;
@@ -929,21 +1697,16 @@
         }
 
         function updateDatesUI() {
+            if (!els.calendarUse) {
+                return;
+            }
             var hasDates = !!(pendingStart && pendingEnd);
             var dias = hasDates ? diasEntre(pendingStart, pendingEnd) : 0;
             var etiqueta = hasDates
                 ? rangoCorto(pendingStart, pendingEnd) + ' · ' + dias + (dias === 1 ? ' día' : ' días')
-                : 'Elegir fechas';
+                : '';
 
-            if (els.datesLabel) {
-                els.datesLabel.textContent = etiqueta;
-            }
-            if (els.datesPill) {
-                els.datesPill.setAttribute('data-active', hasDates ? 'true' : 'false');
-            }
-            if (els.calendarUse) {
-                els.calendarUse.disabled = !hasDates || isStreaming;
-            }
+            els.calendarUse.disabled = !hasDates || isStreaming;
             if (els.calendarHint) {
                 if (hasDates) {
                     els.calendarHint.textContent = etiqueta + '. Pulsa "Usar estas fechas".';
@@ -960,10 +1723,10 @@
                 return;
             }
             rememberDates(pendingStart, pendingEnd);
-            closeCalendar();
             trackAssistantEvent('assistant_dates_use', {
                 dias: diasEntre(pendingStart, pendingEnd)
             });
+            closeSidePanel();
             sendUserMessage('Usa estas fechas para mi evento: ' + pendingStart + ' al ' + pendingEnd
                 + '. Confirma la disponibilidad y cotiza lo que te pedí.');
         }
@@ -1163,19 +1926,42 @@
 
         // ───────────────────────── Bolsa y checkout ─────────────────────────
 
-        function addLinesToBag(items) {
-            if (!items || items.length === 0) {
-                return;
-            }
+        function readBag() {
             var bag;
             try {
-                bag = JSON.parse(localStorage.getItem('furent_bag') || '[]');
+                bag = JSON.parse(localStorage.getItem(BAG_KEY) || '[]');
             } catch (e) {
                 bag = [];
             }
             if (!Array.isArray(bag)) {
                 bag = [];
             }
+            return bag.filter(function (item) { return item && item.id; });
+        }
+
+        function writeBag(bag) {
+            try {
+                localStorage.setItem(BAG_KEY, JSON.stringify(bag || []));
+            } catch (e) { /* almacenamiento lleno o bloqueado */ }
+            notifyBagChanged();
+        }
+
+        function readBagLines() {
+            return readBag().map(function (item) {
+                return {
+                    id: item.id,
+                    nombre: item.name || item.nombre || 'Producto',
+                    cantidad: Math.max(1, parseInt(item.qty, 10) || 1),
+                    precioDia: item.price != null ? item.price : item.precioDia
+                };
+            });
+        }
+
+        function addLinesToBag(items) {
+            if (!items || items.length === 0) {
+                return;
+            }
+            var bag = readBag();
             items.forEach(function (item) {
                 var id = item.id;
                 if (!id) {
@@ -1197,9 +1983,144 @@
                     });
                 }
             });
-            localStorage.setItem('furent_bag', JSON.stringify(bag));
-            notifyBagChanged();
+            writeBag(bag);
             toast('Productos agregados a tu bolsa', 'success');
+            if (sideVista === 'bolsa') {
+                renderBagPanel();
+            }
+        }
+
+        function setBagFromLines(items) {
+            if (!items || !items.length) {
+                return;
+            }
+            var bag = [];
+            items.forEach(function (item) {
+                var id = item.id || item.productoId;
+                if (!id) {
+                    return;
+                }
+                bag.push({
+                    id: id,
+                    name: item.nombre || item.name || 'Producto',
+                    price: item.precioDia != null ? item.precioDia : (item.price || 0),
+                    image: item.imagen || item.image || '',
+                    qty: Math.max(1, parseInt(item.cantidad, 10) || 1),
+                    maxStock: item.stock || 0,
+                    maxQty: 0
+                });
+            });
+            writeBag(bag);
+        }
+
+        function changeBagQty(id, delta) {
+            var bag = readBag();
+            var entry = bag.find(function (b) { return b.id === id; });
+            if (!entry) {
+                return;
+            }
+            entry.qty = (parseInt(entry.qty, 10) || 0) + delta;
+            if (entry.qty <= 0) {
+                bag = bag.filter(function (b) { return b.id !== id; });
+            }
+            writeBag(bag);
+        }
+
+        function mergeBagFromServer(items) {
+            var bag = readBag();
+            items.forEach(function (item) {
+                if (!item || !item.id) {
+                    return;
+                }
+                var entry = bag.find(function (b) { return b.id === item.id; });
+                if (entry) {
+                    if (item.nombre) { entry.name = item.nombre; }
+                    if (item.precioDia != null) { entry.price = item.precioDia; }
+                    if (item.imagen) { entry.image = item.imagen; }
+                    if (item.stock != null) { entry.maxStock = item.stock; }
+                } else {
+                    bag.push({
+                        id: item.id,
+                        name: item.nombre || 'Producto',
+                        price: item.precioDia != null ? item.precioDia : 0,
+                        image: item.imagen || '',
+                        qty: Math.max(1, parseInt(item.cantidad, 10) || 1),
+                        maxStock: item.stock || 0,
+                        maxQty: 0
+                    });
+                }
+            });
+            try { localStorage.setItem(BAG_KEY, JSON.stringify(bag)); } catch (e) { /* opcional */ }
+        }
+
+        function applyBagEvent(data) {
+            if (!data) {
+                return;
+            }
+            var op = data.operacion || 'agregar';
+            var items = data.items || [];
+            var bag = readBag();
+            if (op === 'vaciar') {
+                bag = [];
+            } else if (op === 'quitar') {
+                var ids = items.map(function (i) { return i.id; });
+                bag = bag.filter(function (b) { return ids.indexOf(b.id) === -1; });
+            } else if (op === 'cambiar_cantidad') {
+                items.forEach(function (item) {
+                    if (!item || !item.id) {
+                        return;
+                    }
+                    var entry = bag.find(function (b) { return b.id === item.id; });
+                    if (!entry) {
+                        return;
+                    }
+                    var qty = parseInt(item.cantidad, 10);
+                    if (qty <= 0) {
+                        bag = bag.filter(function (b) { return b.id !== item.id; });
+                    } else {
+                        entry.qty = qty;
+                    }
+                });
+            } else {
+                items.forEach(function (item) {
+                    if (!item || !item.id) {
+                        return;
+                    }
+                    var qty = Math.max(1, parseInt(item.cantidad, 10) || 1);
+                    var entry = bag.find(function (b) { return b.id === item.id; });
+                    if (entry) {
+                        entry.qty = (parseInt(entry.qty, 10) || 0) + qty;
+                    } else {
+                        bag.push({
+                            id: item.id,
+                            name: item.nombre || 'Producto',
+                            price: item.precioDia != null ? item.precioDia : 0,
+                            image: item.imagen || '',
+                            qty: qty,
+                            maxStock: item.stock || 0,
+                            maxQty: 0
+                        });
+                    }
+                });
+            }
+            writeBag(bag);
+            toast(bagMessage(op), 'success');
+            if (sideVista === 'bolsa') {
+                renderBagPanel();
+            }
+        }
+
+        function bagMessage(op) {
+            if (op === 'vaciar') {
+                return 'Bolsa vaciada';
+            }
+            if (op === 'quitar') {
+                return 'Producto quitado de tu bolsa';
+            }
+            if (op === 'cambiar_cantidad') {
+                return 'Cantidad actualizada';
+            }
+            return 'Productos agregados a tu bolsa';
         }
 
         function notifyBagChanged() {
@@ -1215,15 +2136,7 @@
          */
         function prepararReserva(data) {
             var items = (data && data.items) || [];
-            var bag;
-            try {
-                bag = JSON.parse(localStorage.getItem('furent_bag') || '[]');
-            } catch (e) {
-                bag = [];
-            }
-            if (!Array.isArray(bag)) {
-                bag = [];
-            }
+            var bag = readBag();
             items.forEach(function (item) {
                 var id = item.id || item.productoId;
                 if (!id) {
@@ -1246,7 +2159,7 @@
                 }
             });
             try {
-                localStorage.setItem('furent_bag', JSON.stringify(bag));
+                localStorage.setItem(BAG_KEY, JSON.stringify(bag));
                 if (data && data.fechaInicio && data.fechaFin) {
                     localStorage.setItem('furent_selected_dates', JSON.stringify({
                         start: data.fechaInicio,
@@ -1268,17 +2181,37 @@
 
         // ───────────────────────── Utilidades ─────────────────────────
 
+        function toggleQuick() {
+            if (!els.quick) {
+                return;
+            }
+            var open = els.quick.hidden;
+            els.quick.hidden = !open;
+            if (els.plus) {
+                els.plus.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            if (open) {
+                collapseSuggestions();
+            }
+        }
+
+        function collapseQuick() {
+            if (els.quick && !els.quick.hidden) {
+                els.quick.hidden = true;
+            }
+            if (els.plus) {
+                els.plus.setAttribute('aria-expanded', 'false');
+            }
+        }
+
         function toggleSuggestions() {
             if (!els.chips) {
                 return;
             }
             var open = els.chips.hidden;
             els.chips.hidden = !open;
-            if (els.chipsToggle) {
-                els.chipsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-            }
-            if (open) {
-                closeCalendar();
+            if (els.quickSuggest) {
+                els.quickSuggest.setAttribute('aria-expanded', open ? 'true' : 'false');
             }
         }
 
@@ -1286,8 +2219,8 @@
             if (els.chips && !els.chips.hidden) {
                 els.chips.hidden = true;
             }
-            if (els.chipsToggle) {
-                els.chipsToggle.setAttribute('aria-expanded', 'false');
+            if (els.quickSuggest) {
+                els.quickSuggest.setAttribute('aria-expanded', 'false');
             }
         }
 
@@ -1305,6 +2238,11 @@
 
         function scrollDown() {
             els.messages.scrollTop = els.messages.scrollHeight;
+        }
+
+        function shortId(id) {
+            var value = String(id || '');
+            return value.length > 8 ? value.slice(0, 8) : value;
         }
 
         function parseError(status, body) {
@@ -1396,18 +2334,13 @@
         // ───────────────────────── Markdown seguro ─────────────────────────
         //
         // Parser mínimo que construye nodos de texto: el contenido del modelo nunca se inyecta
-        // como HTML. Soporta negrita, itálica, código en línea, listas y encabezados, con enlaces
-        // limitados a http(s), mailto, rutas relativas y anclas.
+        // como HTML. Soporta negrita, itálica, resaltado (==texto==), código en línea, listas y
+        // encabezados, con enlaces limitados a http(s), mailto, rutas relativas y anclas.
 
-        // El modelo no debe emitir marcado ni JSON; si algo se filtra (por ejemplo una etiqueta
-        // tipo <cotizacion ...> con datos internos), se elimina antes de mostrarlo en el chat.
         function stripLeakedMarkup(text) {
             var out = String(text || '');
-            // 1) Bloques con cierre: <etiqueta ...>...</etiqueta>
             out = out.replace(/<([a-zA-Z][\w:-]*)(?:\s[^<>]*)?>[\s\S]*?<\/\1\s*>/g, '');
-            // 2) Etiquetas sueltas (apertura, cierre o autocierre).
             out = out.replace(/<\/?[a-zA-Z][\w:-]*(?:\s[^<>]*)?\/?>/g, '');
-            // 3) Espacios y saltos sobrantes tras retirar el bloque.
             out = out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
             return out;
         }
@@ -1481,8 +2414,6 @@
 
         function appendInline(container, text) {
             var str = String(text || '');
-            // Instancia local: la recursión (negrita/itálica/enlaces) no debe compartir el
-            // lastIndex del regex global, o se reinicia el escaneo y entra en bucle.
             var re = new RegExp(INLINE_RE.source, 'g');
             var last = 0;
             var match;
@@ -1508,6 +2439,12 @@
                 var strongAlt = document.createElement('strong');
                 appendInline(strongAlt, token.slice(2, -2));
                 return strongAlt;
+            }
+            if (token.length > 4 && token.slice(0, 2) === '==' && token.slice(-2) === '==') {
+                var hl = document.createElement('span');
+                hl.className = 'fa-hl';
+                appendInline(hl, token.slice(2, -2));
+                return hl;
             }
             if (token.charAt(0) === '`' && token.charAt(token.length - 1) === '`') {
                 var code = document.createElement('code');
@@ -1557,97 +2494,9 @@
             return null;
         }
 
-        // ───────────────────────── Persistencia ─────────────────────────
-
-        function freshState() {
-            return { conversationId: null, messages: [], expiresAt: Date.now() + STORAGE_TTL_MS };
-        }
-
-        function loadState() {
-            try {
-                var raw = localStorage.getItem(STORAGE_KEY);
-                if (!raw) {
-                    return freshState();
-                }
-                var parsed = JSON.parse(raw);
-                if (!parsed || typeof parsed !== 'object') {
-                    return freshState();
-                }
-                // Chat temporal: si el hilo guardado superó las 24 h, se descarta.
-                if (parsed.expiresAt && Date.now() >= Number(parsed.expiresAt)) {
-                    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* opcional */ }
-                    return freshState();
-                }
-                if (!Array.isArray(parsed.messages)) {
-                    parsed.messages = [];
-                }
-                if (!parsed.expiresAt) {
-                    parsed.expiresAt = Date.now() + STORAGE_TTL_MS;
-                }
-                return parsed;
-            } catch (e) {
-                return freshState();
-            }
-        }
-
-        function isStateExpired() {
-            return !!(state.expiresAt && Date.now() >= Number(state.expiresAt));
-        }
-
-        function resetConversation() {
-            state = freshState();
-            saveState();
-            els.messages.textContent = '';
-            renderRestored();
-        }
-
-        function saveState() {
-            try {
-                if (state.messages && state.messages.length > MAX_STORED_MESSAGES) {
-                    state.messages = state.messages.slice(-MAX_STORED_MESSAGES);
-                }
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            } catch (e) { /* almacenamiento lleno o bloqueado */ }
-        }
-
-        function rememberMessage(rol, texto) {
-            if (!texto) {
-                return;
-            }
-            state.messages.push({ rol: rol, texto: texto });
-            saveState();
-        }
-
-        function renderRestored() {
-            var restored = (state.messages || []).slice(-MAX_RESTORE);
-            if (restored.length === 0) {
-                // Mensaje de bienvenida efímero.
-                var welcome = document.createElement('div');
-                welcome.className = 'fa-row fa-enter';
-                var bubble = document.createElement('div');
-                bubble.className = 'fa-bubble assistant';
-                bubble.textContent = '¡Hola! Soy el asistente de Furent. Cuéntame qué evento estás '
-                    + 'organizando y te ayudo a encontrar mobiliario y a cotizar.';
-                welcome.appendChild(bubble);
-                els.messages.appendChild(welcome);
-                if (!isOpen) {
-                    showBadge();
-                }
-                return;
-            }
-            restored.forEach(function (message) {
-                if (message.rol === 'USER') {
-                    appendUserBubble(message.texto, false);
-                } else {
-                    var row = document.createElement('div');
-                    row.className = 'fa-row';
-                    var bubble = document.createElement('div');
-                    bubble.className = 'fa-bubble assistant';
-                    renderMarkdown(bubble, message.texto);
-                    row.appendChild(bubble);
-                    els.messages.appendChild(row);
-                }
-            });
+        // Mostrar el badge si el panel arranca cerrado.
+        if (!isOpen) {
+            showBadge();
         }
     }
 })();

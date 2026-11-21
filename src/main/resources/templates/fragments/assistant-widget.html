@@ -3,6 +3,12 @@
   Se incluye desde fragments/layout.html solo si `assistantEnabled` es verdadero.
   Los estilos van embebidos y con prefijo `fa-` para no depender de la compilación de Tailwind.
   El sistema visual (tokens) vive en `#furent-assistant-panel` / `#furent-assistant-launcher`.
+
+  El asistente tiene:
+   - Un botón flotante a la izquierda ("Mis chats") con su cajón de historial.
+   - Un panel lateral izquierdo dentro del chat para entradas estructuradas (formulario de evento,
+     calendario de fechas, bolsa y seguimiento de alquiler), de modo que la conversación no se
+     sature con campos y funciones densas.
 -->
 <div th:fragment="assistantWidget" xmlns:th="http://www.thymeleaf.org">
 
@@ -13,6 +19,8 @@
            está en este bloque, no debería aparecer más abajo.
            ───────────────────────────────────────────────────────────── */
         #furent-assistant-launcher,
+        #furent-assistant-history-toggle,
+        #furent-assistant-history,
         #furent-assistant-panel {
             /* Tipografía (escala fija, Inter de marca) */
             --fa-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -40,7 +48,6 @@
             --fa-accent-strong: #c2630f;
             --fa-accent-soft: #fff3e8;
             --fa-accent-line: #f6d7bc;
-            --fa-online: #3fb950;
 
             /* Forma */
             --fa-r-xs: 8px; --fa-r-sm: 10px; --fa-r: 14px;
@@ -62,7 +69,11 @@
         #furent-assistant-panel,
         #furent-assistant-panel *, #furent-assistant-panel *::before, #furent-assistant-panel *::after,
         #furent-assistant-launcher,
-        #furent-assistant-launcher *, #furent-assistant-launcher *::before, #furent-assistant-launcher *::after {
+        #furent-assistant-launcher *, #furent-assistant-launcher *::before, #furent-assistant-launcher *::after,
+        #furent-assistant-history-toggle,
+        #furent-assistant-history-toggle *,
+        #furent-assistant-history,
+        #furent-assistant-history * {
             box-sizing: border-box;
         }
 
@@ -94,7 +105,61 @@
             display: none; align-items: center; justify-content: center; border: 2px solid #fff;
         }
 
-        /* ───────── Panel ───────── */
+        /* ───────── Botón e historial de chats (izquierda) ───────── */
+        #furent-assistant-history-toggle {
+            position: fixed; left: var(--fa-s6); bottom: var(--fa-s6); z-index: 111;
+            height: 44px; padding: 0 16px 0 12px; border: 1px solid var(--fa-line-2); cursor: pointer;
+            border-radius: var(--fa-r-pill); color: var(--fa-ink-2); background: var(--fa-surface);
+            box-shadow: 0 12px 28px -12px rgba(36, 28, 21, .35);
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: var(--fa-sm); font-weight: 700; font-family: inherit;
+            transition: transform var(--fa-dur) var(--fa-ease-out), border-color var(--fa-dur) var(--fa-ease), color var(--fa-dur) var(--fa-ease);
+        }
+        #furent-assistant-history-toggle:hover { transform: translateY(-2px); border-color: var(--fa-accent-line); color: var(--fa-accent-strong); }
+        #furent-assistant-history-toggle:focus-visible { outline: 3px solid rgba(224, 122, 58, .4); outline-offset: 2px; }
+        #furent-assistant-history-toggle[aria-expanded="true"] { border-color: var(--fa-accent); color: var(--fa-accent-strong); background: var(--fa-accent-soft); }
+        #furent-assistant-history-toggle[hidden] { display: none; }
+        #furent-assistant-history-toggle svg { flex: 0 0 auto; }
+
+        #furent-assistant-history {
+            position: fixed; left: var(--fa-s6); bottom: 84px; z-index: 130;
+            width: min(340px, calc(100vw - 2rem));
+            max-height: min(72vh, 560px);
+            background: var(--fa-surface); border: 1px solid var(--fa-line); border-radius: var(--fa-r-xl);
+            box-shadow: var(--fa-shadow-2); overflow: hidden; display: flex; flex-direction: column;
+            animation: fa-pop var(--fa-dur) var(--fa-ease-out);
+        }
+        #furent-assistant-history[hidden] { display: none; }
+        .fa-hist-head { display: flex; align-items: center; gap: var(--fa-s2); padding: var(--fa-s4) var(--fa-s4) var(--fa-s2); }
+        .fa-hist-head h3 { margin: 0; font-size: var(--fa-lg); font-weight: 800; color: var(--fa-ink); flex: 1 1 auto; }
+        .fa-hist-close { background: var(--fa-surface-3); border: none; cursor: pointer; width: 30px; height: 30px; border-radius: var(--fa-r-sm); color: var(--fa-ink-2); font-size: 18px; line-height: 1; }
+        .fa-hist-close:hover { background: #ece2d6; }
+        .fa-hist-list { overflow-y: auto; padding: var(--fa-s2) var(--fa-s3) var(--fa-s3); display: flex; flex-direction: column; gap: var(--fa-s2); scrollbar-width: thin; }
+        .fa-hist-empty { padding: var(--fa-s5) var(--fa-s4); text-align: center; color: var(--fa-ink-3); font-size: var(--fa-sm); }
+        .fa-hist-item { display: flex; align-items: stretch; gap: var(--fa-s2); }
+        .fa-hist-open {
+            flex: 1 1 auto; min-width: 0; text-align: left; cursor: pointer; font-family: inherit;
+            background: var(--fa-surface-2); border: 1px solid var(--fa-line); border-radius: var(--fa-r); padding: 10px 12px;
+            transition: border-color var(--fa-dur) var(--fa-ease), background var(--fa-dur) var(--fa-ease);
+        }
+        .fa-hist-open:hover { border-color: var(--fa-accent-line); background: var(--fa-accent-soft); }
+        .fa-hist-open[data-active="true"] { border-color: var(--fa-accent); background: var(--fa-accent-soft); }
+        .fa-hist-title { display: block; font-size: var(--fa-md); font-weight: 700; color: var(--fa-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fa-hist-meta { display: block; margin-top: 2px; font-size: var(--fa-2xs); color: var(--fa-ink-3); }
+        .fa-hist-del {
+            flex: 0 0 auto; width: 38px; border: 1px solid var(--fa-line); background: var(--fa-surface); border-radius: var(--fa-r);
+            color: var(--fa-ink-3); cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: color var(--fa-dur) var(--fa-ease), border-color var(--fa-dur) var(--fa-ease), background var(--fa-dur) var(--fa-ease);
+        }
+        .fa-hist-del:hover { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
+        .fa-hist-new {
+            margin: 0 var(--fa-s3) var(--fa-s3); padding: 11px 12px; cursor: pointer; font-family: inherit;
+            border: none; border-radius: var(--fa-r); background: var(--fa-accent); color: #fff; font-size: var(--fa-sm); font-weight: 800;
+            box-shadow: var(--fa-shadow-accent);
+        }
+        .fa-hist-new:hover { background: var(--fa-accent-strong); }
+
+        /* ───────── Panel principal ───────── */
         #furent-assistant-panel {
             position: fixed; right: var(--fa-s6); bottom: var(--fa-s6); z-index: 120;
             width: min(408px, calc(100vw - 2rem));
@@ -105,8 +170,10 @@
             border: 1px solid var(--fa-line);
             box-shadow: var(--fa-shadow-2);
             animation: fa-pop var(--fa-dur-slow) var(--fa-ease-out);
+            transition: width var(--fa-dur) var(--fa-ease-out);
         }
         #furent-assistant-panel[hidden] { display: none; }
+        #furent-assistant-panel.fa-wide { width: min(768px, calc(100vw - 2rem)); }
         @keyframes fa-pop {
             from { opacity: 0; transform: translateY(16px) scale(.97); }
             to { opacity: 1; transform: none; }
@@ -115,50 +182,78 @@
         .fa-header {
             position: relative; display: flex; align-items: center; gap: var(--fa-s3);
             padding: var(--fa-s3) var(--fa-s4);
-            color: #fff; background: linear-gradient(140deg, #e88a4c, #c2630f); flex: 0 0 auto;
+            color: var(--fa-ink); background: var(--fa-surface); flex: 0 0 auto;
+            border-bottom: 1px solid var(--fa-line);
         }
-        .fa-header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: rgba(255, 255, 255, .18); }
         .fa-avatar {
-            width: 42px; height: 42px; border-radius: var(--fa-r); background: #fff;
-            border: 1px solid rgba(255, 255, 255, .55);
-            box-shadow: 0 2px 6px rgba(36, 28, 21, .18); overflow: hidden;
+            width: 40px; height: 40px; border-radius: var(--fa-r); background: #fff;
+            border: 1px solid var(--fa-line-2); overflow: hidden;
             display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
         }
         .fa-avatar img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.34); display: block; }
         .fa-head-text { min-width: 0; }
-        .fa-header h2 { margin: 0; font-size: var(--fa-lg); font-weight: 800; letter-spacing: -.01em; }
-        .fa-header p { margin: 2px 0 0; font-size: var(--fa-xs); font-weight: 500; color: rgba(255, 255, 255, .92); display: flex; align-items: center; gap: 6px; }
-        .fa-status .fa-sep { opacity: .55; }
-        .fa-dot { width: 7px; height: 7px; border-radius: var(--fa-r-pill); background: var(--fa-online); box-shadow: 0 0 0 3px rgba(63, 185, 80, .3); display: inline-block; flex: 0 0 auto; }
+        .fa-header h2 { margin: 0; font-size: var(--fa-lg); font-weight: 800; letter-spacing: -.01em; color: var(--fa-ink); }
+        .fa-header p { margin: 1px 0 0; font-size: var(--fa-xs); font-weight: 500; color: var(--fa-ink-3); }
         .fa-close {
-            margin-left: auto; background: rgba(255, 255, 255, .18); border: none; cursor: pointer;
-            width: 36px; height: 36px; border-radius: var(--fa-r-sm); color: #fff; display: flex; align-items: center; justify-content: center;
+            margin-left: auto; background: var(--fa-surface-3); border: none; cursor: pointer;
+            width: 36px; height: 36px; border-radius: var(--fa-r-sm); color: var(--fa-ink-2); display: flex; align-items: center; justify-content: center;
             transition: background var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease);
         }
-        .fa-close:hover { background: rgba(255, 255, 255, .34); }
+        .fa-close:hover { background: #ece2d6; }
         .fa-close:active { transform: scale(.94); }
-        .fa-close:focus-visible { outline: 2px solid rgba(255, 255, 255, .75); outline-offset: 2px; }
+        .fa-close:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
+
+        /* Cuerpo: [panel lateral | chat] */
+        .fa-body { flex: 1 1 auto; min-height: 0; display: flex; }
+        .fa-main { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+
+        .fa-side {
+            flex: 0 0 auto; width: 300px; min-width: 0; display: flex; flex-direction: column;
+            background: var(--fa-surface-2); border-right: 1px solid var(--fa-line);
+        }
+        .fa-side[hidden] { display: none; }
+        .fa-side-head { display: flex; align-items: center; gap: var(--fa-s2); padding: var(--fa-s3) var(--fa-s4) var(--fa-s2); border-bottom: 1px solid var(--fa-line); }
+        .fa-side-head h3 { margin: 0; flex: 1 1 auto; font-size: var(--fa-md); font-weight: 800; color: var(--fa-ink); }
+        .fa-side-close { background: var(--fa-surface); border: 1px solid var(--fa-line-2); cursor: pointer; width: 28px; height: 28px; border-radius: var(--fa-r-xs); color: var(--fa-ink-2); font-size: 16px; line-height: 1; }
+        .fa-side-close:hover { background: var(--fa-surface-3); }
+        .fa-side-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--fa-s3) var(--fa-s4) var(--fa-s4); scrollbar-width: thin; }
+        .fa-view[hidden] { display: none; }
 
         .fa-messages {
             flex: 1 1 auto; min-height: 120px; overflow-y: auto; overflow-x: hidden; padding: var(--fa-s4);
-            background: var(--fa-surface-2); display: flex; flex-direction: column; gap: var(--fa-s3);
+            background: var(--fa-surface); display: flex; flex-direction: column; gap: var(--fa-s3);
             scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: var(--fa-line-2) transparent;
+            /* Al llegar al final, el scroll no debe encadenarse con el de la página. */
+            overscroll-behavior: contain;
         }
         .fa-messages::-webkit-scrollbar { width: 8px; }
         .fa-messages::-webkit-scrollbar-thumb { background: var(--fa-line-2); border-radius: var(--fa-r-pill); border: 2px solid transparent; background-clip: content-box; }
 
         .fa-row { display: flex; gap: var(--fa-s2); max-width: 100%; }
         .fa-row.user { justify-content: flex-end; }
+        .fa-row.assistant { align-items: flex-end; }
         .fa-enter { animation: fa-rise var(--fa-dur-slow) var(--fa-ease-out) both; }
         @keyframes fa-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
+        /* Avatar junto a la burbuja del asistente (estilo de referencia) */
+        .fa-avatar-sm { width: 28px; height: 28px; border-radius: var(--fa-r-pill); overflow: hidden; flex: 0 0 auto; background: var(--fa-accent-soft); border: 1px solid var(--fa-accent-line); }
+        .fa-avatar-sm img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.34); display: block; }
+
         .fa-bubble {
-            max-width: 86%; padding: 10px 13px; border-radius: var(--fa-r-lg);
+            max-width: 84%; padding: 10px 13px; border-radius: var(--fa-r-lg);
             font-size: var(--fa-md); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
         }
-        .fa-bubble.assistant { background: var(--fa-surface); color: var(--fa-ink); border: 1px solid var(--fa-line); border-bottom-left-radius: var(--fa-r-xs); box-shadow: var(--fa-shadow-1); }
+        .fa-bubble.assistant { background: var(--fa-surface-2); color: var(--fa-ink); border: 1px solid var(--fa-line); border-bottom-left-radius: var(--fa-r-xs); }
         .fa-bubble.user { background: linear-gradient(140deg, #e88a4c, #c2630f); color: #fff; border-bottom-right-radius: var(--fa-r-xs); }
         .fa-bubble.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+        /* Burbuja de nota (no es el asistente): aviso temporal al iniciar el chat. */
+        .fa-note-row { display: flex; justify-content: center; }
+        .fa-note {
+            max-width: 92%; text-align: center; font-size: var(--fa-2xs); line-height: 1.5; color: var(--fa-ink-3);
+            background: var(--fa-surface-2); border: 1px dashed var(--fa-line-2); border-radius: var(--fa-r);
+            padding: var(--fa-s2) var(--fa-s3);
+        }
 
         /* Markdown mínimo que compone assistant.js con nodos seguros */
         .fa-bubble.assistant > *:first-child { margin-top: 0; }
@@ -167,11 +262,14 @@
         .fa-md-h { margin: var(--fa-s1) 0 var(--fa-s2); font-weight: 800; }
         .fa-bubble ul, .fa-bubble ol { margin: var(--fa-s1) 0 var(--fa-s2); padding-left: var(--fa-s4); }
         .fa-bubble li { margin: 3px 0; }
+        .fa-bubble strong { font-weight: 800; color: var(--fa-ink); }
         .fa-md-code {
             background: rgba(36, 28, 21, .07); border-radius: 5px; padding: 1px 5px;
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--fa-sm);
         }
         .fa-md-link { color: var(--fa-accent-strong); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
+        /* Resaltado de datos importantes (==texto==). */
+        .fa-hl { background: var(--fa-accent-soft); color: var(--fa-accent-strong); font-weight: 800; border-radius: 4px; padding: 0 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 
         .fa-typing { display: inline-flex; gap: 4px; align-items: center; padding: 2px 0; }
         .fa-typing span { width: 6px; height: 6px; border-radius: var(--fa-r-pill); background: var(--fa-accent); opacity: .4; animation: fa-blink 1.2s infinite; }
@@ -179,7 +277,7 @@
         .fa-typing span:nth-child(3) { animation-delay: .36s; }
         @keyframes fa-blink { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
 
-        /* ───────── Tarjetas de producto ───────── */
+        /* ───────── Tarjetas ───────── */
         .fa-card { background: var(--fa-surface); border: 1px solid var(--fa-line); border-radius: var(--fa-r-lg); overflow: hidden; width: 100%; box-shadow: var(--fa-shadow-1); }
         .fa-card-media { display: flex; gap: var(--fa-s3); padding: var(--fa-s3); align-items: center; }
         .fa-card-media img { width: 58px; height: 58px; border-radius: var(--fa-r-sm); object-fit: cover; background: var(--fa-surface-3); flex: 0 0 auto; }
@@ -223,9 +321,7 @@
         .fa-quote-total span:last-child { font-variant-numeric: tabular-nums; }
         .fa-quote-note { font-size: var(--fa-2xs); color: var(--fa-ink-3); margin: var(--fa-s2) 0 0; line-height: 1.5; }
         .fa-quote-actions { display: flex; flex-wrap: wrap; gap: var(--fa-s2); margin-top: var(--fa-s3); }
-        /* Si dos etiquetas largas no caben en una línea, cada botón pasa a ocupar
-           una fila completa y ninguna se parte a mitad de frase. */
-        .fa-quote-actions .fa-btn, .fa-card-actions .fa-btn, .fa-calendar-actions .fa-btn { flex: 1 1 auto; white-space: nowrap; }
+        .fa-quote-actions .fa-btn, .fa-card-actions .fa-btn { flex: 1 1 auto; white-space: nowrap; }
         .fa-quote-stock {
             margin: var(--fa-s3) 0 0; padding: var(--fa-s2) var(--fa-s3); font-size: var(--fa-xs); color: #b45309;
             background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--fa-r-sm);
@@ -246,8 +342,10 @@
         .fa-chip:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
         .fa-chip svg { color: var(--fa-accent); flex: 0 0 auto; }
 
-        /* Fila de herramientas del compositor (sugerencias + fechas) */
-        .fa-tools { display: flex; align-items: center; flex-wrap: wrap; gap: var(--fa-s2); margin-top: var(--fa-s2); }
+        /* Menú de opciones del compositor (botón +) */
+        .fa-quick { display: flex; align-items: center; flex-wrap: wrap; gap: var(--fa-s2); padding: 0 0 var(--fa-s2); }
+        .fa-quick[hidden] { display: none; }
+        .fa-quick:not([hidden]) { animation: fa-rise var(--fa-dur) var(--fa-ease-out); }
         .fa-tool {
             display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
             border: 1px solid var(--fa-line-2); background: var(--fa-surface); color: var(--fa-ink-2);
@@ -259,15 +357,23 @@
         .fa-tool:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
         .fa-tool svg { flex: 0 0 auto; }
         .fa-tool[aria-expanded="true"] { border-color: var(--fa-accent); background: var(--fa-accent-soft); color: var(--fa-accent-strong); }
-        .fa-tool .fa-chev { transition: transform var(--fa-dur) var(--fa-ease); }
-        .fa-tool[aria-expanded="true"] .fa-chev { transform: rotate(180deg); }
 
-        /* ───────── Compositor ───────── */
-        .fa-composer { position: relative; flex: 0 0 auto; border-top: 1px solid var(--fa-line); background: var(--fa-surface); padding: var(--fa-s3) var(--fa-s4) var(--fa-s2); }
+        /* ───────── Compositor (pastilla) ───────── */
+        .fa-composer { position: relative; flex: 0 0 auto; border-top: 1px solid var(--fa-line); background: var(--fa-surface); padding: var(--fa-s3) var(--fa-s4) var(--fa-s3); }
         .fa-input-row { display: flex; gap: var(--fa-s2); align-items: flex-end; }
+        .fa-plus {
+            flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid var(--fa-line-2); cursor: pointer;
+            border-radius: var(--fa-r-pill); background: var(--fa-surface); color: var(--fa-ink-2); font-size: 20px; line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+            transition: background var(--fa-dur) var(--fa-ease), border-color var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease);
+        }
+        .fa-plus:hover { background: var(--fa-surface-3); }
+        .fa-plus:active { transform: scale(.94); }
+        .fa-plus:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
+        .fa-plus[aria-expanded="true"] { background: var(--fa-accent-soft); border-color: var(--fa-accent); color: var(--fa-accent-strong); transform: rotate(45deg); }
         .fa-input {
-            flex: 1 1 auto; resize: none; max-height: 120px; min-height: 44px;
-            border: 1px solid var(--fa-line-2); border-radius: var(--fa-r); padding: 11px 13px;
+            flex: 1 1 auto; resize: none; max-height: 120px; min-height: 40px;
+            border: 1px solid var(--fa-line-2); border-radius: var(--fa-r); padding: 10px 14px;
             font-size: var(--fa-md); font-family: inherit; line-height: 1.4; color: var(--fa-ink);
             background: var(--fa-surface); outline: none;
             transition: border-color var(--fa-dur) var(--fa-ease), box-shadow var(--fa-dur) var(--fa-ease);
@@ -275,7 +381,7 @@
         .fa-input::placeholder { color: var(--fa-ink-3); }
         .fa-input:focus { border-color: var(--fa-accent); box-shadow: 0 0 0 3px rgba(224, 122, 58, .16); }
         .fa-send {
-            flex: 0 0 auto; width: 44px; height: 44px; border: none; cursor: pointer; border-radius: var(--fa-r);
+            flex: 0 0 auto; width: 40px; height: 40px; border: none; cursor: pointer; border-radius: var(--fa-r-pill);
             background: var(--fa-accent); color: #fff; display: flex; align-items: center; justify-content: center;
             box-shadow: var(--fa-shadow-accent);
             transition: background var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease), box-shadow var(--fa-dur) var(--fa-ease);
@@ -284,32 +390,8 @@
         .fa-send:active { transform: scale(.94); }
         .fa-send:focus-visible { outline: 3px solid rgba(224, 122, 58, .4); outline-offset: 2px; }
         .fa-send:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
-        .fa-disclaimer { font-size: var(--fa-2xs); color: var(--fa-ink-3); text-align: center; margin: var(--fa-s2) 0 0; line-height: 1.4; }
 
-        /* ───────── Fechas / calendario ───────── */
-        .fa-dates-pill {
-            display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-            border: 1px dashed var(--fa-accent-line); background: var(--fa-accent-soft); color: var(--fa-accent-strong);
-            border-radius: var(--fa-r-pill); padding: 6px 12px; font-size: var(--fa-sm); font-weight: 700; font-family: inherit;
-            transition: background var(--fa-dur) var(--fa-ease), border-color var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease);
-        }
-        .fa-dates-pill:hover { background: #ffead6; }
-        .fa-dates-pill:active { transform: scale(.98); }
-        .fa-dates-pill:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
-        .fa-dates-pill[data-active="true"] { border-style: solid; border-color: var(--fa-accent); background: var(--fa-accent); color: #fff; }
-        .fa-dates-pill svg { flex: 0 0 auto; }
-
-        /* El calendario flota sobre el hilo: así la conversación nunca se oculta. */
-        .fa-calendar {
-            position: absolute; left: var(--fa-s3); right: var(--fa-s3); bottom: calc(100% + var(--fa-s1));
-            z-index: 6; margin: 0; padding: var(--fa-s3);
-            border: 1px solid var(--fa-line); border-radius: var(--fa-r-lg); background: var(--fa-surface);
-            box-shadow: var(--fa-shadow-2);
-            max-height: min(58vh, 380px); overflow-y: auto;
-            scrollbar-width: thin;
-        }
-        .fa-calendar[hidden] { display: none; }
-        .fa-calendar:not([hidden]) { animation: fa-rise var(--fa-dur) var(--fa-ease-out); }
+        /* ───────── Calendario (dentro del panel lateral) ───────── */
         .fa-calendar-host { display: flex; justify-content: center; }
         .fa-calendar-host .flatpickr-calendar { box-shadow: none; border: none; width: 100%; max-width: 320px; background: transparent; }
         .fa-calendar-host .flatpickr-calendar.inline { top: 0; }
@@ -329,8 +411,9 @@
             color: #c0c0c0; background: repeating-linear-gradient(45deg, #f5f5f5, #f5f5f5 4px, #ececec 4px, #ececec 8px);
             text-decoration: line-through; cursor: not-allowed;
         }
-        .fa-calendar-hint { margin: var(--fa-s2) 0; font-size: var(--fa-xs); color: var(--fa-ink-3); text-align: center; }
+        .fa-calendar-hint { margin: var(--fa-s3) 0; font-size: var(--fa-xs); color: var(--fa-ink-3); text-align: center; }
         .fa-calendar-hint[data-tone="warn"] { color: #b45309; font-weight: 600; }
+        .fa-calendar-hint[data-tone="ok"] { color: var(--fa-accent-strong); font-weight: 600; }
         .fa-calendar-actions { display: flex; gap: var(--fa-s2); }
 
         .fa-native-dates { display: flex; flex-direction: column; gap: var(--fa-s2); width: 100%; }
@@ -341,6 +424,45 @@
         }
         .fa-native-field input:focus { border-color: var(--fa-accent); box-shadow: 0 0 0 3px rgba(224, 122, 58, .16); }
 
+        /* ───────── Formulario del evento (panel lateral) ───────── */
+        .fa-form { display: flex; flex-direction: column; gap: var(--fa-s3); }
+        .fa-form-desc { margin: 0 0 var(--fa-s1); font-size: var(--fa-xs); color: var(--fa-ink-3); line-height: 1.5; }
+        .fa-field { display: flex; flex-direction: column; gap: 4px; font-size: var(--fa-xs); font-weight: 700; color: var(--fa-ink-2); }
+        .fa-field input, .fa-field select, .fa-field textarea {
+            border: 1px solid var(--fa-line-2); border-radius: var(--fa-r-sm); padding: 9px 11px;
+            font-size: var(--fa-md); font-family: inherit; color: var(--fa-ink); background: var(--fa-surface); outline: none; width: 100%;
+        }
+        .fa-field textarea { resize: vertical; min-height: 64px; }
+        .fa-field input:focus, .fa-field select:focus, .fa-field textarea:focus { border-color: var(--fa-accent); box-shadow: 0 0 0 3px rgba(224, 122, 58, .16); }
+        .fa-field-req { color: var(--fa-accent-strong); }
+        .fa-form-error { color: #b91c1c; font-size: var(--fa-xs); font-weight: 700; }
+
+        /* ───────── Bolsa y seguimiento (panel lateral) ───────── */
+        .fa-bag-item { display: flex; align-items: center; gap: var(--fa-s2); padding: var(--fa-s2) 0; border-bottom: 1px solid var(--fa-line); }
+        .fa-bag-item:last-of-type { border-bottom: none; }
+        .fa-bag-thumb { width: 42px; height: 42px; border-radius: var(--fa-r-xs); object-fit: cover; background: var(--fa-surface-3); flex: 0 0 auto; }
+        .fa-bag-main { flex: 1 1 auto; min-width: 0; }
+        .fa-bag-name { margin: 0; font-size: var(--fa-sm); font-weight: 700; color: var(--fa-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fa-bag-price { margin: 0; font-size: var(--fa-2xs); color: var(--fa-ink-3); }
+        .fa-qty { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+        .fa-qty button { width: 26px; height: 26px; border: 1px solid var(--fa-line-2); background: var(--fa-surface); border-radius: var(--fa-r-xs); cursor: pointer; color: var(--fa-ink-2); font-size: 15px; line-height: 1; }
+        .fa-qty button:hover { background: var(--fa-surface-3); }
+        .fa-qty span { min-width: 22px; text-align: center; font-size: var(--fa-sm); font-weight: 800; color: var(--fa-ink); }
+        .fa-bag-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: var(--fa-s3); padding-top: var(--fa-s3); border-top: 1px dashed var(--fa-line-2); font-weight: 800; color: var(--fa-ink); }
+        .fa-bag-empty { text-align: center; padding: var(--fa-s5) 0; color: var(--fa-ink-3); font-size: var(--fa-sm); }
+        .fa-panel-title { margin: 0 0 var(--fa-s2); font-size: var(--fa-md); font-weight: 800; color: var(--fa-ink); }
+        .fa-panel-sub { margin: 0 0 var(--fa-s3); font-size: var(--fa-xs); color: var(--fa-ink-3); line-height: 1.5; }
+        .fa-reco-budget { margin: var(--fa-s2) 0 0; font-size: var(--fa-xs); color: var(--fa-ink-2); }
+        .fa-timeline { display: flex; flex-direction: column; gap: 0; margin: var(--fa-s2) 0 0; }
+        .fa-step { display: flex; gap: var(--fa-s2); align-items: flex-start; }
+        .fa-step-dot { width: 12px; height: 12px; border-radius: var(--fa-r-pill); border: 2px solid var(--fa-line-2); background: var(--fa-surface); flex: 0 0 auto; margin-top: 3px; }
+        .fa-step.done .fa-step-dot { border-color: var(--fa-accent); background: var(--fa-accent); }
+        .fa-step.current .fa-step-dot { box-shadow: 0 0 0 4px var(--fa-accent-soft); }
+        .fa-step-label { font-size: var(--fa-xs); font-weight: 700; color: var(--fa-ink-3); text-transform: capitalize; }
+        .fa-step.done .fa-step-label { color: var(--fa-ink); }
+        .fa-step:not(:last-child) .fa-step-line { width: 2px; flex: 1 1 auto; background: var(--fa-line-2); }
+        .fa-step-col { display: flex; flex-direction: column; align-items: center; }
+
         .fa-sr {
             position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
             clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
@@ -349,19 +471,19 @@
         /* ───────── Oscuro (cálido) ───────── */
         .dark #furent-assistant-panel { --fa-surface: #2a231d; --fa-surface-2: #1a1511; --fa-surface-3: #352c24; --fa-ink: #f5efe7; --fa-ink-2: #cbbdaf; --fa-ink-3: #a89b8d; --fa-line: #3a3028; --fa-line-2: #453a30; background: #211b16; border-color: #352c24; }
         .dark #furent-assistant-panel .fa-composer { background: #211b16; }
-        .dark #furent-assistant-panel .fa-bubble.assistant { box-shadow: none; }
+        .dark #furent-assistant-panel .fa-header { background: #211b16; }
+        .dark #furent-assistant-panel .fa-bubble.assistant { background: #2a231d; }
         .dark #furent-assistant-panel .fa-md-code { background: rgba(255, 255, 255, .1); }
         .dark #furent-assistant-panel .fa-md-link { color: #f0a868; }
+        .dark #furent-assistant-panel .fa-hl { background: #3a2a1c; color: #f5c088; }
         .dark #furent-assistant-panel .fa-quote-ico { background: #3a2a1c; color: #f0b483; }
         .dark #furent-assistant-panel .fa-btn-ghost:hover { background: #3f342a; }
-        .dark #furent-assistant-panel .fa-dates-pill { background: #2a231d; border-color: #54371d; color: #f0b483; }
-        .dark #furent-assistant-panel .fa-dates-pill:hover { background: #3a2a1c; }
-        .dark #furent-assistant-panel .fa-dates-pill[data-active="true"] { background: var(--fa-accent); color: #fff; border-color: var(--fa-accent); }
         .dark #furent-assistant-panel .fa-chip { background: #2a231d; border-color: #54371d; color: #f0b483; }
         .dark #furent-assistant-panel .fa-chip:hover { background: #3a2a1c; }
         .dark #furent-assistant-panel .fa-tool { background: #2a231d; border-color: #453a30; color: #cbbdaf; }
         .dark #furent-assistant-panel .fa-tool:hover { background: #352c24; }
         .dark #furent-assistant-panel .fa-tool[aria-expanded="true"] { background: #3a2a1c; border-color: var(--fa-accent); color: #f0b483; }
+        .dark #furent-assistant-panel .fa-plus { background: #2a231d; border-color: #453a30; color: #cbbdaf; }
         .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.prevMonthDay,
         .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.nextMonthDay { color: #6b5f55; }
         .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.inRange { background: #4a3618; border-color: #4a3618; color: #f5c088; }
@@ -371,17 +493,21 @@
         }
         .dark #furent-assistant-panel .fa-quote-stock { color: #fcd9a8; background: #3a2a12; border-color: #6b4a1e; }
 
-        @media (max-width: 480px) {
+        @media (max-width: 640px) {
             /* `width: 100%` (no `100vw`): en un elemento fixed resuelve contra el viewport
                sin contar la barra de scroll, así el panel no provoca desborde horizontal. */
+            #furent-assistant-panel.fa-wide { width: 100%; }
             #furent-assistant-panel { left: 0; right: 0; bottom: 0; width: 100%; height: 100vh; height: 100dvh; border-radius: var(--fa-r-xl) var(--fa-r-xl) 0 0; border-bottom: none; }
+            #furent-assistant-panel .fa-side { position: absolute; inset: 0; width: 100%; border-right: none; z-index: 5; }
             #furent-assistant-launcher { right: var(--fa-s4); bottom: var(--fa-s4); }
+            #furent-assistant-history-toggle { left: var(--fa-s4); bottom: var(--fa-s4); }
+            #furent-assistant-history { left: var(--fa-s4); right: var(--fa-s4); width: auto; bottom: 76px; }
         }
 
         @media (prefers-reduced-motion: reduce) {
-            #furent-assistant-panel, .fa-enter, .fa-calendar:not([hidden]),
+            #furent-assistant-panel, #furent-assistant-history, .fa-enter, .fa-quick:not([hidden]),
             #furent-assistant-launcher::after, .fa-typing span { animation: none !important; }
-            #furent-assistant-launcher, .fa-btn, .fa-chip, .fa-send, .fa-dates-pill, .fa-close { transition: none !important; }
+            #furent-assistant-launcher, .fa-btn, .fa-chip, .fa-send, .fa-plus, .fa-close, .fa-tool { transition: none !important; }
             .fa-messages { scroll-behavior: auto; }
         }
     </style>
@@ -395,7 +521,28 @@
         <span class="fa-launcher-badge" id="furent-assistant-badge" aria-hidden="true">1</span>
     </button>
 
-    <!-- Panel -->
+    <!-- Botón flotante de historial (izquierda) -->
+    <button type="button" id="furent-assistant-history-toggle" aria-label="Ver mis chats" aria-expanded="false" aria-controls="furent-assistant-history">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3.75h6M6.75 3.75h10.5A1.5 1.5 0 0 1 18.75 5.25v13.9l-2.6-1.5-2.6 1.5-2.6-1.5-2.6 1.5V5.25A1.5 1.5 0 0 1 6.75 3.75Z"/>
+        </svg>
+        <span>Mis chats</span>
+    </button>
+
+    <!-- Cajón de historial -->
+    <section id="furent-assistant-history" hidden aria-label="Historial de chats"
+             th:attr="data-list-url=@{/api/asistente/conversations}">
+        <div class="fa-hist-head">
+            <h3>Mis chats</h3>
+            <button type="button" class="fa-hist-close" id="furent-assistant-history-close" aria-label="Cerrar historial">&times;</button>
+        </div>
+        <div class="fa-hist-list" id="furent-assistant-history-list" role="list"></div>
+        <button type="button" class="fa-hist-new" id="furent-assistant-history-new">
+            + Nuevo chat
+        </button>
+    </section>
+
+    <!-- Panel del asistente -->
     <section id="furent-assistant-panel" hidden role="dialog" aria-modal="true" aria-labelledby="furent-assistant-title"
              th:attr="data-chat-url=@{/api/asistente/chat},data-authenticated=${currentUser != null}">
         <header class="fa-header">
@@ -403,8 +550,7 @@
                 <img th:src="@{/images/furent-logo.png}" alt="">
             </div>
             <div class="fa-head-text">
-                <h2 id="furent-assistant-title">Asistente Furent</h2>
-                <p class="fa-status"><span class="fa-dot" aria-hidden="true"></span> En línea <span class="fa-sep">·</span> responde al instante</p>
+                <h2 id="furent-assistant-title">Asistente Furi</h2>
             </div>
             <button type="button" class="fa-close" id="furent-assistant-close" aria-label="Cerrar asistente">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -413,72 +559,96 @@
             </button>
         </header>
 
-        <div class="fa-messages" id="furent-assistant-messages" role="log" aria-live="polite"></div>
-
-        <div class="fa-composer">
-            <div class="fa-input-row">
-                <label class="fa-sr" for="furent-assistant-input">Escribe tu mensaje</label>
-                <textarea id="furent-assistant-input" class="fa-input" rows="1" maxlength="1000"
-                          placeholder="Escribe tu duda o lo que necesitas..."></textarea>
-                <button type="button" class="fa-send" id="furent-assistant-send" aria-label="Enviar mensaje">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/>
-                    </svg>
-                </button>
-            </div>
-
-            <div class="fa-tools">
-                <button type="button" class="fa-tool" id="furent-assistant-chips-toggle"
-                        aria-expanded="false" aria-controls="furent-assistant-chips">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/>
-                    </svg>
-                    <span>Sugerencias</span>
-                    <svg class="fa-chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/>
-                    </svg>
-                </button>
-                <button type="button" class="fa-dates-pill" id="furent-assistant-dates-pill"
-                        aria-haspopup="dialog" aria-expanded="false">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
-                    </svg>
-                    <span id="furent-assistant-dates-label">Elegir fechas</span>
-                </button>
-            </div>
-
-            <div class="fa-suggestions" id="furent-assistant-chips" hidden>
-                <button type="button" class="fa-chip" data-prompt="Necesito sillas y mesas para una boda">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"/></svg>
-                    Sillas para una boda
-                </button>
-                <button type="button" class="fa-chip" data-prompt="¿Qué mobiliario tienen para eventos corporativos?">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3.75h6a1.5 1.5 0 0 1 1.5 1.5v1.5H20a1.5 1.5 0 0 1 1.5 1.5v10.5A1.5 1.5 0 0 1 20 20.25H4a1.5 1.5 0 0 1-1.5-1.5V8.25A1.5 1.5 0 0 1 4 6.75h3.5v-1.5A1.5 1.5 0 0 1 9 3.75Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12.75h19M12 11.25v3"/></svg>
-                    Evento corporativo
-                </button>
-                <button type="button" class="fa-chip" data-prompt="¿Cómo funcionan los envíos y el montaje?">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M1.5 4.5h13.5v11.25H1.5zM15 8.25h3.75L21 11.25v4.5h-6z"/><circle cx="6" cy="18" r="1.9"/><circle cx="17.25" cy="18" r="1.9"/></svg>
-                    Envíos y montaje
-                </button>
-                <button type="button" class="fa-chip" data-prompt="Quiero cotizar para 100 invitados">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/></svg>
-                    Cotizar mi evento
-                </button>
-            </div>
-
-            <div class="fa-calendar" id="furent-assistant-calendar" hidden role="dialog" aria-label="Elegir fechas">
-                <div class="fa-calendar-host" id="furent-assistant-calendar-host">
-                    <input type="text" class="fa-sr" id="furent-assistant-dates-input" tabindex="-1" aria-hidden="true" autocomplete="off">
+        <div class="fa-body">
+            <!-- Panel lateral izquierdo: campos, fechas, bolsa y seguimiento -->
+            <aside class="fa-side" id="furent-assistant-side" hidden aria-label="Apoyo de la conversación">
+                <div class="fa-side-head">
+                    <h3 id="furent-assistant-side-title">Detalle</h3>
+                    <button type="button" class="fa-side-close" id="furent-assistant-side-close" aria-label="Cerrar panel">&times;</button>
                 </div>
-                <p class="fa-calendar-hint" id="furent-assistant-calendar-hint">Elige desde y hasta. Máximo 7 días por alquiler.</p>
-                <div class="fa-calendar-actions">
-                    <button type="button" class="fa-btn fa-btn-ghost" id="furent-assistant-calendar-clear">Limpiar</button>
-                    <button type="button" class="fa-btn fa-btn-primary" id="furent-assistant-calendar-use" disabled>Usar estas fechas</button>
+                <div class="fa-side-body">
+                    <div class="fa-view" id="furent-assistant-view-form" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-fechas" hidden>
+                        <div class="fa-calendar-host" id="furent-assistant-calendar-host">
+                            <input type="text" class="fa-sr" id="furent-assistant-dates-input" tabindex="-1" aria-hidden="true" autocomplete="off">
+                        </div>
+                        <p class="fa-calendar-hint" id="furent-assistant-calendar-hint">Elige desde y hasta. Máximo 7 días por alquiler.</p>
+                        <div class="fa-calendar-actions">
+                            <button type="button" class="fa-btn fa-btn-ghost" id="furent-assistant-calendar-clear">Limpiar</button>
+                            <button type="button" class="fa-btn fa-btn-primary" id="furent-assistant-calendar-use" disabled>Usar estas fechas</button>
+                        </div>
+                    </div>
+                    <div class="fa-view" id="furent-assistant-view-bolsa" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-reco" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-alquiler" hidden></div>
+                </div>
+            </aside>
+
+            <!-- Chat -->
+            <div class="fa-main">
+                <div class="fa-messages" id="furent-assistant-messages" role="log" aria-live="polite"></div>
+
+                <div class="fa-composer">
+                    <div class="fa-quick" id="furent-assistant-quick" hidden>
+                        <button type="button" class="fa-tool" id="furent-assistant-quick-dates">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
+                            </svg>
+                            <span>Elegir fechas</span>
+                        </button>
+                        <button type="button" class="fa-tool" id="furent-assistant-quick-event">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/>
+                            </svg>
+                            <span>Datos de mi evento</span>
+                        </button>
+                        <button type="button" class="fa-tool" id="furent-assistant-quick-bag">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.3 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.2L20.5 7H6"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 20.5a1 1 0 1 0 0-.01M17.5 20.5a1 1 0 1 0 0-.01"/>
+                            </svg>
+                            <span>Mi bolsa</span>
+                        </button>
+                        <button type="button" class="fa-tool" id="furent-assistant-quick-suggest" aria-expanded="false" aria-controls="furent-assistant-chips">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/>
+                            </svg>
+                            <span>Sugerencias</span>
+                        </button>
+                    </div>
+
+                    <div class="fa-suggestions" id="furent-assistant-chips" hidden>
+                        <button type="button" class="fa-chip" data-prompt="Necesito sillas y mesas para una boda">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"/></svg>
+                            Sillas para una boda
+                        </button>
+                        <button type="button" class="fa-chip" data-prompt="Quiero organizar un cumpleaños para 50 personas">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/></svg>
+                            Organizar mi evento
+                        </button>
+                        <button type="button" class="fa-chip" data-prompt="¿Qué tengo en mi bolsa?">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.3 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.2L20.5 7H6"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.5 20.5a1 1 0 1 0 0-.01M17.5 20.5a1 1 0 1 0 0-.01"/></svg>
+                            Ver mi bolsa
+                        </button>
+                        <button type="button" class="fa-chip" data-prompt="¿Cómo va el estado de mi alquiler?">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3.75h10.5A1.5 1.5 0 0 1 18.75 5.25v13.9l-2.6-1.5-2.6 1.5-2.6-1.5-2.6 1.5V5.25A1.5 1.5 0 0 1 6.75 3.75Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.5 8.5h5M9.5 12h3.5"/></svg>
+                            Estado de mi alquiler
+                        </button>
+                    </div>
+
+                    <div class="fa-input-row">
+                        <button type="button" class="fa-plus" id="furent-assistant-plus" aria-label="Más opciones" aria-expanded="false">+</button>
+                        <label class="fa-sr" for="furent-assistant-input">Escribe tu mensaje</label>
+                        <textarea id="furent-assistant-input" class="fa-input" rows="1" maxlength="1000"
+                                  placeholder="Escribe tu duda o lo que necesitas..."></textarea>
+                        <button type="button" class="fa-send" id="furent-assistant-send" aria-label="Enviar mensaje">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
-
-            <p class="fa-disclaimer">Este chat es temporal: se borra a las 24 h. Asistente con IA; confirma precios y disponibilidad antes de reservar.</p>
         </div>
     </section>
 

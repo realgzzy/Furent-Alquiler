@@ -30,10 +30,13 @@ import java.util.concurrent.Executors;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -188,5 +191,65 @@ class AssistantControllerTest {
         mockMvc.perform(post("/api/asistente/conversations/conv-1/close").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.conversationId").value("conv-1"));
+    }
+
+    @Test
+    void listarConversacionesDevuelveResumenes() throws Exception {
+        AssistantConversation conversation = new AssistantConversation();
+        conversation.setId("conv-1");
+        conversation.setTitulo("Cumpleaños de Ana");
+        conversation.setEstado("ACTIVA");
+        conversation.setTotalMensajes(4);
+        when(conversations.list(any(ToolContext.class), anyInt())).thenReturn(List.of(conversation));
+
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(AssistantController.SESSION_ATTR, "session-1");
+
+        mockMvc.perform(get("/api/asistente/conversations").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conversations[0].conversationId").value("conv-1"))
+                .andExpect(jsonPath("$.conversations[0].titulo").value("Cumpleaños de Ana"))
+                .andExpect(jsonPath("$.conversations[0].totalMensajes").value(4));
+    }
+
+    @Test
+    void listarConversacionesSinFlagResponde503() throws Exception {
+        featureFlags.setAssistantEnabled(false);
+
+        mockMvc.perform(get("/api/asistente/conversations"))
+                .andExpect(status().isServiceUnavailable());
+    }
+
+    @Test
+    void deleteConversacionPropiaLaElimina() throws Exception {
+        AssistantConversation conversation = new AssistantConversation();
+        conversation.setId("conv-1");
+        conversation.setSessionId("session-1");
+        when(conversations.find("conv-1")).thenReturn(Optional.of(conversation));
+        when(conversations.owns(any(), any())).thenReturn(true);
+
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(AssistantController.SESSION_ATTR, "session-1");
+
+        mockMvc.perform(delete("/api/asistente/conversations/conv-1").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.eliminada").value(true));
+
+        verify(conversations).delete(conversation);
+    }
+
+    @Test
+    void deleteConversacionAjenaResponde404() throws Exception {
+        AssistantConversation conversation = new AssistantConversation();
+        conversation.setId("conv-1");
+        conversation.setSessionId("otra-sesion");
+        when(conversations.find("conv-1")).thenReturn(Optional.of(conversation));
+        lenient().when(conversations.owns(any(), any())).thenReturn(false);
+
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(AssistantController.SESSION_ATTR, "session-1");
+
+        mockMvc.perform(delete("/api/asistente/conversations/conv-1").session(session))
+                .andExpect(status().isNotFound());
     }
 }

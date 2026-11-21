@@ -2,6 +2,7 @@ package com.alquiler.furent.controller;
 
 import com.alquiler.furent.assistant.AssistantConversationService;
 import com.alquiler.furent.assistant.AssistantOrchestrator;
+import com.alquiler.furent.assistant.BagItem;
 import com.alquiler.furent.assistant.SseAssistantStream;
 import com.alquiler.furent.assistant.ToolContext;
 import com.alquiler.furent.assistant.dto.AssistantChatRequest;
@@ -38,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
 /**
  * Endpoint del asistente virtual.
  *
@@ -99,7 +99,7 @@ public class AssistantController {
             return error(HttpStatus.BAD_REQUEST, "INVALID_INPUT", invalid);
         }
 
-        ToolContext context = resolveContext(authentication, httpRequest);
+        ToolContext context = resolveContext(authentication, httpRequest, request.getBag());
         String tenantId = TenantContext.getCurrentTenant();
 
         SseEmitter emitter = new SseEmitter(properties.getEmitterTimeoutMillis());
@@ -135,12 +135,56 @@ public class AssistantController {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "UNAVAILABLE",
                     "El asistente no está disponible en este momento.");
         }
-        ToolContext context = resolveContext(authentication, httpRequest);
+        ToolContext context = resolveContext(authentication, httpRequest, null);
         Optional<AssistantConversation> found = conversations.find(id);
         if (found.isEmpty() || !conversations.owns(found.get(), context)) {
             return error(HttpStatus.NOT_FOUND, "NOT_FOUND", "No encontré esa conversación.");
         }
         return ResponseEntity.ok(conversationPayload(found.get()));
+    }
+
+    /**
+     * Lista las conversaciones propias (usuario o sesión) para el historial del widget.
+     */
+    @GetMapping("/conversations")
+    public ResponseEntity<?> listConversations(HttpServletRequest httpRequest,
+                                               Authentication authentication,
+                                               @org.springframework.web.bind.annotation.RequestParam(defaultValue = "30") int limit) {
+        if (!featureFlags.isAssistantEnabled()) {
+            return error(HttpStatus.SERVICE_UNAVAILABLE, "UNAVAILABLE",
+                    "El asistente no está disponible en este momento.");
+        }
+        ToolContext context = resolveContext(authentication, httpRequest, null);
+        List<Map<String, Object>> items = new java.util.ArrayList<>();
+        for (AssistantConversation conversation : conversations.list(context, limit)) {
+            items.add(conversationSummary(conversation));
+        }
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("conversations", items);
+        return ResponseEntity.ok(payload);
+    }
+
+    /**
+     * Elimina una conversación propia y sus mensajes.
+     */
+    @org.springframework.web.bind.annotation.DeleteMapping("/conversations/{id}")
+    public ResponseEntity<?> deleteConversation(@PathVariable String id,
+                                                HttpServletRequest httpRequest,
+                                                Authentication authentication) {
+        if (!featureFlags.isAssistantEnabled()) {
+            return error(HttpStatus.SERVICE_UNAVAILABLE, "UNAVAILABLE",
+                    "El asistente no está disponible en este momento.");
+        }
+        ToolContext context = resolveContext(authentication, httpRequest, null);
+        Optional<AssistantConversation> found = conversations.find(id);
+        if (found.isEmpty() || !conversations.owns(found.get(), context)) {
+            return error(HttpStatus.NOT_FOUND, "NOT_FOUND", "No encontré esa conversación.");
+        }
+        conversations.delete(found.get());
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("conversationId", id);
+        payload.put("eliminada", true);
+        return ResponseEntity.ok(payload);
     }
 
     /**
@@ -154,7 +198,7 @@ public class AssistantController {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "UNAVAILABLE",
                     "El asistente no está disponible en este momento.");
         }
-        ToolContext context = resolveContext(authentication, httpRequest);
+        ToolContext context = resolveContext(authentication, httpRequest, null);
         Optional<AssistantConversation> found = conversations.find(id);
         if (found.isEmpty() || !conversations.owns(found.get(), context)) {
             return error(HttpStatus.NOT_FOUND, "NOT_FOUND", "No encontré esa conversación.");
@@ -182,7 +226,8 @@ public class AssistantController {
         return null;
     }
 
-    private ToolContext resolveContext(Authentication authentication, HttpServletRequest request) {
+    private ToolContext resolveContext(Authentication authentication, HttpServletRequest request,
+                                       List<AssistantChatRequest.BagLine> bag) {
         String userId = resolveUserId(authentication);
         HttpSession session = request.getSession(true);
         Object existing = session.getAttribute(SESSION_ATTR);
@@ -193,7 +238,28 @@ public class AssistantController {
             sessionId = UUID.randomUUID().toString();
             session.setAttribute(SESSION_ATTR, sessionId);
         }
-        return new ToolContext(userId, sessionId);
+        return new ToolContext(userId, sessionId, mapBag(bag));
+    }
+
+    /**
+     * Normaliza la bolsa del navegador: ignora líneas sin id, recorta a 50 y evita nulos.
+     */
+    private List<BagItem> mapBag(List<AssistantChatRequest.BagLine> bag) {
+        if (bag == null || bag.isEmpty()) {
+            return List.of();
+        }
+        List<BagItem> items = new java.util.ArrayList<>();
+        for (AssistantChatRequest.BagLine line : bag) {
+            if (line == null || line.getId() == null || line.getId().isBlank()) {
+                continue;
+            }
+            int cantidad = line.getCantidad() == null ? 1 : Math.max(1, line.getCantidad());
+            items.add(new BagItem(line.getId(), line.getNombre(), cantidad, line.getPrecioDia()));
+            if (items.size() >= 50) {
+                break;
+            }
+        }
+        return items;
     }
 
     private String resolveUserId(Authentication authentication) {
@@ -242,6 +308,24 @@ public class AssistantController {
         }
         payload.put("messages", messages);
         return payload;
+    }
+
+    /** Resumen de una conversación para el historial (sin transcripción). */
+    private Map<String, Object> conversationSummary(AssistantConversation conversation) {
+        Map<String, Object> node = new java.util.LinkedHashMap<>();
+        node.put("conversationId", conversation.getId());
+        String titulo = conversation.getTitulo();
+        node.put("titulo", titulo == null || titulo.isBlank() ? "Nuevo chat" : titulo);
+        node.put("estado", conversation.getEstado());
+        node.put("cotizo", conversation.isCotizo());
+        if (conversation.getTotalCotizado() != null) {
+            node.put("totalCotizado", conversation.getTotalCotizado());
+        }
+        node.put("totalMensajes", conversation.getTotalMensajes());
+        node.put("creada", conversation.getInicio() == null ? null : conversation.getInicio().toString());
+        node.put("ultimoMensaje", conversation.getUltimoMensaje() == null
+                ? null : conversation.getUltimoMensaje().toString());
+        return node;
     }
 
     private ResponseEntity<String> error(HttpStatus status, String codigo, String mensaje) {

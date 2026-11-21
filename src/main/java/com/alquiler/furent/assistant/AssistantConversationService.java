@@ -95,7 +95,32 @@ public class AssistantConversationService {
         return history(conversationId);
     }
 
+    /**
+     * Conversaciones recientes del usuario (autenticado) o de la sesión (invitado),
+     * ordenadas por último mensaje.
+     */
+    public List<AssistantConversation> list(ToolContext context, int limit) {
+        int tope = Math.max(1, Math.min(limit, 50));
+        List<AssistantConversation> encontradas = context.authenticated()
+                ? conversationRepository.findByUserIdOrderByUltimoMensajeDesc(context.userId())
+                : conversationRepository.findBySessionIdOrderByUltimoMensajeDesc(context.sessionId());
+        return encontradas.stream().limit(tope).toList();
+    }
+
+    /** Borra la conversación y todos sus mensajes. */
+    public void delete(AssistantConversation conversation) {
+        if (conversation == null || conversation.getId() == null) {
+            return;
+        }
+        messageRepository.deleteByConversationId(conversation.getId());
+        conversationRepository.delete(conversation);
+    }
+
     public void saveUserMessage(AssistantConversation conversation, String contenido) {
+        if (conversation.getTitulo() == null || conversation.getTitulo().isBlank()) {
+            conversation.setTitulo(tituloDe(contenido));
+            conversationRepository.save(conversation);
+        }
         persist(conversation, AssistantMessage.ROL_USER, contenido, null, null, 0, null);
     }
 
@@ -136,6 +161,18 @@ public class AssistantConversationService {
     /** Momento en que el chat (y sus mensajes) dejan de conservarse. */
     private Instant expireAt() {
         return Instant.now().plus(properties.getSessionHours(), ChronoUnit.HOURS);
+    }
+
+    /** Título legible para el historial a partir del primer mensaje del usuario. */
+    private String tituloDe(String contenido) {
+        if (contenido == null) {
+            return "Nuevo chat";
+        }
+        String limpio = contenido.replaceAll("\\s+", " ").trim();
+        if (limpio.isEmpty()) {
+            return "Nuevo chat";
+        }
+        return limpio.length() > 60 ? limpio.substring(0, 60).trim() + "…" : limpio;
     }
 
     private void persist(AssistantConversation conversation, String rol, String contenido,

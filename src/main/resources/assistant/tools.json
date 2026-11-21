@@ -113,6 +113,63 @@
     }
   },
   {
+    "name": "mi_bolsa",
+    "description": "Devuelve lo que el usuario tiene en su bolsa (carrito) con precios y stock reales. Usala cuando pregunte por su bolsa o quiera revisarla.",
+    "parameters": { "type": "OBJECT", "properties": {} }
+  },
+  {
+    "name": "editar_bolsa",
+    "description": "Agrega, quita, cambia la cantidad o vacia articulos de la bolsa del usuario. El widget aplica el cambio en el carrito del navegador.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "operacion": { "type": "STRING", "description": "agregar, quitar, cambiar_cantidad o vaciar." },
+        "items": {
+          "type": "ARRAY",
+          "items": {
+            "type": "OBJECT",
+            "properties": {
+              "productoId": { "type": "STRING" },
+              "cantidad": { "type": "INTEGER" }
+            },
+            "required": ["productoId"]
+          }
+        }
+      },
+      "required": ["operacion"]
+    }
+  },
+  {
+    "name": "recomendar_evento",
+    "description": "Recomienda mobiliario con cantidades segun tipo de evento, numero de invitados, estilo y presupuesto. Emite la recomendacion en el panel lateral.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "tipoEvento": { "type": "STRING", "description": "boda, cumpleanos, corporativo, grado, baby_shower, otro." },
+        "invitados": { "type": "INTEGER", "description": "Numero de personas del evento." },
+        "estilo": { "type": "STRING", "description": "elegante, moderno, rustico, minimalista..." },
+        "presupuesto": { "type": "NUMBER", "description": "Presupuesto maximo en COP." },
+        "fechaInicio": { "type": "STRING", "description": "YYYY-MM-DD (opcional)." },
+        "fechaFin": { "type": "STRING", "description": "YYYY-MM-DD (opcional)." }
+      }
+    }
+  },
+  {
+    "name": "pedir_datos_evento",
+    "description": "Muestra en el panel lateral el formulario para capturar los datos del evento (tipo, personas, estilo, presupuesto, fechas y nota).",
+    "parameters": { "type": "OBJECT", "properties": {} }
+  },
+  {
+    "name": "consultar_alquiler",
+    "description": "Consulta el estado de un alquiler del usuario autenticado, con fechas, muebles y pagos registrados. Emite el seguimiento en el panel lateral.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "referencia": { "type": "STRING", "description": "Opcional: id o codigo de pago en efectivo de la reserva." }
+      }
+    }
+  },
+  {
     "name": "escalar_a_humano",
     "description": "Genera un enlace de WhatsApp con el resumen de la conversacion y marca la conversacion como escalada.",
     "parameters": {

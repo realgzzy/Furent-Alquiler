@@ -31,7 +31,7 @@ import java.util.Optional;
 /**
  * Panel de administración de conversaciones del asistente virtual.
  *
- * Solo lectura salvo "cerrar conversación"; la protección de rol ADMIN la aplica
+ * Solo lectura salvo "cerrar" y "eliminar conversación"; la protección de rol ADMIN la aplica
  * {@code SecurityConfig} sobre {@code /admin/**}.
  */
 @Controller
@@ -126,6 +126,25 @@ public class AdminAssistantController {
                 "ASISTENTE", id, "Conversación cerrada desde el panel");
         redirectAttributes.addFlashAttribute("success", "Conversación cerrada correctamente.");
         return "redirect:/admin/asistente/" + id;
+    }
+
+    /**
+     * Elimina una conversación y todos sus mensajes. Acción irreversible.
+     */
+    @PostMapping("/{id}/eliminar")
+    public String delete(@PathVariable String id,
+                         Authentication authentication,
+                         RedirectAttributes redirectAttributes) {
+        Optional<AssistantConversation> found = conversationService.find(id);
+        if (found.isEmpty()) {
+            redirectAttributes.addFlashAttribute("error", "La conversación no existe o fue eliminada.");
+            return "redirect:/admin/asistente";
+        }
+        conversationService.delete(found.get());
+        auditLogService.log(authentication.getName(), "ELIMINAR_CONVERSACION_ASISTENTE",
+                "ASISTENTE", id, "Conversación eliminada desde el panel");
+        redirectAttributes.addFlashAttribute("success", "Conversación eliminada correctamente.");
+        return "redirect:/admin/asistente";
     }
 
     @GetMapping("/export.csv")

@@ -179,8 +179,36 @@ class AdminAssistantControllerTest {
     }
 
     @Test
-    void exportacionDevuelveCsv() throws Exception {
-        AssistantConversation c = conversation("c1");
+    void eliminarBorraLaConversacionYRegistraAuditoria() throws Exception {
+        AssistantConversation c = conversation("conv-9");
+        when(conversationService.find("conv-9")).thenReturn(Optional.of(c));
+
+        mockMvc.perform(post("/admin/asistente/conv-9/eliminar")
+                        .principal(new TestingAuthenticationToken("admin@furent.com", "pw", "ROLE_ADMIN")))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/asistente"))
+                .andExpect(flash().attributeExists("success"));
+
+        verify(conversationService).delete(c);
+        verify(auditLogService).log(eq("admin@furent.com"), eq("ELIMINAR_CONVERSACION_ASISTENTE"),
+                eq("ASISTENTE"), eq("conv-9"), anyString());
+    }
+
+    @Test
+    void eliminarConversacionInexistenteRedirigeConError() throws Exception {
+        when(conversationService.find("nope")).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/admin/asistente/nope/eliminar")
+                        .principal(new TestingAuthenticationToken("admin@furent.com", "pw", "ROLE_ADMIN")))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/asistente"))
+                .andExpect(flash().attributeExists("error"));
+
+        verify(conversationService, org.mockito.Mockito.never()).delete(any());
+    }
+
+    @Test
+    void exportacionDevuelveCsv() throws Exception {        AssistantConversation c = conversation("c1");
         c.setSessionId("s1");
         c.setTotalMensajes(3);
         when(adminService.listForExport(any(), any(), any(), any(), any())).thenReturn(List.of(c));

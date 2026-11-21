@@ -33,6 +33,9 @@ public class AssistantConversation {
     private String tenantId;
     private String pageContext;
 
+    /** Título corto para el historial; se toma del primer mensaje del usuario. */
+    private String titulo;
+
     @Indexed
     private String estado = ESTADO_ACTIVA;
 
@@ -100,6 +103,14 @@ public class AssistantConversation {
 
     public void setPageContext(String pageContext) {
         this.pageContext = pageContext;
+    }
+
+    public String getTitulo() {
+        return titulo;
+    }
+
+    public void setTitulo(String titulo) {
+        this.titulo = titulo;
     }
 
     public String getEstado() {
