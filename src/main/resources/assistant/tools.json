@@ -156,7 +156,7 @@
   },
   {
     "name": "pedir_datos_evento",
-    "description": "Muestra en el panel lateral el formulario para capturar los datos del evento (tipo, personas, estilo, presupuesto, fechas y nota).",
+    "description": "Muestra en el panel lateral el formulario para capturar los datos del evento (tipo, personas, estilo, presupuesto, fechas, hora y nota).",
     "parameters": { "type": "OBJECT", "properties": {} }
   },
   {

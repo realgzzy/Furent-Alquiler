@@ -424,13 +424,19 @@
         .fa-calendar-host { display: flex; justify-content: center; }
         .fa-calendar-host .flatpickr-calendar.inline { top: 0; }
 
-        /* Hora del evento: campo compacto + atajos rápidos. */
+        /* Hora del evento: control compacto e integrado con los atajos en la misma fila. */
         .fa-time { margin-top: var(--fa-s3); }
         .fa-time-label { display: block; font-size: var(--fa-xs); font-weight: 800; color: var(--fa-ink-2); margin-bottom: 6px; }
-        .fa-time-label em { font-style: normal; font-weight: 500; color: var(--fa-ink-3); }
-        .fa-time-row { display: flex; flex-direction: column; gap: var(--fa-s2); }
-        .fa-time-input input { padding-left: 40px; font-variant-numeric: tabular-nums; }
-        .fa-time-quick { display: flex; flex-wrap: wrap; gap: var(--fa-s1); }
+        .fa-time-label .fa-field-req { color: var(--fa-accent-strong); }
+        .fa-time-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--fa-s2); }
+        .fa-time-input {
+            width: auto; min-width: 112px; padding: 6px 10px; font-size: var(--fa-sm); font-family: inherit;
+            color: var(--fa-ink); background: var(--fa-surface); border: 1px solid var(--fa-line-2);
+            border-radius: var(--fa-r-pill); font-variant-numeric: tabular-nums; outline: none;
+            transition: border-color var(--fa-dur) var(--fa-ease), box-shadow var(--fa-dur) var(--fa-ease);
+        }
+        .fa-time-input:focus { border-color: var(--fa-accent); box-shadow: 0 0 0 3px rgba(224, 122, 58, .14); }
+        .fa-time-quick { display: flex; flex-wrap: wrap; gap: 6px; }
         .fa-time-quick .fa-chip { padding: 5px 10px; font-size: var(--fa-xs); }
         .fa-time-quick .fa-chip[aria-pressed="true"] { background: var(--fa-accent-soft); border-color: var(--fa-accent); color: var(--fa-accent-strong); }
         .fa-calendar-hint { margin: var(--fa-s3) 0; font-size: var(--fa-xs); color: var(--fa-ink-3); text-align: center; }
@@ -611,6 +617,7 @@
         /* ───────── Oscuro (cálido) ───────── */
         .dark #furent-assistant-panel { --fa-surface: #2a231d; --fa-surface-2: #1a1511; --fa-surface-3: #352c24; --fa-ink: #f5efe7; --fa-ink-2: #cbbdaf; --fa-ink-3: #a89b8d; --fa-line: #3a3028; --fa-line-2: #453a30; background: #211b16; border-color: #352c24; }
         .dark #furent-assistant-panel .fa-composer-card { background: #2a231d; border-color: #453a30; }
+        .dark #furent-assistant-panel .fa-time-input { background: #2a231d; border-color: #453a30; color: #f5efe7; }
         .dark #furent-assistant-panel .fa-input { background: transparent; color: #f5efe7; }
         .dark #furent-assistant-panel .fa-time-quick .fa-chip[aria-pressed="true"] { background: #3a2a1c; border-color: var(--fa-accent); color: #f0b483; }
         .dark #furent-assistant-panel .fa-header { background: #211b16; }
@@ -730,16 +737,9 @@
                             <input type="text" class="fa-sr" id="furent-assistant-dates-input" tabindex="-1" aria-hidden="true" autocomplete="off">
                         </div>
                         <div class="fa-time">
-                            <span class="fa-time-label">Hora del evento <em>(opcional)</em></span>
+                            <span class="fa-time-label">Hora del evento <span class="fa-field-req">*</span></span>
                             <div class="fa-time-row">
-                                <label class="fa-control has-ico fa-time-input" for="furent-assistant-event-time">
-                                    <span class="fa-control-ico" aria-hidden="true">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                            <circle cx="12" cy="12" r="8.25"/><path d="M12 7.5V12l3 1.8"/>
-                                        </svg>
-                                    </span>
-                                    <input type="time" id="furent-assistant-event-time" step="1800" min="06:00" max="23:30">
-                                </label>
+                                <input type="time" id="furent-assistant-event-time" class="fa-time-input" lang="en-GB" step="1800" min="06:00" max="23:30" required>
                                 <div class="fa-time-quick" id="furent-assistant-time-quick">
                                     <button type="button" class="fa-chip" data-time="09:00">Mañana</button>
                                     <button type="button" class="fa-chip" data-time="15:00">Tarde</button>

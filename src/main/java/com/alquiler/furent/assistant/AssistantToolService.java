@@ -787,7 +787,7 @@ public class AssistantToolService {
         fields.add(numberField("presupuesto", "Presupuesto aproximado (COP)", false, "3000000"));
         fields.add(dateField("fechaInicio", "Desde", false));
         fields.add(dateField("fechaFin", "Hasta", false));
-        fields.add(timeField("horaEvento", "Hora del evento", false));
+        fields.add(timeField("horaEvento", "Hora del evento", true));
         fields.add(textareaField("nota", "Nota (opcional)", false, "Ej: colores, temática, requerimientos especiales"));
         return ToolResult.of(payload, List.of(new UiEvent(UiEvent.PANEL, data)));
     }

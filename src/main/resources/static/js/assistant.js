@@ -206,6 +206,7 @@
             els.eventTime.addEventListener('input', function () {
                 pendingTime = els.eventTime.value || '';
                 syncTimeQuick();
+                updateDatesUI();
             });
         }
         if (els.timeQuick) {
@@ -218,6 +219,7 @@
                 els.eventTime.value = valor;
                 pendingTime = valor;
                 syncTimeQuick();
+                updateDatesUI();
             });
         }
 
@@ -1190,7 +1192,7 @@
                     { name: 'presupuesto', label: 'Presupuesto aproximado (COP)', type: 'number', placeholder: '3000000' },
                     { name: 'fechaInicio', label: 'Desde', type: 'date' },
                     { name: 'fechaFin', label: 'Hasta', type: 'date' },
-                    { name: 'horaEvento', label: 'Hora del evento (opcional)', type: 'time' },
+                    { name: 'horaEvento', label: 'Hora del evento', type: 'time', required: true },
                     { name: 'nota', label: 'Nota (opcional)', type: 'textarea', placeholder: 'Ej: colores, temática, requerimientos especiales' }
                 ]
             };
@@ -2145,9 +2147,12 @@
                 etiqueta += ' · ' + pendingTime;
             }
 
-            els.calendarUse.disabled = !hasDates || isStreaming;
+            els.calendarUse.disabled = !hasDates || !pendingTime || isStreaming;
             if (els.calendarHint) {
-                if (hasDates) {
+                if (hasDates && !pendingTime) {
+                    els.calendarHint.textContent = etiqueta + '. Elige la hora del evento.';
+                    els.calendarHint.setAttribute('data-tone', 'warn');
+                } else if (hasDates) {
                     els.calendarHint.textContent = etiqueta + '. Pulsa "Usar estas fechas".';
                     els.calendarHint.setAttribute('data-tone', 'ok');
                 } else {
