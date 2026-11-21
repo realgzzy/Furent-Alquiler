@@ -1123,6 +1123,7 @@
                 document.getElementById('stepSuccess').classList.remove('hidden');
                 localStorage.removeItem('furent_bag');
                 localStorage.removeItem('furent_selected_dates');
+                localStorage.removeItem('furent_event_details');
                 if (typeof window.updateBagCount === 'function') window.updateBagCount();
                 
                 let timeLeft = 30;
@@ -1243,6 +1244,48 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         loadBagItems();
+
+        // Precarga los "Detalles del alquiler" que dejó el asistente (furent_event_details).
+        (function prefillEventDetails() {
+            let details = null;
+            try { details = JSON.parse(localStorage.getItem('furent_event_details') || 'null'); } catch (e) { details = null; }
+            if (!details) return;
+            if (details.tipoEvento) {
+                const menu = document.getElementById('evtTypeMenu');
+                const matched = menu && Array.from(menu.querySelectorAll('button')).find(function (b) {
+                    return (b.getAttribute('onclick') || '').indexOf("'" + details.tipoEvento + "'") !== -1;
+                });
+                if (matched) {
+                    selectEventType(matched, details.tipoEvento); // reutiliza icono, texto y evento
+                } else {
+                    const input = document.getElementById('evtType');
+                    const text = document.getElementById('evtTypeText');
+                    if (input && text) {
+                        input.value = details.tipoEvento;
+                        text.textContent = details.tipoEvento;
+                        text.classList.remove('text-surface-400');
+                        text.classList.add('text-surface-700');
+                        input.dispatchEvent(new Event('input'));
+                    }
+                }
+            }
+            if (details.invitados) {
+                const g = document.getElementById('evtGuests');
+                if (g) { g.value = details.invitados; g.dispatchEvent(new Event('input')); }
+            }
+            if (details.direccion) {
+                const a = document.getElementById('evtAddress');
+                if (a) { a.value = details.direccion; a.dispatchEvent(new Event('input')); }
+            }
+            if (details.horaEntrega) {
+                const t = document.getElementById('evtTime');
+                if (t) { t.value = details.horaEntrega; }
+            }
+            if (details.notas) {
+                const n = document.getElementById('evtNotes');
+                if (n) { n.value = details.notas; }
+            }
+        })();
         
         let reservedRanges = [];
         const bag = JSON.parse(localStorage.getItem('furent_bag') || '[]');

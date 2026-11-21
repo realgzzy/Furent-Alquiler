@@ -117,6 +117,7 @@ public class AssistantToolService {
             case "editar_bolsa" -> editarBolsa(args);
             case "recomendar_evento" -> recomendarEvento(args);
             case "pedir_datos_evento" -> pedirDatosEvento();
+            case "pedir_detalles_alquiler" -> pedirDetallesAlquiler();
             case "consultar_alquiler" -> consultarAlquiler(args, context);
             case "escalar_a_humano" -> escalarAHumano(args, context);
             default -> throw new AssistantException(AssistantException.Code.INVALID_INPUT,
@@ -789,6 +790,19 @@ public class AssistantToolService {
         fields.add(dateField("fechaFin", "Hasta", false));
         fields.add(timeField("horaEvento", "Hora del evento", true));
         fields.add(textareaField("nota", "Nota (opcional)", false, "Ej: colores, temática, requerimientos especiales"));
+        return ToolResult.of(payload, List.of(new UiEvent(UiEvent.PANEL, data)));
+    }
+
+    private ToolResult pedirDetallesAlquiler() {
+        ObjectNode payload = mapper.createObjectNode();
+        payload.put("ok", true);
+        payload.put("nota", "Se abrió el formulario de 'Detalles del alquiler' en el panel lateral. El usuario "
+                + "completa los datos del evento y confirma; quedan listos para el checkout.");
+
+        ObjectNode data = mapper.createObjectNode();
+        data.put("vista", "detalles");
+        data.put("titulo", "Detalles del alquiler");
+        data.put("descripcion", "Completa los datos de tu evento y te los dejo listos en el checkout.");
         return ToolResult.of(payload, List.of(new UiEvent(UiEvent.PANEL, data)));
     }
 

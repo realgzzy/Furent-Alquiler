@@ -527,6 +527,17 @@
         .fa-control input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
         .fa-form-error { color: #b91c1c; font-size: var(--fa-xs); font-weight: 700; }
 
+        /* Checklist de los datos del alquiler (vista de detalles del checkout). */
+        .fa-checklist { display: flex; flex-wrap: wrap; gap: 6px; }
+        .fa-check-item {
+            display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: var(--fa-r-pill);
+            font-size: var(--fa-2xs); font-weight: 700; color: var(--fa-ink-3);
+            background: var(--fa-surface-2); border: 1px solid var(--fa-line-2);
+        }
+        .fa-check-item svg { color: var(--fa-ink-3); flex: 0 0 auto; }
+        .fa-check-item.done { color: var(--fa-accent-strong); background: var(--fa-accent-soft); border-color: var(--fa-accent-line); }
+        .fa-check-item.done svg { color: var(--fa-accent-strong); }
+
         /* ───────── Desplegable propio del formulario (trigger + menú con iconos y color) ───────── */
         .fa-select {
             width: 100%; display: flex; align-items: center; gap: 10px; cursor: pointer; font-family: inherit;
@@ -890,6 +901,7 @@
                 </div>
                 <div class="fa-side-body">
                     <div class="fa-view" id="furent-assistant-view-form" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-detalles" hidden></div>
                     <div class="fa-view" id="furent-assistant-view-fechas" hidden>
                         <div class="fa-calendar-host" id="furent-assistant-calendar-host">
                             <input type="text" class="fa-sr" id="furent-assistant-dates-input" tabindex="-1" aria-hidden="true" autocomplete="off">

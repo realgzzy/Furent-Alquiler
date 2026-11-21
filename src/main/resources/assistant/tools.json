@@ -160,6 +160,11 @@
     "parameters": { "type": "OBJECT", "properties": {} }
   },
   {
+    "name": "pedir_detalles_alquiler",
+    "description": "Abre en el panel lateral el formulario de 'Detalles del alquiler' con los campos del checkout (tipo de evento, invitados, fechas, direccion, hora de entrega y notas). El usuario lo completa y confirma; sus datos quedan listos y se le lleva al checkout precargado.",
+    "parameters": { "type": "OBJECT", "properties": {} }
+  },
+  {
     "name": "consultar_alquiler",
     "description": "Consulta el estado de un alquiler del usuario autenticado, con fechas, muebles y pagos registrados. Emite el seguimiento en el panel lateral.",
     "parameters": {

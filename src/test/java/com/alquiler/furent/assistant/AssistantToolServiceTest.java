@@ -349,6 +349,17 @@ class AssistantToolServiceTest {
     }
 
     @Test
+    void pedirDetallesAlquilerEmitePanelDeDetalles() {
+        ToolResult result = service.execute("pedir_detalles_alquiler", args("{}"), GUEST);
+
+        assertTrue(result.payload().path("ok").asBoolean());
+        assertEquals(UiEvent.PANEL, result.uiEvents().get(0).type());
+        JsonNode data = result.uiEvents().get(0).data();
+        assertEquals("detalles", data.path("vista").asText());
+        assertEquals("Detalles del alquiler", data.path("titulo").asText());
+    }
+
+    @Test
     void consultarAlquilerRequiereSesion() {
         ToolResult result = service.execute("consultar_alquiler", args("{}"), GUEST);
 

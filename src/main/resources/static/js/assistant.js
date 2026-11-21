@@ -118,6 +118,7 @@
             sideTitle: document.getElementById('furent-assistant-side-title'),
             sideClose: document.getElementById('furent-assistant-side-close'),
             viewForm: document.getElementById('furent-assistant-view-form'),
+            viewDetalles: document.getElementById('furent-assistant-view-detalles'),
             viewFechas: document.getElementById('furent-assistant-view-fechas'),
             viewBolsa: document.getElementById('furent-assistant-view-bolsa'),
             viewReco: document.getElementById('furent-assistant-view-reco'),
@@ -1225,6 +1226,7 @@
 
         var VIEWS = {
             form: function () { return els.viewForm; },
+            detalles: function () { return els.viewDetalles; },
             fechas: function () { return els.viewFechas; },
             bolsa: function () { return els.viewBolsa; },
             recomendacion: function () { return els.viewReco; },
@@ -1233,6 +1235,7 @@
 
         var SIDE_TITLES = {
             form: 'Cuéntame de tu evento',
+            detalles: 'Detalles del alquiler',
             fechas: 'Fechas del alquiler',
             bolsa: 'Tu bolsa',
             recomendacion: 'Recomendación',
@@ -1265,6 +1268,8 @@
                 renderBagPanel(data && data.items);
             } else if (vista === 'form') {
                 renderFormPanel(data && data.fields ? data : defaultFormData());
+            } else if (vista === 'detalles') {
+                renderDetallesPanel(data && data.fields ? data : defaultDetallesData());
             } else if (vista === 'recomendacion') {
                 renderRecommendation(data || {});
             } else if (vista === 'alquiler') {
@@ -1390,6 +1395,255 @@
             view.appendChild(form);
         }
 
+        // ── Vista: detalles del alquiler (mismos campos que el checkout) ──
+
+        var DETALLES_HORA_MIN = '08:00';
+        var DETALLES_HORA_MAX = '20:00';
+        var DETALLES_MAX_DIAS = 7;
+
+        function defaultDetallesData() {
+            return {
+                vista: 'detalles',
+                titulo: 'Detalles del alquiler',
+                descripcion: 'Completa los datos de tu evento y te los dejo listos en el checkout.',
+                submitLabel: 'Confirmar y reservar',
+                fields: [
+                    { name: 'tipoEvento', label: 'Tipo de evento', type: 'select', required: true, options: [
+                        { value: 'Boda', label: 'Boda' }, { value: 'Corporativo', label: 'Corporativo' },
+                        { value: 'Cumpleaños', label: 'Cumpleaños' }, { value: 'Graduación', label: 'Graduación' },
+                        { value: 'Feria', label: 'Feria' }, { value: 'Otro', label: 'Otro' }] },
+                    { name: 'invitados', label: 'Número de invitados', type: 'number', required: true, placeholder: '120' },
+                    { name: 'fechaInicio', label: 'Desde', type: 'date', required: true },
+                    { name: 'fechaFin', label: 'Hasta', type: 'date', required: true },
+                    { name: 'horaEntrega', label: 'Hora de entrega', type: 'time', required: true,
+                        min: DETALLES_HORA_MIN, max: DETALLES_HORA_MAX, value: '09:00' },
+                    { name: 'direccion', label: 'Dirección del evento', type: 'text', required: true,
+                        placeholder: 'Calle, número, ciudad...' },
+                    { name: 'notas', label: 'Notas (opcional)', type: 'textarea',
+                        placeholder: 'Accesos, requerimientos especiales...' }
+                ]
+            };
+        }
+
+        /** Valida los datos del alquiler con las mismas reglas del checkout. */
+        function validarDetalles(v) {
+            var errores = [];
+            var avisos = [];
+            if (!v.tipoEvento) {
+                errores.push('Selecciona el tipo de evento.');
+            }
+            var invitados = parseInt(v.invitados, 10);
+            if (!v.invitados || isNaN(invitados) || invitados < 1) {
+                errores.push('Indica cuántos invitados esperas.');
+            }
+            var dias = (v.fechaInicio && v.fechaFin) ? diasEntre(v.fechaInicio, v.fechaFin) : 0;
+            if (!v.fechaInicio || !v.fechaFin) {
+                errores.push('Elige el rango de fechas del alquiler.');
+            } else if (dias < 1) {
+                errores.push('La fecha final no puede ser antes de la inicial.');
+            } else if (dias > DETALLES_MAX_DIAS) {
+                errores.push('El alquiler es de máximo ' + DETALLES_MAX_DIAS + ' días.');
+            } else if (v.fechaInicio < todayIso()) {
+                errores.push('La fecha de inicio ya pasó. Elige una fecha desde hoy.');
+            }
+            if (!v.horaEntrega) {
+                errores.push('Indica la hora de entrega.');
+            } else if (v.horaEntrega < DETALLES_HORA_MIN || v.horaEntrega > DETALLES_HORA_MAX) {
+                avisos.push('La entrega ideal es entre 8:00 a.m. y 8:00 p.m. Fuera de ese horario, un asesor te contacta.');
+            }
+            if (!v.direccion) {
+                errores.push('Escribe la dirección del evento.');
+            }
+            return { errores: errores, avisos: avisos };
+        }
+
+        function renderDetallesPanel(data) {
+            var view = els.viewDetalles;
+            if (!view) {
+                return;
+            }
+            destroyFormFp();
+            closeOpenSelect();
+            view.textContent = '';
+
+            var fields = data.fields || [];
+            var inputs = {};
+
+            var form = document.createElement('form');
+            form.className = 'fa-form';
+            form.setAttribute('novalidate', 'novalidate');
+
+            if (data.descripcion) {
+                var desc = document.createElement('p');
+                desc.className = 'fa-form-desc';
+                desc.textContent = data.descripcion;
+                form.appendChild(desc);
+            }
+
+            // Checklist de lo que falta: se va marcando al completar cada dato.
+            var check = document.createElement('div');
+            check.className = 'fa-checklist';
+            form.appendChild(check);
+
+            function collect() {
+                var values = {};
+                fields.forEach(function (field) {
+                    var el = inputs[field.name];
+                    values[field.name] = el ? String(el.value || '').trim() : '';
+                });
+                return values;
+            }
+
+            function refrescarChecklist() {
+                var v = collect();
+                check.textContent = '';
+                [
+                    { ok: !!v.tipoEvento, label: 'Tipo de evento' },
+                    { ok: !!v.invitados, label: 'Invitados' },
+                    { ok: !!(v.fechaInicio && v.fechaFin), label: 'Fechas' },
+                    { ok: !!v.horaEntrega, label: 'Hora de entrega' },
+                    { ok: !!v.direccion, label: 'Dirección' }
+                ].forEach(function (p) {
+                    var row = document.createElement('span');
+                    row.className = 'fa-check-item' + (p.ok ? ' done' : '');
+                    row.appendChild(svgIcon(p.ok ? ICONS.check : ICONS.minimal, 13));
+                    var txt = document.createElement('span');
+                    txt.textContent = p.label;
+                    row.appendChild(txt);
+                    check.appendChild(row);
+                });
+            }
+
+            var dateFields = [];
+            var step = 0;
+            fields.forEach(function (field) {
+                if (field.type === 'date') {
+                    dateFields.push(field);
+                    return;
+                }
+                var wrap = buildFormControl(field, inputs);
+                if (wrap) {
+                    wrap.style.animationDelay = (step * 45) + 'ms';
+                    step++;
+                    form.appendChild(wrap);
+                }
+            });
+            if (dateFields.length) {
+                var range = buildDateRangeField(dateFields, inputs);
+                range.style.animationDelay = (step * 45) + 'ms';
+                form.appendChild(range);
+            }
+
+            Object.keys(inputs).forEach(function (name) {
+                inputs[name].addEventListener('input', refrescarChecklist);
+                inputs[name].addEventListener('change', refrescarChecklist);
+            });
+            refrescarChecklist();
+
+            var error = document.createElement('p');
+            error.className = 'fa-form-error';
+            error.hidden = true;
+            form.appendChild(error);
+
+            var submit = document.createElement('button');
+            submit.type = 'submit';
+            submit.className = 'fa-btn fa-btn-primary';
+            submit.textContent = data.submitLabel || 'Confirmar y reservar';
+            form.appendChild(submit);
+
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                var v = collect();
+                var res = validarDetalles(v);
+                if (res.errores.length) {
+                    error.textContent = res.errores[0];
+                    error.hidden = false;
+                    return;
+                }
+                guardarDetalles(v, res.avisos);
+            });
+
+            view.appendChild(form);
+        }
+
+        /** Guarda los datos para el checkout y muestra el resumen con el pase. */
+        function guardarDetalles(v, avisos) {
+            var detalles = {
+                tipoEvento: v.tipoEvento,
+                invitados: parseInt(v.invitados, 10) || 0,
+                direccion: v.direccion,
+                horaEntrega: v.horaEntrega,
+                notas: v.notas || ''
+            };
+            try {
+                localStorage.setItem('furent_event_details', JSON.stringify(detalles));
+                if (v.fechaInicio && v.fechaFin) {
+                    localStorage.setItem('furent_selected_dates', JSON.stringify({
+                        start: v.fechaInicio, end: v.fechaFin
+                    }));
+                }
+            } catch (e) { /* almacenamiento lleno o bloqueado */ }
+            closeSidePanel();
+            appendDetallesResumen(v, avisos);
+        }
+
+        /** Resumen ordenado en el chat con el siguiente paso hacia el checkout. */
+        function appendDetallesResumen(v, avisos) {
+            var card = document.createElement('div');
+            card.className = 'fa-quote';
+            var head = document.createElement('div');
+            head.className = 'fa-quote-head';
+            var ico = document.createElement('span');
+            ico.className = 'fa-quote-ico';
+            ico.appendChild(svgIcon(ICONS.check, 16));
+            var title = document.createElement('h4');
+            title.textContent = 'Detalles del alquiler listos';
+            head.appendChild(ico);
+            head.appendChild(title);
+            card.appendChild(head);
+
+            if (v.tipoEvento) {
+                card.appendChild(quoteLine('Tipo de evento', String(v.tipoEvento)));
+            }
+            if (v.invitados) {
+                card.appendChild(quoteLine('Invitados', String(v.invitados)));
+            }
+            if (v.fechaInicio && v.fechaFin) {
+                card.appendChild(quoteLine('Fechas', fmtFecha(v.fechaInicio) + ' – ' + fmtFecha(v.fechaFin)
+                    + ' · ' + diasEntre(v.fechaInicio, v.fechaFin) + ' días'));
+            }
+            if (v.horaEntrega) {
+                card.appendChild(quoteLine('Hora de entrega', String(v.horaEntrega)));
+            }
+            if (v.direccion) {
+                card.appendChild(quoteLine('Dirección', String(v.direccion)));
+            }
+            if (v.notas) {
+                card.appendChild(quoteLine('Notas', String(v.notas)));
+            }
+            (avisos || []).forEach(function (aviso) {
+                var note = document.createElement('p');
+                note.className = 'fa-quote-note';
+                note.textContent = aviso;
+                card.appendChild(note);
+            });
+
+            var actions = document.createElement('div');
+            actions.className = 'fa-quote-actions';
+            actions.appendChild(button('Ir al checkout', 'fa-btn-primary', function () {
+                trackAssistantEvent('assistant_detalles_checkout');
+                goToCheckout('/cotizacion');
+            }, ICONS.cart));
+            card.appendChild(actions);
+
+            var row = document.createElement('div');
+            row.className = 'fa-row assistant fa-enter';
+            row.style.width = '100%';
+            row.appendChild(card);
+            els.messages.appendChild(row);
+            scrollDown();
+        }
+
         /** Icono que acompaña a un campo del formulario. */
         function fieldIcon(field) {
             switch (field.name) {
@@ -1398,6 +1652,9 @@
                 case 'estilo': return ICONS.pencil;
                 case 'presupuesto': return ICONS.coin;
                 case 'horaEvento': return ICONS.clock;
+                case 'horaEntrega': return ICONS.clock;
+                case 'direccion': return ICONS.pin;
+                case 'notas': return ICONS.pencil;
                 default: break;
             }
             if (field.type === 'time') { return ICONS.clock; }
@@ -1461,7 +1718,9 @@
                     input.inputMode = 'numeric';
                 } else if (field.type === 'time') {
                     input.type = 'time';
-                    input.step = '900';
+                    input.step = field.step || '900';
+                    if (field.min) { input.min = field.min; }
+                    if (field.max) { input.max = field.max; }
                 } else {
                     input.type = 'text';
                 }
@@ -1472,6 +1731,9 @@
             input.name = field.name;
             if (field.required) {
                 input.required = true;
+            }
+            if (field.value != null) {
+                input.value = field.value;
             }
             inputs[field.name] = input;
             control.appendChild(input);
@@ -1494,7 +1756,13 @@
             elegante: { icon: 'diamond', tone: 'amber' },
             moderno: { icon: 'bolt', tone: 'blue' },
             rustico: { icon: 'leaf', tone: 'green' },
-            minimalista: { icon: 'minimal', tone: 'slate' }
+            minimalista: { icon: 'minimal', tone: 'slate' },
+            Boda: { icon: 'rings', tone: 'rose' },
+            'Cumpleaños': { icon: 'cake', tone: 'amber' },
+            Corporativo: { icon: 'briefcase', tone: 'blue' },
+            'Graduación': { icon: 'cap', tone: 'violet' },
+            Feria: { icon: 'tag', tone: 'slate' },
+            Otro: { icon: 'sparkles', tone: 'slate' }
         };
 
         // Desplegable abierto, para cerrarlo al hacer clic fuera o al salir de la vista.
@@ -1790,6 +2058,12 @@
                                 hiddenEnd.value = dates.length > 1 ? toIso(dates[dates.length - 1]) : '';
                             }
                             control.classList.toggle('has-value', dates.length > 0);
+                            // Los campos ocultos no emiten 'input' al asignarles valor: lo avisamos a mano
+                            // para que la vista (p. ej. el checklist) reaccione al rango elegido.
+                            hiddenStart.dispatchEvent(new Event('input'));
+                            if (hiddenEnd) {
+                                hiddenEnd.dispatchEvent(new Event('input'));
+                            }
                         }
                     });
                 } catch (e) {
