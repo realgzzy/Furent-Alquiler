@@ -408,8 +408,9 @@
                     currentBubble = null;
                     return;
                 }
-                var raw = currentBubble._raw || '';
+                var raw = stripLeakedMarkup(currentBubble._raw || '');
                 if (!raw) {
+                    // Si tras limpiar el marcado filtrado no queda texto, no se muestra burbuja.
                     var row = currentBubble.parentNode;
                     if (row) {
                         row.remove();
@@ -1398,9 +1399,22 @@
         // como HTML. Soporta negrita, itálica, código en línea, listas y encabezados, con enlaces
         // limitados a http(s), mailto, rutas relativas y anclas.
 
+        // El modelo no debe emitir marcado ni JSON; si algo se filtra (por ejemplo una etiqueta
+        // tipo <cotizacion ...> con datos internos), se elimina antes de mostrarlo en el chat.
+        function stripLeakedMarkup(text) {
+            var out = String(text || '');
+            // 1) Bloques con cierre: <etiqueta ...>...</etiqueta>
+            out = out.replace(/<([a-zA-Z][\w:-]*)(?:\s[^<>]*)?>[\s\S]*?<\/\1\s*>/g, '');
+            // 2) Etiquetas sueltas (apertura, cierre o autocierre).
+            out = out.replace(/<\/?[a-zA-Z][\w:-]*(?:\s[^<>]*)?\/?>/g, '');
+            // 3) Espacios y saltos sobrantes tras retirar el bloque.
+            out = out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+            return out;
+        }
+
         function renderMarkdown(container, text) {
             container.textContent = '';
-            var lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+            var lines = stripLeakedMarkup(text).replace(/\r\n?/g, '\n').split('\n');
             var i = 0;
             while (i < lines.length) {
                 var line = lines[i];
