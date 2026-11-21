@@ -251,6 +251,9 @@
         }
 
         document.addEventListener('click', function (event) {
+            if (openSelect && !openSelect.control.contains(event.target)) {
+                closeOpenSelect();
+            }
             if (!isOpen) {
                 return;
             }
@@ -269,7 +272,9 @@
 
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
-                if (els.history && !els.history.hidden) {
+                if (openSelect) {
+                    closeOpenSelect();
+                } else if (els.history && !els.history.hidden) {
                     closeHistory();
                 } else if (!isOpen) {
                     return;
@@ -1103,6 +1108,18 @@
                 'M10 19h4', 'M10.6 21.5h2.8'],
             alert: ['M12 3.6 21.6 20.4H2.4Z', 'M12 10v4.2', 'M12 17.3h.01'],
             check: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'm8.4 12.2 2.5 2.5 4.7-5.1'],
+            rings: ['M9 15.5a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z', 'M15 15.5a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z'],
+            cake: ['M4.5 20.25h15', 'M4.5 20.25V12A1.5 1.5 0 0 1 6 10.5h12a1.5 1.5 0 0 1 1.5 1.5v8.25',
+                'M4.5 16.5h15', 'M12 10.5V7.5', 'M8.25 10.5V8.25', 'M15.75 10.5V8.25'],
+            briefcase: ['M3.75 8.25h16.5A1.5 1.5 0 0 1 21.75 9.75v8.25a1.5 1.5 0 0 1-1.5 1.5H3.75a1.5 1.5 0 0 1-1.5-1.5V9.75a1.5 1.5 0 0 1 1.5-1.5Z',
+                'M8.25 8.25V6.75A2.25 2.25 0 0 1 10.5 4.5h3a2.25 2.25 0 0 1 2.25 2.25v1.5', 'M2.25 13.5h19.5'],
+            cap: ['M12 4.5 2.25 9 12 13.5 21.75 9Z', 'M6.75 11.25v4c0 1.1 2.35 2.25 5.25 2.25s5.25-1.15 5.25-2.25v-4', 'M21.75 9v5.25'],
+            heart: ['M12 20.4 4.9 13.3a4.6 4.6 0 1 1 6.5-6.5l.6.6.6-.6a4.6 4.6 0 1 1 6.5 6.5Z'],
+            diamond: ['M6.3 3.75h11.4l2.55 4.5L12 20.25 3.75 8.25Z', 'M3.75 8.25h16.5',
+                'M9.3 3.75 7.5 8.25 12 20.25l4.5-12-1.8-4.5'],
+            bolt: ['M13.5 3 5.5 13.5h5l-1 7.5 8-10.5h-5Z'],
+            leaf: ['M4.5 19.5C4.5 10.5 10.5 4.5 19.5 4.5c0 9-6 15-15 15Z', 'M4.5 19.5 13 11'],
+            minimal: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M8.25 12h7.5'],
             eraser: ['M4 20h16',
                 'M13.5 5.5 8 11l3.5 3.5 5.5-5.5a2.47 2.47 0 0 0-3.5-3.5Z',
                 'm9.5 12.5-3 3a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l3-3']
@@ -1175,6 +1192,7 @@
                 return;
             }
             destroyFormFp();
+            closeOpenSelect();
             els.side.hidden = true;
             els.panel.classList.remove('fa-wide');
             sideVista = null;
@@ -1212,6 +1230,7 @@
                 return;
             }
             destroyFormFp();
+            closeOpenSelect();
             view.textContent = '';
             var form = document.createElement('form');
             form.className = 'fa-form';
@@ -1323,6 +1342,10 @@
 
         /** Campo de texto, número, select o textarea con el control estilo Tailwind. */
         function buildFormControl(field, inputs) {
+            if (field.type === 'select') {
+                return buildSelectField(field, inputs);
+            }
+
             var wrap = document.createElement('label');
             wrap.className = 'fa-field';
             wrap.appendChild(fieldHead(field));
@@ -1339,23 +1362,7 @@
             }
 
             var input;
-            if (field.type === 'select') {
-                input = document.createElement('select');
-                var placeholder = document.createElement('option');
-                placeholder.value = '';
-                placeholder.textContent = 'Selecciona...';
-                if (field.required) {
-                    placeholder.disabled = true;
-                    placeholder.selected = true;
-                }
-                input.appendChild(placeholder);
-                (field.options || []).forEach(function (opt) {
-                    var option = document.createElement('option');
-                    option.value = opt.value != null ? opt.value : opt;
-                    option.textContent = opt.label != null ? opt.label : opt;
-                    input.appendChild(option);
-                });
-            } else if (field.type === 'textarea') {
+            if (field.type === 'textarea') {
                 input = document.createElement('textarea');
                 input.rows = 3;
                 if (field.placeholder) {
@@ -1384,13 +1391,237 @@
             inputs[field.name] = input;
             control.appendChild(input);
 
-            if (field.type === 'select') {
-                var caret = document.createElement('span');
-                caret.className = 'fa-control-caret';
-                caret.appendChild(svgIcon(ICONS.chevron, 16));
-                control.appendChild(caret);
+            wrap.appendChild(control);
+            return wrap;
+        }
+
+        /**
+         * Metadatos visuales de las opciones de los desplegables del formulario: icono y tono de
+         * color, para que cada opción se distinga de un vistazo.
+         */
+        var SELECT_META = {
+            boda: { icon: 'rings', tone: 'rose' },
+            cumpleanos: { icon: 'cake', tone: 'amber' },
+            corporativo: { icon: 'briefcase', tone: 'blue' },
+            grado: { icon: 'cap', tone: 'violet' },
+            baby_shower: { icon: 'heart', tone: 'pink' },
+            otro: { icon: 'sparkles', tone: 'slate' },
+            elegante: { icon: 'diamond', tone: 'amber' },
+            moderno: { icon: 'bolt', tone: 'blue' },
+            rustico: { icon: 'leaf', tone: 'green' },
+            minimalista: { icon: 'minimal', tone: 'slate' }
+        };
+
+        // Desplegable abierto, para cerrarlo al hacer clic fuera o al salir de la vista.
+        var openSelect = null;
+
+        function selectMeta(field, value) {
+            var meta = SELECT_META[value];
+            if (meta && ICONS[meta.icon]) {
+                return { icon: ICONS[meta.icon], tone: meta.tone || 'slate' };
+            }
+            return { icon: fieldIcon(field), tone: 'slate' };
+        }
+
+        function closeOpenSelect() {
+            if (!openSelect) {
+                return;
+            }
+            openSelect.menu.hidden = true;
+            openSelect.trigger.setAttribute('aria-expanded', 'false');
+            openSelect.trigger.classList.remove('is-open');
+            openSelect.control.classList.remove('is-open');
+            openSelect = null;
+        }
+
+        /** Coloca el menú bajo el disparador y limita su alto al espacio visible del panel. */
+        function positionSelectMenu(menu, trigger) {
+            var body = els.viewForm ? els.viewForm.closest('.fa-side-body') : null;
+            var max = 240;
+            var rect = trigger.getBoundingClientRect();
+            if (body) {
+                var bodyRect = body.getBoundingClientRect();
+                var below = bodyRect.bottom - rect.bottom - 14;
+                var above = rect.top - bodyRect.top - 14;
+                if (below < 170 && above > below) {
+                    menu.style.top = 'auto';
+                    menu.style.bottom = 'calc(100% + 6px)';
+                    max = Math.min(max, above);
+                } else {
+                    menu.style.bottom = 'auto';
+                    menu.style.top = 'calc(100% + 6px)';
+                    max = Math.min(max, below);
+                }
+            }
+            menu.style.maxHeight = Math.max(120, max) + 'px';
+        }
+
+        /** Construye el campo desplegable propio (trigger + menú con iconos y colores). */
+        function buildSelectField(field, inputs) {
+            var wrap = document.createElement('div');
+            wrap.className = 'fa-field';
+            wrap.appendChild(fieldHead(field));
+
+            var control = document.createElement('div');
+            control.className = 'fa-control';
+
+            var trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.className = 'fa-select';
+            trigger.setAttribute('aria-haspopup', 'listbox');
+            trigger.setAttribute('aria-expanded', 'false');
+
+            var valueIco = document.createElement('span');
+            valueIco.className = 'fa-select-ico';
+            valueIco.appendChild(svgIcon(fieldIcon(field), 16));
+            var label = document.createElement('span');
+            label.className = 'fa-select-label';
+            label.textContent = 'Selecciona...';
+            var caret = document.createElement('span');
+            caret.className = 'fa-select-caret';
+            caret.appendChild(svgIcon(ICONS.chevron, 16));
+            trigger.appendChild(valueIco);
+            trigger.appendChild(label);
+            trigger.appendChild(caret);
+
+            var menu = document.createElement('ul');
+            menu.className = 'fa-select-menu';
+            menu.setAttribute('role', 'listbox');
+            menu.hidden = true;
+
+            var hidden = hiddenInput(field.name);
+            inputs[field.name] = hidden;
+
+            function applyValue(value, optLabel) {
+                hidden.value = value || '';
+                control.classList.toggle('has-value', !!value);
+                var items = menu.querySelectorAll('.fa-select-opt');
+                for (var k = 0; k < items.length; k++) {
+                    items[k].setAttribute('aria-selected',
+                        items[k].getAttribute('data-value') === value ? 'true' : 'false');
+                }
+                valueIco.textContent = '';
+                if (value) {
+                    var meta = selectMeta(field, value);
+                    valueIco.appendChild(svgIcon(meta.icon, 16));
+                    valueIco.setAttribute('data-tone', meta.tone);
+                    label.textContent = optLabel || value;
+                } else {
+                    valueIco.appendChild(svgIcon(fieldIcon(field), 16));
+                    valueIco.removeAttribute('data-tone');
+                    label.textContent = 'Selecciona...';
+                }
             }
 
+            var optEls = [];
+            (field.options || []).forEach(function (opt) {
+                var value = opt.value != null ? opt.value : opt;
+                var text = opt.label != null ? opt.label : opt;
+                var meta = selectMeta(field, value);
+                var li = document.createElement('li');
+                li.className = 'fa-select-opt';
+                li.setAttribute('role', 'option');
+                li.setAttribute('data-value', value);
+                li.setAttribute('aria-selected', 'false');
+                var ico = document.createElement('span');
+                ico.className = 'fa-select-opt-ico';
+                ico.setAttribute('data-tone', meta.tone);
+                ico.appendChild(svgIcon(meta.icon, 16));
+                var span = document.createElement('span');
+                span.className = 'fa-select-opt-text';
+                span.textContent = text;
+                var check = document.createElement('span');
+                check.className = 'fa-select-check';
+                check.appendChild(svgIcon(ICONS.check, 15));
+                li.appendChild(ico);
+                li.appendChild(span);
+                li.appendChild(check);
+                li.addEventListener('click', function () {
+                    applyValue(value, text);
+                    closeOpenSelect();
+                    trigger.focus();
+                });
+                optEls.push(li);
+                menu.appendChild(li);
+            });
+
+            var activeIndex = -1;
+
+            function setActive(index) {
+                activeIndex = index;
+                for (var n = 0; n < optEls.length; n++) {
+                    var on = n === index;
+                    optEls[n].classList.toggle('is-active', on);
+                    if (on && optEls[n].scrollIntoView) {
+                        optEls[n].scrollIntoView({ block: 'nearest' });
+                    }
+                }
+            }
+
+            function openMenu() {
+                closeOpenSelect();
+                menu.hidden = false;
+                trigger.setAttribute('aria-expanded', 'true');
+                trigger.classList.add('is-open');
+                control.classList.add('is-open');
+                openSelect = { control: control, menu: menu, trigger: trigger };
+                positionSelectMenu(menu, trigger);
+                var current = hidden.value;
+                var found = -1;
+                for (var n = 0; n < optEls.length; n++) {
+                    if (optEls[n].getAttribute('data-value') === current) {
+                        found = n;
+                        break;
+                    }
+                }
+                setActive(found);
+            }
+
+            trigger.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (menu.hidden) {
+                    openMenu();
+                } else {
+                    closeOpenSelect();
+                }
+            });
+
+            trigger.addEventListener('keydown', function (event) {
+                var key = event.key;
+                if (menu.hidden) {
+                    if (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Enter' || key === ' ') {
+                        event.preventDefault();
+                        openMenu();
+                        setActive(key === 'ArrowUp' ? optEls.length - 1 : 0);
+                    }
+                    return;
+                }
+                if (key === 'ArrowDown') {
+                    event.preventDefault();
+                    setActive(Math.min(activeIndex + 1, optEls.length - 1));
+                } else if (key === 'ArrowUp') {
+                    event.preventDefault();
+                    setActive(Math.max(activeIndex - 1, 0));
+                } else if (key === 'Home') {
+                    event.preventDefault();
+                    setActive(0);
+                } else if (key === 'End') {
+                    event.preventDefault();
+                    setActive(optEls.length - 1);
+                } else if (key === 'Enter' || key === ' ') {
+                    event.preventDefault();
+                    if (activeIndex >= 0 && optEls[activeIndex]) {
+                        optEls[activeIndex].click();
+                    }
+                } else if (key === 'Tab') {
+                    closeOpenSelect();
+                }
+            });
+
+            control.appendChild(trigger);
+            control.appendChild(hidden);
+            control.appendChild(menu);
             wrap.appendChild(control);
             return wrap;
         }
