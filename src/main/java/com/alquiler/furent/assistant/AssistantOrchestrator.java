@@ -85,7 +85,8 @@ public class AssistantOrchestrator {
                 if (!stream.isOpen()) {
                     break;
                 }
-                ObjectNode body = promptBuilder.buildBody(contents, context, pageContext);
+                ToolContext chatContext = context.withMemory(conversation.getMemoria());
+                ObjectNode body = promptBuilder.buildBody(contents, chatContext, pageContext);
                 List<GeminiChunk> calls = new ArrayList<>();
                 int[] tokens = {0, 0};
 
@@ -117,7 +118,7 @@ public class AssistantOrchestrator {
                     stream.token("\n\nSi necesitas más detalles, pregúntame de nuevo o escríbenos por WhatsApp.");
                     break;
                 }
-                ejecutarHerramientas(conversation, calls, context, stream, contents);
+                ejecutarHerramientas(conversation, calls, chatContext, stream, contents);
             }
 
             if (blocked[0]) {
@@ -156,6 +157,7 @@ public class AssistantOrchestrator {
         for (GeminiChunk call : calls) {
             String name = call.functionName();
             callParts.add(new GeminiContents.Call(name, call.functionArgs(), call.thoughtSignature()));
+            emitStatus(stream, estadoDe(name));
 
             ToolResult result;
             try {
@@ -169,6 +171,10 @@ public class AssistantOrchestrator {
 
             responseParts.add(new GeminiContents.Response(name, result.payload()));
             conversations.saveToolMessage(conversation, name, resumen(name, call.functionArgs()));
+            String memoria = memoriaDe(name, result.payload());
+            if (memoria != null) {
+                conversations.appendMemory(conversation, memoria);
+            }
 
             for (UiEvent event : result.uiEvents()) {
                 stream.event(event.type(), event.data());
@@ -202,6 +208,120 @@ public class AssistantOrchestrator {
         }
         String texto = args.toString();
         return texto.length() > 200 ? texto.substring(0, 200) : texto;
+    }
+
+    /** Emite el texto dinámico de "Typing Intelligence" mientras se ejecuta una herramienta. */
+    private void emitStatus(AssistantStream stream, String texto) {
+        ObjectNode node = mapper.createObjectNode();
+        node.put("texto", texto);
+        stream.event(UiEvent.STATUS, node);
+    }
+
+    private String estadoDe(String herramienta) {
+        return switch (herramienta) {
+            case "buscar_productos", "listar_categorias", "ver_producto" -> "Buscando muebles…";
+            case "consultar_disponibilidad" -> "Verificando disponibilidad…";
+            case "cotizar" -> "Calculando precios…";
+            case "recomendar_evento" -> "Armando tu propuesta…";
+            case "mi_bolsa", "editar_bolsa" -> "Actualizando tu bolsa…";
+            case "mis_reservas", "estado_reserva", "consultar_alquiler" -> "Consultando tus alquileres…";
+            case "validar_cupon" -> "Validando el cupón…";
+            case "informacion_negocio" -> "Buscando la información…";
+            case "escalar_a_humano" -> "Preparando tu caso…";
+            default -> "Trabajando en eso…";
+        };
+    }
+
+    /**
+     * Resume en una línea lo que la herramienta mostró, para la memoria de la conversación.
+     * Devuelve {@code null} si no aporta contexto útil.
+     */
+    private String memoriaDe(String herramienta, JsonNode payload) {
+        if (payload == null || payload.isNull()) {
+            return null;
+        }
+        switch (herramienta) {
+            case "buscar_productos" -> {
+                JsonNode array = payload.path("productos");
+                if (!array.isArray() || array.isEmpty()) {
+                    return "Búsqueda sin resultados; conviene ofrecer alternativas o pedir menos filtros.";
+                }
+                List<String> nombres = new ArrayList<>();
+                for (JsonNode node : array) {
+                    if (nombres.size() >= 5) {
+                        break;
+                    }
+                    String nombre = node.path("nombre").asText("");
+                    if (!nombre.isBlank()) {
+                        nombres.add(nombre);
+                    }
+                }
+                return nombres.isEmpty() ? null : "Productos mostrados: " + String.join(", ", nombres) + ".";
+            }
+            case "ver_producto" -> {
+                JsonNode producto = payload.path("producto");
+                return producto.isObject() && !producto.path("nombre").asText("").isBlank()
+                        ? "Producto visto: " + producto.path("nombre").asText("") + "."
+                        : null;
+            }
+            case "consultar_disponibilidad" -> {
+                JsonNode array = payload.path("productos");
+                if (!array.isArray() || array.isEmpty()) {
+                    return null;
+                }
+                List<String> partes = new ArrayList<>();
+                for (JsonNode node : array) {
+                    if (partes.size() >= 5) {
+                        break;
+                    }
+                    partes.add(node.path("nombre").asText("") + " (" + node.path("disponibleEnFechas").asInt() + " disp.)");
+                }
+                return "Disponibilidad " + payload.path("fechaInicio").asText("") + " a "
+                        + payload.path("fechaFin").asText("") + ": " + String.join(", ", partes) + ".";
+            }
+            case "cotizar" -> {
+                JsonNode items = payload.path("items");
+                if (!items.isArray() || items.isEmpty()) {
+                    return null;
+                }
+                List<String> partes = new ArrayList<>();
+                for (JsonNode node : items) {
+                    if (partes.size() >= 6) {
+                        break;
+                    }
+                    partes.add(node.path("nombre").asText("") + " x" + node.path("cantidad").asInt());
+                }
+                String aviso = payload.path("puedeContinuar").asBoolean(true) ? "" : " (sin stock suficiente)";
+                return "Cotización " + payload.path("fechaInicio").asText("") + " a " + payload.path("fechaFin").asText("")
+                        + " (" + payload.path("dias").asInt() + " días, total " + payload.path("total").asText("")
+                        + aviso + "): " + String.join(", ", partes) + ".";
+            }
+            case "recomendar_evento" -> {
+                JsonNode items = payload.path("items");
+                if (!items.isArray() || items.isEmpty()) {
+                    return null;
+                }
+                List<String> partes = new ArrayList<>();
+                for (JsonNode node : items) {
+                    if (partes.size() >= 6) {
+                        break;
+                    }
+                    partes.add(node.path("nombre").asText("") + " x" + node.path("cantidad").asInt());
+                }
+                return "Recomendación para " + payload.path("invitados").asInt() + " personas: "
+                        + String.join(", ", partes) + ".";
+            }
+            case "editar_bolsa" -> {
+                String operacion = payload.path("operacion").asText("");
+                return operacion.isBlank() ? null : "Bolsa: " + operacion + ".";
+            }
+            case "escalar_a_humano" -> {
+                return "Escalado a un asesor.";
+            }
+            default -> {
+                return null;
+            }
+        }
     }
 
     private String sanitizePageContext(String pageContext) {

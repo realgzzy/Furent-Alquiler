@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
  * del modelo.
  *
  * @param type uno de {@link #CARD}, {@link #QUOTE}, {@link #ESCALATION}, {@link #PANEL},
- *             {@link #BAG}, {@link #RESERVATION}
+ *             {@link #BAG}, {@link #RESERVATION}, {@link #STATUS}
  * @param data datos ya calculados con precios y stock reales
  */
 public record UiEvent(String type, JsonNode data) {
@@ -21,4 +21,6 @@ public record UiEvent(String type, JsonNode data) {
     public static final String BAG = "bag";
     /** Resumen de una reserva con su línea de tiempo y pagos (panel de seguimiento). */
     public static final String RESERVATION = "reservation";
+    /** Texto dinámico de "Typing Intelligence" ("Buscando muebles…"). El modelo no lo ve. */
+    public static final String STATUS = "status";
 }

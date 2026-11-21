@@ -41,6 +41,12 @@ public class AssistantConversation {
 
     private String motivoEscalado;
 
+    /**
+     * Memoria corta y legible de lo ya mostrado (productos, cotizaciones, recomendaciones).
+     * Se inyecta en el prompt para resolver referencias como "agrégalas"; nunca se muestra al usuario.
+     */
+    private String memoria;
+
     private boolean cotizo;
     private BigDecimal totalCotizado;
 
@@ -127,6 +133,14 @@ public class AssistantConversation {
 
     public void setMotivoEscalado(String motivoEscalado) {
         this.motivoEscalado = motivoEscalado;
+    }
+
+    public String getMemoria() {
+        return memoria;
+    }
+
+    public void setMemoria(String memoria) {
+        this.memoria = memoria;
     }
 
     public boolean isCotizo() {

@@ -70,8 +70,8 @@ class AssistantToolServiceTest {
         properties = new AssistantProperties();
         properties.setWhatsappNumber("573105782442");
         service = new AssistantToolService(productService, reservationService, reservationRepository,
-                couponService, knowledgeService, toolDefinitions, properties, metrics, mapper,
-                paymentRepository);
+                couponService, knowledgeService, toolDefinitions, new AssistantSemanticSearch(productService),
+                properties, metrics, mapper, paymentRepository);
         lenient().when(toolDefinitions.exists(anyString())).thenReturn(true);
     }
 

@@ -144,6 +144,29 @@ public class AssistantConversationService {
         conversationRepository.save(conversation);
     }
 
+    /**
+     * Añade una línea a la memoria de la conversación, recortando por el final para no crecer
+     * sin límite. La memoria es un canal interno (no se muestra al usuario) para resolver
+     * referencias como "agrégalas" o "esa cotización".
+     */
+    public void appendMemory(AssistantConversation conversation, String linea) {
+        if (conversation == null || linea == null || linea.isBlank()) {
+            return;
+        }
+        String actual = conversation.getMemoria();
+        String nuevo = (actual == null || actual.isBlank()) ? linea : actual + "\n" + linea;
+        int tope = Math.max(400, Math.min(properties.getHistoryWindow() * 200, 2000));
+        if (nuevo.length() > tope) {
+            nuevo = nuevo.substring(nuevo.length() - tope);
+            int corte = nuevo.indexOf('\n');
+            if (corte > 0 && corte < 120) {
+                nuevo = nuevo.substring(corte + 1);
+            }
+        }
+        conversation.setMemoria(nuevo);
+        conversationRepository.save(conversation);
+    }
+
     public void registerQuote(AssistantConversation conversation, BigDecimal total) {
         conversation.setCotizo(true);
         if (total != null) {

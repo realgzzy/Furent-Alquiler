@@ -19,6 +19,73 @@
     // Conversación activa, para sobrevivir la navegación entre páginas (no las recargas).
     var ACTIVE_KEY = 'furent_active_conversation';
 
+    /**
+     * Preguntas sugeridas por página. Se inyectan en el compositor al cargar, de modo que
+     * el usuario vea atajos útiles para lo que está viendo (catálogo, checkout, producto...).
+     */
+    var PAGE_SUGGESTIONS = [
+        {
+            match: /^\/catalogo/,
+            placeholder: 'Busca mobiliario: sillas, mesas, carpas...',
+            items: [
+                { label: 'Sillas para una boda', prompt: 'Necesito sillas para una boda' },
+                { label: 'Mesas para 100 personas', prompt: 'Busco mesas para 100 personas' },
+                { label: 'Algo elegante y moderno', prompt: 'Busco mobiliario elegante y moderno para mi evento' },
+                { label: 'Comparar precios', prompt: '¿Qué opciones tengo por menos de $8.000 al día?' }
+            ]
+        },
+        {
+            match: /^\/producto|^\/combo/,
+            placeholder: 'Pregunta por este producto, stock o fechas...',
+            items: [
+                { label: '¿Está disponible?', prompt: '¿Este producto está disponible para mis fechas?' },
+                { label: '¿Cuántas unidades hay?', prompt: '¿Cuántas unidades tienen disponibles de este producto?' },
+                { label: 'Combinar con otros muebles', prompt: '¿Con qué otros muebles puedo combinar este producto?' },
+                { label: 'Agregar a mi bolsa', prompt: 'Agrega este producto a mi bolsa' }
+            ]
+        },
+        {
+            match: /^\/cotizacion|^\/pago/,
+            placeholder: 'Dudas con fechas, envío o formas de pago...',
+            items: [
+                { label: '¿Cómo va mi cotización?', prompt: '¿Cómo va mi cotización?' },
+                { label: 'Cambiar fechas', prompt: 'Necesito cambiar las fechas de mi alquiler' },
+                { label: 'Costo de envío y montaje', prompt: '¿Cuánto cuesta el envío y el montaje?' },
+                { label: 'Formas de pago', prompt: '¿Qué formas de pago aceptan?' }
+            ]
+        },
+        {
+            match: /^\/panel|^\/reserva|^\/mis-reservas|^\/cuenta/,
+            placeholder: 'Consulta tus reservas, pagos o cambios...',
+            items: [
+                { label: 'Estado de mi alquiler', prompt: '¿Cómo va el estado de mi alquiler?' },
+                { label: 'Mis reservas', prompt: 'Muéstrame mis reservas' },
+                { label: 'Cambiar o cancelar', prompt: 'Necesito cambiar o cancelar una reserva' },
+                { label: 'Hablar con un asesor', prompt: 'Quiero hablar con un asesor' }
+            ]
+        },
+        {
+            match: /^\/contacto|^\/faq|^\/nosotros|^\/inspiracion/,
+            placeholder: 'Pregunta lo que necesites...',
+            items: [
+                { label: 'Horarios y ubicación', prompt: '¿Cuál es su horario y dónde están ubicados?' },
+                { label: 'Cobertura de envío', prompt: '¿A qué zonas hacen envíos?' },
+                { label: 'Ideas para mi evento', prompt: 'Dame ideas de mobiliario para mi evento' },
+                { label: 'Hablar con un asesor', prompt: 'Quiero hablar con un asesor' }
+            ]
+        }
+    ];
+
+    var PAGE_SUGGESTIONS_DEFAULT = {
+        placeholder: 'Escribe tu duda o lo que necesitas...',
+        items: [
+            { label: 'Sillas y mesas para una boda', prompt: 'Necesito sillas y mesas para una boda' },
+            { label: 'Organizar mi evento', prompt: 'Quiero organizar un cumpleaños para 50 personas' },
+            { label: 'Ver mi bolsa', prompt: '¿Qué tengo en mi bolsa?' },
+            { label: 'Estado de mi alquiler', prompt: '¿Cómo va el estado de mi alquiler?' }
+        ]
+    };
+
     // Tokens de Markdown inline. `==texto==` resalta datos importantes.
     var INLINE_RE = /(\*\*[^*]+\*\*|__[^_]+__|==[^=]+==|\*[^*\n]+\*|_[^_\n]+_|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
 
@@ -59,6 +126,8 @@
             calendarClear: document.getElementById('furent-assistant-calendar-clear'),
             calendarUse: document.getElementById('furent-assistant-calendar-use'),
             calendarHint: document.getElementById('furent-assistant-calendar-hint'),
+            eventTime: document.getElementById('furent-assistant-event-time'),
+            timeQuick: document.getElementById('furent-assistant-time-quick'),
             historyToggle: document.getElementById('furent-assistant-history-toggle'),
             history: document.getElementById('furent-assistant-history'),
             historyList: document.getElementById('furent-assistant-history-list'),
@@ -72,7 +141,7 @@
         var authenticated = panel.getAttribute('data-authenticated') === 'true';
         var DEFAULT_WHATSAPP = '573105782442';
         var headerAvatar = panel.querySelector('.fa-avatar img');
-        var avatarSrc = headerAvatar ? headerAvatar.getAttribute('src') : '/images/furent-logo.png';
+        var avatarSrc = headerAvatar ? headerAvatar.getAttribute('src') : '/images/furi.png';
 
         var state = { conversationId: null, whatsapp: null };
         var isOpen = false;
@@ -92,11 +161,17 @@
         var reservedCache = {};        // { "ids": [{from,to}] } caché por conjunto de productos
         var reservedRanges = [];       // rangos ocupados vigentes para el contexto actual
         var nativeDates = false;       // true si se degradó a <input type="date">
+        var pendingTime = '';          // hora del evento elegida en la vista de fechas
 
         els.launcher.addEventListener('click', openPanel);
         els.close.addEventListener('click', closePanel);
         els.send.addEventListener('click', function () { submitFromInput(); });
         els.input.addEventListener('keydown', function (event) {
+            if (event.key === '/' && !els.input.value.trim() && els.chips && els.chips.hidden) {
+                event.preventDefault();
+                toggleSuggestions();
+                return;
+            }
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 submitFromInput();
@@ -124,6 +199,26 @@
         }
         if (els.sideClose) {
             els.sideClose.addEventListener('click', function () { closeSidePanel(); collapseQuick(); });
+        }
+
+        // Atajos de hora: rellenan el campo y se marcan como seleccionados.
+        if (els.eventTime) {
+            els.eventTime.addEventListener('input', function () {
+                pendingTime = els.eventTime.value || '';
+                syncTimeQuick();
+            });
+        }
+        if (els.timeQuick) {
+            els.timeQuick.addEventListener('click', function (event) {
+                var chip = event.target.closest('[data-time]');
+                if (!chip || !els.eventTime) {
+                    return;
+                }
+                var valor = chip.getAttribute('data-time');
+                els.eventTime.value = valor;
+                pendingTime = valor;
+                syncTimeQuick();
+            });
         }
 
         els.chips.addEventListener('click', function (event) {
@@ -196,6 +291,7 @@
             currentBubble = null;
             saveActiveId(null);
             closeSidePanel();
+            resetDateState();
             updateHistoryActive();
             renderWelcome();
             scrollDown();
@@ -481,6 +577,11 @@
                     offerRetry(lastUserText);
                     offerWhatsApp();
                     break;
+                case 'status':
+                    if (data && data.texto) {
+                        setAssistantStatus(data.texto);
+                    }
+                    break;
                 case 'done':
                     closePendingBubble();
                     break;
@@ -538,16 +639,54 @@
             typing.appendChild(document.createElement('span'));
             typing.appendChild(document.createElement('span'));
             built.bubble.appendChild(typing);
+            var status = document.createElement('span');
+            status.className = 'fa-typing-text';
+            status.hidden = true;
+            built.bubble.appendChild(status);
             els.messages.appendChild(built.row);
             currentBubble = built.bubble;
             currentBubble._textSpan = null;
+            currentBubble._status = status;
             currentBubble._raw = '';
             scrollDown();
+        }
+
+        /** "Typing Intelligence": dice qué está haciendo el asistente mientras espera. */
+        function setAssistantStatus(text) {
+            if (!currentBubble) {
+                return;
+            }
+            var status = currentBubble._status;
+            if (!status || !status.isConnected) {
+                status = document.createElement('span');
+                status.className = 'fa-typing-text';
+                currentBubble._status = status;
+                currentBubble.appendChild(status);
+            }
+            if (text) {
+                status.textContent = text;
+                status.hidden = false;
+            } else {
+                status.hidden = true;
+                status.textContent = '';
+            }
+            scrollDown();
+        }
+
+        function clearAssistantStatus() {
+            if (!currentBubble || !currentBubble._status) {
+                return;
+            }
+            if (currentBubble._status.isConnected) {
+                currentBubble._status.remove();
+            }
+            currentBubble._status = null;
         }
 
         function textSpanOf(bubble) {
             if (!bubble._textSpan) {
                 bubble.textContent = '';
+                bubble._status = null;
                 var span = document.createElement('span');
                 bubble.appendChild(span);
                 bubble._textSpan = span;
@@ -559,6 +698,7 @@
             if (!currentBubble) {
                 beginAssistantReply();
             }
+            clearAssistantStatus();
             currentBubble._raw = (currentBubble._raw || '') + text;
             textSpanOf(currentBubble).appendChild(document.createTextNode(text));
             scrollDown();
@@ -591,6 +731,7 @@
             }
             currentBubble.textContent = '';
             currentBubble._textSpan = null;
+            currentBubble._status = null;
             currentBubble._raw = '';
             currentBubble.appendChild(document.createTextNode(message));
             currentBubble.classList.add('error');
@@ -935,6 +1076,7 @@
                 'M19 7.5v5M21.5 10h-5'],
             sliders: ['M4 20v-6M4 10V4M12 20v-9M12 7V4M20 20v-4M20 12V4M1.5 14h5M9.5 7h5M17.5 16h5'],
             calendar: ['M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5'],
+            clock: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M12 7.5V12l3 1.8'],
             receipt: ['M6.75 3.75h10.5A1.5 1.5 0 0 1 18.75 5.25v13.9l-2.6-1.5-2.6 1.5-2.6-1.5-2.6 1.5V5.25A1.5 1.5 0 0 1 6.75 3.75Z',
                 'M9.5 8.5h5M9.5 12h3.5'],
             sparkles: ['M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z',
@@ -1005,6 +1147,7 @@
                 if (authenticated) {
                     loadReservedDays();
                 }
+                syncTimeQuick();
                 updateDatesUI();
             } else if (vista === 'bolsa') {
                 renderBagPanel(data && data.items);
@@ -1047,6 +1190,7 @@
                     { name: 'presupuesto', label: 'Presupuesto aproximado (COP)', type: 'number', placeholder: '3000000' },
                     { name: 'fechaInicio', label: 'Desde', type: 'date' },
                     { name: 'fechaFin', label: 'Hasta', type: 'date' },
+                    { name: 'horaEvento', label: 'Hora del evento (opcional)', type: 'time' },
                     { name: 'nota', label: 'Nota (opcional)', type: 'textarea', placeholder: 'Ej: colores, temática, requerimientos especiales' }
                 ]
             };
@@ -1139,8 +1283,10 @@
                 case 'invitados': return ICONS.users;
                 case 'estilo': return ICONS.pencil;
                 case 'presupuesto': return ICONS.coin;
+                case 'horaEvento': return ICONS.clock;
                 default: break;
             }
+            if (field.type === 'time') { return ICONS.clock; }
             if (field.type === 'number') { return ICONS.coin; }
             if (field.type === 'textarea') { return ICONS.pencil; }
             return ICONS.tag;
@@ -1207,10 +1353,15 @@
                 }
             } else {
                 input = document.createElement('input');
-                input.type = field.type === 'number' ? 'number' : 'text';
                 if (field.type === 'number') {
+                    input.type = 'number';
                     input.min = '0';
                     input.inputMode = 'numeric';
+                } else if (field.type === 'time') {
+                    input.type = 'time';
+                    input.step = '900';
+                } else {
+                    input.type = 'text';
                 }
                 if (field.placeholder) {
                     input.placeholder = field.placeholder;
@@ -1751,6 +1902,7 @@
             }).then(function (data) {
                 state.conversationId = id;
                 saveActiveId(id);
+                resetDateState();
                 els.messages.textContent = '';
                 currentBubble = null;
                 var messages = (data && data.messages) || [];
@@ -1913,7 +2065,7 @@
                 nativeDates = true;
                 buildNativeFallback();
             }
-            readSavedDates();
+            syncTimeQuick();
             updateDatesUI();
         }
 
@@ -1989,6 +2141,9 @@
             var etiqueta = hasDates
                 ? rangoCorto(pendingStart, pendingEnd) + ' · ' + dias + (dias === 1 ? ' día' : ' días')
                 : '';
+            if (hasDates && pendingTime) {
+                etiqueta += ' · ' + pendingTime;
+            }
 
             els.calendarUse.disabled = !hasDates || isStreaming;
             if (els.calendarHint) {
@@ -2008,16 +2163,58 @@
             }
             rememberDates(pendingStart, pendingEnd);
             trackAssistantEvent('assistant_dates_use', {
-                dias: diasEntre(pendingStart, pendingEnd)
+                dias: diasEntre(pendingStart, pendingEnd),
+                conHora: !!pendingTime
             });
             closeSidePanel();
-            sendUserMessage('Usa estas fechas para mi evento: ' + pendingStart + ' al ' + pendingEnd
-                + '. Confirma la disponibilidad y cotiza lo que te pedí.');
+            var mensaje = 'Usa estas fechas para mi evento: ' + pendingStart + ' al ' + pendingEnd;
+            if (pendingTime) {
+                mensaje += ' (Hora del evento: ' + pendingTime + ')';
+            }
+            sendUserMessage(mensaje + '. Confirma la disponibilidad y cotiza lo que te pedí.');
+        }
+
+        /** Limpia las fechas y la hora de la vista sin tocar lo guardado para el checkout. */
+        function resetDateState() {
+            pendingStart = null;
+            pendingEnd = null;
+            pendingTime = '';
+            lastProductIds = [];
+            reservedRanges = [];
+            if (fp && typeof fp.clear === 'function') {
+                try { fp.clear(false); } catch (e) { /* opcional */ }
+            }
+            if (fp && typeof fp.set === 'function') {
+                try { fp.set('disable', []); } catch (e) { /* opcional */ }
+            }
+            if (els._nativeStart) {
+                els._nativeStart.value = '';
+            }
+            if (els._nativeEnd) {
+                els._nativeEnd.value = '';
+            }
+            if (els.eventTime) {
+                els.eventTime.value = '';
+            }
+            syncTimeQuick();
+            updateDatesUI();
+        }
+
+        function syncTimeQuick() {
+            if (!els.timeQuick) {
+                return;
+            }
+            var chips = els.timeQuick.querySelectorAll('[data-time]');
+            for (var i = 0; i < chips.length; i++) {
+                chips[i].setAttribute('aria-pressed',
+                    chips[i].getAttribute('data-time') === pendingTime ? 'true' : 'false');
+            }
         }
 
         function clearDates() {
             pendingStart = null;
             pendingEnd = null;
+            pendingTime = '';
             if (fp && typeof fp.clear === 'function') {
                 try { fp.clear(false); } catch (e) { /* opcional */ }
             }
@@ -2027,6 +2224,10 @@
             if (els._nativeEnd) {
                 els._nativeEnd.value = '';
             }
+            if (els.eventTime) {
+                els.eventTime.value = '';
+            }
+            syncTimeQuick();
             try { localStorage.removeItem('furent_selected_dates'); } catch (e) { /* opcional */ }
             updateDatesUI();
         }
@@ -2035,34 +2236,6 @@
             try {
                 localStorage.setItem('furent_selected_dates', JSON.stringify({ start: start, end: end }));
             } catch (e) { /* almacenamiento lleno o bloqueado */ }
-        }
-
-        function readSavedDates() {
-            var saved = null;
-            try {
-                saved = JSON.parse(localStorage.getItem('furent_selected_dates') || 'null');
-            } catch (e) {
-                saved = null;
-            }
-            if (!saved || !/^\d{4}-\d{2}-\d{2}$/.test(String(saved.start || ''))
-                    || !/^\d{4}-\d{2}-\d{2}$/.test(String(saved.end || ''))) {
-                return;
-            }
-            var dias = diasEntre(saved.start, saved.end);
-            if (dias < 1 || dias > 7 || saved.start < todayIso()) {
-                return;
-            }
-            pendingStart = saved.start;
-            pendingEnd = saved.end;
-            if (fp && typeof fp.setDate === 'function') {
-                try { fp.setDate([pendingStart, pendingEnd], false); } catch (e) { /* opcional */ }
-            }
-            if (els._nativeStart) {
-                els._nativeStart.value = pendingStart;
-            }
-            if (els._nativeEnd) {
-                els._nativeEnd.value = pendingEnd;
-            }
         }
 
         // ── Disponibilidad de días ocupados (solo autenticados) ──
@@ -2512,6 +2685,38 @@
             }
         }
 
+        /** Configuración de sugerencias y placeholder según la página actual. */
+        function pageSuggestions() {
+            var path = window.location.pathname || '/';
+            for (var i = 0; i < PAGE_SUGGESTIONS.length; i++) {
+                if (PAGE_SUGGESTIONS[i].match.test(path)) {
+                    return PAGE_SUGGESTIONS[i];
+                }
+            }
+            return PAGE_SUGGESTIONS_DEFAULT;
+        }
+
+        /** Reemplaza los chips estáticos por preguntas pensadas para esta página. */
+        function renderSuggestions() {
+            var config = pageSuggestions();
+            if (els.input) {
+                els.input.placeholder = config.placeholder || PAGE_SUGGESTIONS_DEFAULT.placeholder;
+            }
+            if (!els.chips) {
+                return;
+            }
+            els.chips.textContent = '';
+            (config.items || []).forEach(function (item) {
+                var chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'fa-chip';
+                chip.setAttribute('data-prompt', item.prompt);
+                chip.appendChild(svgIcon(ICONS.sparkles, 14));
+                chip.appendChild(document.createTextNode(item.label));
+                els.chips.appendChild(chip);
+            });
+        }
+
         function hideBadge() {
             if (els.badge) {
                 els.badge.style.display = 'none';
@@ -2778,6 +2983,7 @@
 
         // Arranque: se difiere hasta aquí porque renderWelcome usa ICONS y boot usa varios
         // objetos (VIEWS, SIDE_TITLES) que se definen más abajo en este mismo ámbito.
+        renderSuggestions();
         initDatePicker();
         start();
     }

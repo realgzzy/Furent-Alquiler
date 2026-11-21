@@ -52,6 +52,7 @@ public class AssistantToolService {
     private final CouponService couponService;
     private final AssistantKnowledgeService knowledgeService;
     private final AssistantToolDefinitions toolDefinitions;
+    private final AssistantSemanticSearch semanticSearch;
     private final AssistantProperties properties;
     private final AssistantMetrics metrics;
     private final ObjectMapper mapper;
@@ -63,6 +64,7 @@ public class AssistantToolService {
                                 CouponService couponService,
                                 AssistantKnowledgeService knowledgeService,
                                 AssistantToolDefinitions toolDefinitions,
+                                AssistantSemanticSearch semanticSearch,
                                 AssistantProperties properties,
                                 AssistantMetrics metrics,
                                 ObjectMapper mapper,
@@ -73,6 +75,7 @@ public class AssistantToolService {
         this.couponService = couponService;
         this.knowledgeService = knowledgeService;
         this.toolDefinitions = toolDefinitions;
+        this.semanticSearch = semanticSearch;
         this.properties = properties;
         this.metrics = metrics;
         this.mapper = mapper;
@@ -115,7 +118,7 @@ public class AssistantToolService {
             case "recomendar_evento" -> recomendarEvento(args);
             case "pedir_datos_evento" -> pedirDatosEvento();
             case "consultar_alquiler" -> consultarAlquiler(args, context);
-            case "escalar_a_humano" -> escalarAHumano(args);
+            case "escalar_a_humano" -> escalarAHumano(args, context);
             default -> throw new AssistantException(AssistantException.Code.INVALID_INPUT,
                     "Herramienta desconocida: " + name);
         };
@@ -132,6 +135,8 @@ public class AssistantToolService {
 
         Map<String, Product> encontrados = new LinkedHashMap<>();
         if (!consulta.isBlank()) {
+            // Búsqueda híbrida: primero semántica (conceptos), luego literal (regex exacta).
+            addAll(encontrados, semanticSearch.search(consulta, limite * 2));
             addAll(encontrados, productService.searchProducts(consulta));
         }
         if (!categoria.isBlank()) {
@@ -301,18 +306,18 @@ public class AssistantToolService {
         List<ItemCotizacion> items = new ArrayList<>();
         JsonNode itemsNode = args.path("items");
         if (!itemsNode.isArray() || itemsNode.isEmpty()) {
-            errores.add("Debes indicar al menos un producto con su cantidad.");
+            errores.add("Tu bolsa está vacía. Agrega al menos un producto para poder cotizarlo.");
         } else {
             for (JsonNode itemNode : itemsNode) {
                 String id = itemNode.path("productoId").asText("").trim();
                 int cantidad = itemNode.path("cantidad").asInt(0);
                 if (cantidad <= 0) {
-                    errores.add("La cantidad de cada producto debe ser mayor a cero.");
+                    errores.add("Las cantidades deben ser mayores a cero. ¿Cuántas unidades necesitas?");
                     continue;
                 }
                 Optional<Product> productOpt = productService.getProductById(id);
                 if (productOpt.isEmpty()) {
-                    errores.add("Un producto de la cotización ya no existe en el catálogo.");
+                    errores.add("Uno de los productos ya no está en el catálogo. ¿Quieres que busque alternativas?");
                     continue;
                 }
                 items.add(new ItemCotizacion(productOpt.get(), cantidad));
@@ -385,6 +390,8 @@ public class AssistantToolService {
             ArrayNode err = payload.putArray("erroresStock");
             disponibilidad.values().forEach(err::add);
             payload.put("puedeContinuar", false);
+            payload.put("mensaje", "Para esas fechas no alcanza el stock de algunos productos. "
+                    + "Puedes ajustar las cantidades, cambiar las fechas o hablar con un asesor.");
             return ToolResult.of(payload);
         }
 
@@ -780,6 +787,7 @@ public class AssistantToolService {
         fields.add(numberField("presupuesto", "Presupuesto aproximado (COP)", false, "3000000"));
         fields.add(dateField("fechaInicio", "Desde", false));
         fields.add(dateField("fechaFin", "Hasta", false));
+        fields.add(timeField("horaEvento", "Hora del evento", false));
         fields.add(textareaField("nota", "Nota (opcional)", false, "Ej: colores, temática, requerimientos especiales"));
         return ToolResult.of(payload, List.of(new UiEvent(UiEvent.PANEL, data)));
     }
@@ -903,6 +911,10 @@ public class AssistantToolService {
         return baseField(name, label, "date", required);
     }
 
+    private ObjectNode timeField(String name, String label, boolean required) {
+        return baseField(name, label, "time", required);
+    }
+
     private ObjectNode textareaField(String name, String label, boolean required, String placeholder) {
         ObjectNode field = baseField(name, label, "textarea", required);
         if (placeholder != null) {
@@ -924,18 +936,37 @@ public class AssistantToolService {
 
     // ───────────────────────── Escalado ─────────────────────────
 
-    private ToolResult escalarAHumano(JsonNode args) {
+    private ToolResult escalarAHumano(JsonNode args, ToolContext context) {
         String motivo = text(args, "motivo");
         String resumen = text(args, "resumen");
-        String mensaje = "Hola Furent, vengo del asistente virtual."
-                + (motivo.isBlank() ? "" : " Motivo: " + motivo + ".")
-                + (resumen.isBlank() ? "" : " Resumen: " + resumen);
+        StringBuilder mensaje = new StringBuilder("Hola Furent, vengo del asistente virtual.");
+        if (!motivo.isBlank()) {
+            mensaje.append(" Motivo: ").append(motivo).append('.');
+        }
+        if (!resumen.isBlank()) {
+            mensaje.append(" Resumen: ").append(resumen);
+        }
+        // Escalado con contexto: el asesor recibe lo que el usuario ya expresó.
+        if (context != null && context.memoria() != null && !context.memoria().isBlank()) {
+            mensaje.append(" Contexto: ").append(context.memoria().replace('\n', ' '));
+        }
+        if (context != null && context.bag() != null && !context.bag().isEmpty()) {
+            List<String> items = new ArrayList<>();
+            for (BagItem bagItem : context.bag()) {
+                if (items.size() >= 6) {
+                    break;
+                }
+                items.add(bagItem.nombre() + " x" + bagItem.cantidad());
+            }
+            mensaje.append(" Bolsa: ").append(String.join(", ", items)).append('.');
+        }
         String url = "https://wa.me/" + properties.getWhatsappNumber()
-                + "?text=" + URLEncoder.encode(mensaje, StandardCharsets.UTF_8);
+                + "?text=" + URLEncoder.encode(mensaje.toString(), StandardCharsets.UTF_8);
 
         ObjectNode payload = mapper.createObjectNode();
         payload.put("whatsappUrl", url);
         payload.put("mensaje", "Puedes continuar por WhatsApp con un asesor.");
+        payload.put("contextoPreparado", mensaje.toString());
         metrics.escalation();
 
         ObjectNode data = mapper.createObjectNode();
@@ -977,28 +1008,31 @@ public class AssistantToolService {
             return;
         }
         if (inicio.isBefore(LocalDate.now())) {
-            errores.add("La fecha de inicio no puede ser en el pasado.");
+            errores.add("La fecha de inicio ya pasó. Elige una fecha desde hoy.");
         }
         if (fin.isBefore(inicio)) {
-            errores.add("La fecha de fin no puede ser anterior a la fecha de inicio.");
+            errores.add("La fecha de entrega no puede ser antes de la fecha de recogida. "
+                    + "¿Quieres corregir el rango?");
             return;
         }
         long dias = ChronoUnit.DAYS.between(inicio, fin) + 1;
         if (dias > MAX_DIAS_ALQUILER) {
-            errores.add("El mobiliario puede alquilarse por un máximo de " + MAX_DIAS_ALQUILER + " días.");
+            errores.add("El alquiler puede ser de máximo " + MAX_DIAS_ALQUILER
+                    + " días seguidos. ¿Ajustamos las fechas?");
         }
     }
 
     private LocalDate fecha(JsonNode args, String campo, List<String> errores) {
         String value = text(args, campo);
         if (value.isBlank()) {
-            errores.add("Falta la fecha " + campo + " (formato YYYY-MM-DD).");
+            errores.add("Me falta la fecha " + campo + " para revisar la disponibilidad "
+                    + "(formato AAAA-MM-DD).");
             return null;
         }
         try {
             return LocalDate.parse(value);
         } catch (DateTimeParseException e) {
-            errores.add("La fecha " + campo + " no tiene el formato YYYY-MM-DD.");
+            errores.add("La fecha " + campo + " debe tener el formato AAAA-MM-DD.");
             return null;
         }
     }
