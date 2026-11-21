@@ -150,6 +150,9 @@ public class AssistantPromptBuilder {
                 12. No creas reservas ni cobras: solo cotizas y guías a reservar. La tarjeta de la \
                 cotización ofrece el checkout (usuario con sesión) o WhatsApp (invitado).
                 13. Formato: texto simple con negrita y listas cortas. No uses tablas ni HTML.
+                14. Si el usuario envía "Usa estas fechas para mi evento: AAAA-MM-DD al AAAA-MM-DD" \
+                (o un rango en formato ISO), esas son fechaInicio y fechaFin: no las vuelvas a pedir. \
+                Consulta la disponibilidad y cotiza con ellas cuando ya tengas productos y cantidades.
                 """);
 
         sb.append("\nCONTEXTO ACTUAL\n");

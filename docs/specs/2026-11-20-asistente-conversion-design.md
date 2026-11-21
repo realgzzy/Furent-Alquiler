@@ -87,3 +87,47 @@ El evento `meta` ya incluye `whatsapp`. No se requieren cambios de backend en el
 
 - `assistant_quote_view`, `assistant_checkout_click`, `assistant_whatsapp_click`.
 - Se emiten por `furent:assistant-event` y por `window.dataLayer` cuando exista.
+
+---
+
+## Incremento 2 — Calendario / disponibilidad inline
+
+Estado: aprobado e implementado.
+
+### Problema
+
+- Escribir las fechas a mano en el chat añade fricción y produce formatos ambiguos.
+- El invitado no ve qué días están ocupados y el asistente debe aclarar disponibilidad a mano.
+
+### Alcance
+
+1. Botón de calendario en el compositor del widget (siempre visible).
+2. Calendario de **rango** con flatpickr (ya cargado en `layout.html`): bloquea fechas pasadas y limita a **máximo 7 días**.
+3. **Días ocupados solo para usuarios autenticados**, reutilizando `GET /api/productos/availability?ids=...` con los productos mostrados en la conversación.
+4. Píldora con el rango elegido (`25 – 27 nov 2026 · 3 días`) y acciones **Limpiar** / **Usar estas fechas**.
+5. Al confirmar: guarda `furent_selected_dates` y **envía al asistente** un mensaje `Usa estas fechas para mi evento: AAAA-MM-DD al AAAA-MM-DD`, que continúa el flujo de disponibilidad + cotización.
+6. Degradación a dos `<input type="date">` si flatpickr no está disponible.
+
+Fuera de alcance: cambios de backend, exponer `/api/productos/availability` a invitados, y selección de fechas dentro del hilo por señalización del modelo.
+
+### Flujo
+
+1. El usuario abre el calendario, elige desde y hasta (máx. 7 días).
+2. La píldora resume el rango; **Usar estas fechas** lo confirma.
+3. Se guardan las fechas y se envía el mensaje al asistente, que consulta disponibilidad y cotiza.
+4. La tarjeta de cotización ya precarga el checkout con esas fechas.
+
+### Notas de implementación
+
+- `assistant.js`: `initDatePicker`, `onDatesChange`, `updateDatesUI`, `useDates`, `clearDates`,
+  `readSavedDates`, `rememberDates`, `loadReservedDays`, `applyReserved`, `markReserved`,
+  `findReserved` y utilidades (`toIso`, `parseIso`, `addDaysIso`, `diasEntre`, `rangoCorto`).
+- `rememberContextProduct(data)` registra los ids de los productos mostrados para pedir su disponibilidad.
+- `assistant-widget.html`: estilos `.fa-dates*`, `.fa-calendar*` y variantes `.dark`, más el marcado del compositor.
+- `AssistantPromptBuilder.java`: regla 14 reconoce el mensaje de fechas ISO y no vuelve a preguntarlas.
+- Sin cambios de backend ni de `SecurityConfig`.
+
+### Pruebas
+
+- `node --check` del JS.
+- E2E invitado (fechas → mensaje → cotización) y autenticado (días ocupados marcados).

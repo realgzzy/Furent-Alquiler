@@ -169,6 +169,65 @@
         .fa-send:disabled { opacity: .5; cursor: not-allowed; }
         .fa-disclaimer { font-size: 10.5px; color: #BDBDBD; text-align: center; margin: .5rem 0 0; }
 
+        /* ───────── Fechas / calendario ───────── */
+        .fa-dates { padding: .55rem .7rem 0; }
+        .fa-dates-pill {
+            display: inline-flex; align-items: center; gap: .4rem; cursor: pointer;
+            border: 1px dashed #FED7AA; background: #FFF7F0; color: #C2630F;
+            border-radius: 9999px; padding: .34rem .7rem; font-size: 12px; font-weight: 700;
+            transition: background .18s ease, border-color .18s ease;
+        }
+        .fa-dates-pill:hover { background: #FFEDD5; }
+        .fa-dates-pill:focus-visible { outline: 2px solid rgba(224, 122, 58, .45); outline-offset: 2px; }
+        .fa-dates-pill[data-active="true"] {
+            border-style: solid; border-color: #E07A3A; background: #E07A3A; color: #fff;
+        }
+        .fa-dates-pill svg { flex: 0 0 auto; }
+
+        .fa-calendar {
+            margin: .55rem .7rem 0; padding: .6rem .6rem .55rem;
+            border: 1px solid #F0F0F0; border-radius: 16px; background: #fff;
+        }
+        .fa-calendar[hidden] { display: none; }
+        .fa-calendar-host { display: flex; justify-content: center; }
+        .fa-calendar-host .flatpickr-calendar {
+            box-shadow: none; border: none; width: 100%; max-width: 320px; background: transparent;
+        }
+        .fa-calendar-host .flatpickr-calendar.inline { top: 0; }
+        .fa-calendar-host .flatpickr-months .flatpickr-month { color: #212121; fill: #212121; }
+        .fa-calendar-host .flatpickr-current-month .flatpickr-monthDropdown-months { font-weight: 700; }
+        .fa-calendar-host .flatpickr-weekday { color: #9E9E9E; font-weight: 700; }
+        .fa-calendar-host .flatpickr-day { border-radius: 10px; color: #333; font-weight: 600; }
+        .fa-calendar-host .flatpickr-day:hover { background: #FFEDD5; border-color: #FFEDD5; }
+        .fa-calendar-host .flatpickr-day.today { border-color: #E07A3A; }
+        .fa-calendar-host .flatpickr-day.selected,
+        .fa-calendar-host .flatpickr-day.startRange,
+        .fa-calendar-host .flatpickr-day.endRange {
+            background: #E07A3A; border-color: #E07A3A; color: #fff;
+        }
+        .fa-calendar-host .flatpickr-day.inRange {
+            background: #FFE3C7; border-color: #FFE3C7; color: #8A4712; box-shadow: none;
+        }
+        .fa-calendar-host .flatpickr-day.flatpickr-disabled,
+        .fa-calendar-host .flatpickr-day.flatpickr-disabled:hover {
+            color: #CFCFCF; background: transparent; text-decoration: line-through;
+        }
+        .fa-calendar-host .flatpickr-day.is-reserved {
+            color: #C0C0C0; background: repeating-linear-gradient(45deg, #F5F5F5, #F5F5F5 4px, #ECECEC 4px, #ECECEC 8px);
+            text-decoration: line-through; cursor: not-allowed;
+        }
+        .fa-calendar-hint { margin: .45rem .2rem .5rem; font-size: 11px; color: #9E9E9E; text-align: center; }
+        .fa-calendar-hint[data-tone="warn"] { color: #B45309; font-weight: 600; }
+        .fa-calendar-actions { display: flex; gap: .5rem; }
+
+        .fa-native-dates { display: flex; flex-direction: column; gap: .5rem; width: 100%; }
+        .fa-native-field { display: flex; flex-direction: column; gap: .2rem; font-size: 11px; color: #757575; font-weight: 600; }
+        .fa-native-field input {
+            border: 1px solid #E0E0E0; border-radius: 12px; padding: .45rem .55rem;
+            font-size: 13px; font-family: inherit; color: #212121; outline: none;
+        }
+        .fa-native-field input:focus { border-color: #E07A3A; box-shadow: 0 0 0 3px rgba(224, 122, 58, .14); }
+
         .fa-sr {
             position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
             clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
@@ -186,6 +245,26 @@
         .dark .fa-quote-stock { color: #FCD9A8; background: #3A2A12; border-color: #6B4A1E; }
         .dark .fa-md-code { background: rgba(255,255,255,.1); }
         .dark .fa-md-link { color: #F0A868; }
+
+        .dark .fa-dates-pill { border-color: #6B4A1E; background: #3A2A12; color: #F5C088; }
+        .dark .fa-dates-pill:hover { background: #4A3618; }
+        .dark .fa-calendar { background: #232323; border-color: #333; }
+        .dark .fa-calendar-host .flatpickr-calendar { background: transparent; }
+        .dark .fa-calendar-host .flatpickr-months .flatpickr-month,
+        .dark .fa-calendar-host .flatpickr-current-month .flatpickr-monthDropdown-months { color: #ECECEC; fill: #ECECEC; }
+        .dark .fa-calendar-host .flatpickr-weekday { color: #9E9E9E; }
+        .dark .fa-calendar-host .flatpickr-day { color: #DDDDDD; }
+        .dark .fa-calendar-host .flatpickr-day.prevMonthDay,
+        .dark .fa-calendar-host .flatpickr-day.nextMonthDay { color: #666; }
+        .dark .fa-calendar-host .flatpickr-day:hover { background: #4A3618; border-color: #4A3618; }
+        .dark .fa-calendar-host .flatpickr-day.inRange { background: #4A3618; border-color: #4A3618; color: #F5C088; }
+        .dark .fa-calendar-host .flatpickr-day.flatpickr-disabled { color: #555; }
+        .dark .fa-calendar-host .flatpickr-day.is-reserved {
+            color: #555; background: repeating-linear-gradient(45deg, #2a2a2a, #2a2a2a 4px, #333 4px, #333 8px);
+        }
+        .dark .fa-calendar-host .flatpickr-day.today { border-color: #E07A3A; }
+        .dark .fa-native-field { color: #9E9E9E; }
+        .dark .fa-native-field input { background: #232323; border-color: #3a3a3a; color: #ECECEC; }
 
         @media (max-width: 480px) {
             #furent-assistant-panel { right: .5rem; bottom: .5rem; width: calc(100vw - 1rem); height: calc(100vh - 1rem); border-radius: 20px; }
@@ -232,6 +311,27 @@
         </div>
 
         <div class="fa-composer">
+            <div class="fa-dates" id="furent-assistant-dates-bar">
+                <button type="button" class="fa-dates-pill" id="furent-assistant-dates-pill"
+                        aria-haspopup="dialog" aria-expanded="false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
+                    </svg>
+                    <span id="furent-assistant-dates-label">Elegir fechas</span>
+                </button>
+            </div>
+
+            <div class="fa-calendar" id="furent-assistant-calendar" hidden>
+                <div class="fa-calendar-host" id="furent-assistant-calendar-host">
+                    <input type="text" class="fa-sr" id="furent-assistant-dates-input" tabindex="-1" aria-hidden="true" autocomplete="off">
+                </div>
+                <p class="fa-calendar-hint" id="furent-assistant-calendar-hint">Máximo 7 días por alquiler.</p>
+                <div class="fa-calendar-actions">
+                    <button type="button" class="fa-btn fa-btn-ghost" id="furent-assistant-calendar-clear">Limpiar</button>
+                    <button type="button" class="fa-btn fa-btn-primary" id="furent-assistant-calendar-use" disabled>Usar estas fechas</button>
+                </div>
+            </div>
+
             <div class="fa-input-row">
                 <label class="fa-sr" for="furent-assistant-input">Escribe tu mensaje</label>
                 <textarea id="furent-assistant-input" class="fa-input" rows="1" maxlength="1000"

@@ -15,6 +15,8 @@
     var STORAGE_KEY = 'furent_assistant_state_v1';
     var MAX_RESTORE = 60;
     var MAX_STORED_MESSAGES = 40;
+    var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+        'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
     document.addEventListener('DOMContentLoaded', init);
 
@@ -33,7 +35,15 @@
             send: document.getElementById('furent-assistant-send'),
             close: document.getElementById('furent-assistant-close'),
             chips: document.getElementById('furent-assistant-chips'),
-            badge: document.getElementById('furent-assistant-badge')
+            badge: document.getElementById('furent-assistant-badge'),
+            datesPill: document.getElementById('furent-assistant-dates-pill'),
+            datesLabel: document.getElementById('furent-assistant-dates-label'),
+            calendar: document.getElementById('furent-assistant-calendar'),
+            calendarHost: document.getElementById('furent-assistant-calendar-host'),
+            datesInput: document.getElementById('furent-assistant-dates-input'),
+            calendarClear: document.getElementById('furent-assistant-calendar-clear'),
+            calendarUse: document.getElementById('furent-assistant-calendar-use'),
+            calendarHint: document.getElementById('furent-assistant-calendar-hint')
         };
 
         var chatUrl = panel.getAttribute('data-chat-url') || '/api/asistente/chat';
@@ -45,6 +55,17 @@
         var lastFocused = null;
         var lastUserText = '';
         var DEFAULT_WHATSAPP = '573105782442';
+
+        // Estado del calendario de fechas.
+        var fp = null;                 // instancia de flatpickr (null si no está disponible)
+        var pendingStart = null;       // inicio elegido pero aún sin enviar (ISO y-m-d)
+        var pendingEnd = null;         // fin elegido pero aún sin enviar (ISO y-m-d)
+        var lastProductIds = [];       // ids de los productos mostrados, para consultar disponibilidad
+        var reservedCache = {};        // { "ids": [{from,to}] } caché por conjunto de productos
+        var reservedRanges = [];       // rangos ocupados vigentes para el contexto actual
+        var nativeDates = false;       // true si se degradó a <input type="date">
+
+        initDatePicker();
 
         renderRestored();
 
@@ -128,12 +149,23 @@
         // ───────────────────────── Envío ─────────────────────────
 
         function submitFromInput() {
+            if (isStreaming) {
+                return;
+            }
             var text = (els.input.value || '').trim();
-            if (!text || isStreaming) {
+            if (!text) {
                 return;
             }
             els.input.value = '';
             els.input.style.height = 'auto';
+            sendUserMessage(text);
+        }
+
+        function sendUserMessage(text) {
+            text = String(text || '').trim();
+            if (!text || isStreaming) {
+                return;
+            }
             hideChips();
             appendUserBubble(text);
             rememberMessage('USER', text);
@@ -175,6 +207,7 @@
             }).finally(function () {
                 isStreaming = false;
                 els.send.disabled = false;
+                updateDatesUI();
                 finishReply();
             });
         }
@@ -404,6 +437,7 @@
             if (!data) {
                 return;
             }
+            rememberContextProduct(data);
             var card = document.createElement('div');
             card.className = 'fa-card';
             var media = document.createElement('div');
@@ -478,6 +512,7 @@
             if (!data) {
                 return;
             }
+            (data.items || []).forEach(function (item) { rememberContextProduct(item); });
             var card = document.createElement('div');
             card.className = 'fa-quote';
 
@@ -661,6 +696,375 @@
             scrollDown();
         }
 
+        // ───────────────────────── Fechas / calendario ─────────────────────────
+        //
+        // El compositor ofrece un calendario de rango (flatpickr inline). Al elegir un rango de
+        // 1 a 7 días se guarda en `furent_selected_dates` y se envía al asistente como un mensaje
+        // con las fechas ISO, para que confirme disponibilidad y cotice. Para usuarios
+        // autenticados se marcan los días ocupados reutilizando /api/productos/availability.
+
+        function initDatePicker() {
+            if (!els.calendar || !els.datesPill || !els.datesInput) {
+                return;
+            }
+            els.datesPill.addEventListener('click', toggleCalendar);
+            if (els.calendarClear) {
+                els.calendarClear.addEventListener('click', clearDates);
+            }
+            if (els.calendarUse) {
+                els.calendarUse.addEventListener('click', useDates);
+            }
+
+            if (typeof window.flatpickr === 'function') {
+                try {
+                    fp = window.flatpickr(els.datesInput, {
+                        locale: 'es',
+                        mode: 'range',
+                        inline: true,
+                        minDate: 'today',
+                        dateFormat: 'Y-m-d',
+                        showMonths: 1,
+                        disableMobile: true,
+                        onChange: onDatesChange,
+                        onDayCreate: function (dObj, dStr, instance, dayElem) {
+                            markReserved(dayElem);
+                        }
+                    });
+                } catch (e) {
+                    fp = null;
+                }
+            }
+            if (!fp) {
+                nativeDates = true;
+                buildNativeFallback();
+            }
+            readSavedDates();
+            updateDatesUI();
+        }
+
+        function buildNativeFallback() {
+            if (!els.calendarHost) {
+                return;
+            }
+            els.calendarHost.textContent = '';
+            var wrap = document.createElement('div');
+            wrap.className = 'fa-native-dates';
+
+            var startField = nativeField('Desde', 'furent-assistant-native-start');
+            var endField = nativeField('Hasta', 'furent-assistant-native-end');
+            wrap.appendChild(startField.wrap);
+            wrap.appendChild(endField.wrap);
+            els.calendarHost.appendChild(wrap);
+            els._nativeStart = startField.input;
+            els._nativeEnd = endField.input;
+
+            function sync() {
+                var start = startField.input.value;
+                var end = endField.input.value;
+                if (start && end && diasEntre(start, end) > 7) {
+                    end = addDaysIso(start, 6);
+                    endField.input.value = end;
+                }
+                pendingStart = start || null;
+                pendingEnd = end || null;
+                updateDatesUI();
+            }
+            startField.input.addEventListener('change', sync);
+            endField.input.addEventListener('change', sync);
+        }
+
+        function nativeField(label, id) {
+            var wrap = document.createElement('label');
+            wrap.className = 'fa-native-field';
+            wrap.setAttribute('for', id);
+            wrap.appendChild(document.createTextNode(label));
+            var input = document.createElement('input');
+            input.type = 'date';
+            input.id = id;
+            input.min = todayIso();
+            wrap.appendChild(input);
+            return { wrap: wrap, input: input };
+        }
+
+        function toggleCalendar() {
+            if (!els.calendar) {
+                return;
+            }
+            if (els.calendar.hidden) {
+                openCalendar();
+            } else {
+                closeCalendar();
+            }
+        }
+
+        function openCalendar() {
+            els.calendar.hidden = false;
+            els.datesPill.setAttribute('aria-expanded', 'true');
+            if (authenticated) {
+                loadReservedDays();
+            }
+        }
+
+        function closeCalendar() {
+            if (!els.calendar) {
+                return;
+            }
+            els.calendar.hidden = true;
+            els.datesPill.setAttribute('aria-expanded', 'false');
+        }
+
+        function onDatesChange(selectedDates) {
+            if (!selectedDates || selectedDates.length === 0) {
+                pendingStart = null;
+                pendingEnd = null;
+                updateDatesUI();
+                return;
+            }
+            pendingStart = toIso(selectedDates[0]);
+            pendingEnd = selectedDates.length > 1 ? toIso(selectedDates[selectedDates.length - 1]) : null;
+
+            if (pendingStart && pendingEnd && diasEntre(pendingStart, pendingEnd) > 7) {
+                pendingEnd = addDaysIso(pendingStart, 6);
+                if (fp && typeof fp.setDate === 'function') {
+                    fp.setDate([pendingStart, pendingEnd], false);
+                }
+            }
+            updateDatesUI();
+        }
+
+        function updateDatesUI() {
+            var hasDates = !!(pendingStart && pendingEnd);
+            var dias = hasDates ? diasEntre(pendingStart, pendingEnd) : 0;
+            var etiqueta = hasDates
+                ? rangoCorto(pendingStart, pendingEnd) + ' · ' + dias + (dias === 1 ? ' día' : ' días')
+                : 'Elegir fechas';
+
+            if (els.datesLabel) {
+                els.datesLabel.textContent = etiqueta;
+            }
+            if (els.datesPill) {
+                els.datesPill.setAttribute('data-active', hasDates ? 'true' : 'false');
+            }
+            if (els.calendarUse) {
+                els.calendarUse.disabled = !hasDates || isStreaming;
+            }
+            if (els.calendarHint) {
+                if (hasDates) {
+                    els.calendarHint.textContent = etiqueta + '. Pulsa "Usar estas fechas".';
+                    els.calendarHint.setAttribute('data-tone', 'ok');
+                } else {
+                    els.calendarHint.textContent = 'Elige desde y hasta. Máximo 7 días por alquiler.';
+                    els.calendarHint.removeAttribute('data-tone');
+                }
+            }
+        }
+
+        function useDates() {
+            if (isStreaming || !pendingStart || !pendingEnd) {
+                return;
+            }
+            rememberDates(pendingStart, pendingEnd);
+            closeCalendar();
+            trackAssistantEvent('assistant_dates_use', {
+                dias: diasEntre(pendingStart, pendingEnd)
+            });
+            sendUserMessage('Usa estas fechas para mi evento: ' + pendingStart + ' al ' + pendingEnd
+                + '. Confirma la disponibilidad y cotiza lo que te pedí.');
+        }
+
+        function clearDates() {
+            pendingStart = null;
+            pendingEnd = null;
+            if (fp && typeof fp.clear === 'function') {
+                try { fp.clear(false); } catch (e) { /* opcional */ }
+            }
+            if (els._nativeStart) {
+                els._nativeStart.value = '';
+            }
+            if (els._nativeEnd) {
+                els._nativeEnd.value = '';
+            }
+            try { localStorage.removeItem('furent_selected_dates'); } catch (e) { /* opcional */ }
+            updateDatesUI();
+        }
+
+        function rememberDates(start, end) {
+            try {
+                localStorage.setItem('furent_selected_dates', JSON.stringify({ start: start, end: end }));
+            } catch (e) { /* almacenamiento lleno o bloqueado */ }
+        }
+
+        function readSavedDates() {
+            var saved = null;
+            try {
+                saved = JSON.parse(localStorage.getItem('furent_selected_dates') || 'null');
+            } catch (e) {
+                saved = null;
+            }
+            if (!saved || !/^\d{4}-\d{2}-\d{2}$/.test(String(saved.start || ''))
+                    || !/^\d{4}-\d{2}-\d{2}$/.test(String(saved.end || ''))) {
+                return;
+            }
+            var dias = diasEntre(saved.start, saved.end);
+            if (dias < 1 || dias > 7 || saved.start < todayIso()) {
+                return;
+            }
+            pendingStart = saved.start;
+            pendingEnd = saved.end;
+            if (fp && typeof fp.setDate === 'function') {
+                try { fp.setDate([pendingStart, pendingEnd], false); } catch (e) { /* opcional */ }
+            }
+            if (els._nativeStart) {
+                els._nativeStart.value = pendingStart;
+            }
+            if (els._nativeEnd) {
+                els._nativeEnd.value = pendingEnd;
+            }
+        }
+
+        // ── Disponibilidad de días ocupados (solo autenticados) ──
+
+        function rememberContextProduct(data) {
+            if (!data) {
+                return;
+            }
+            var id = data.id || data.productoId;
+            if (!id || lastProductIds.indexOf(id) !== -1) {
+                return;
+            }
+            lastProductIds.push(id);
+            if (lastProductIds.length > 25) {
+                lastProductIds = lastProductIds.slice(-25);
+            }
+        }
+
+        function loadReservedDays() {
+            var ids = lastProductIds.slice(0, 25);
+            if (ids.length === 0) {
+                return;
+            }
+            var key = ids.slice().sort().join(',');
+            if (reservedCache[key]) {
+                applyReserved(reservedCache[key]);
+                return;
+            }
+            fetch('/api/productos/availability?ids=' + encodeURIComponent(ids.join(',')), {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('availability ' + response.status);
+                }
+                return response.json();
+            }).then(function (ranges) {
+                var list = (ranges || []).map(function (r) {
+                    return { from: r.start, to: r.end };
+                });
+                reservedCache[key] = list;
+                applyReserved(list);
+            }).catch(function () {
+                if (els.calendarHint) {
+                    els.calendarHint.textContent = 'No pudimos verificar los días ocupados; el asistente confirmará la disponibilidad.';
+                    els.calendarHint.setAttribute('data-tone', 'warn');
+                }
+            });
+        }
+
+        function applyReserved(ranges) {
+            reservedRanges = ranges || [];
+            if (fp && typeof fp.set === 'function') {
+                try { fp.set('disable', reservedRanges); } catch (e) { /* opcional */ }
+            }
+            if (els.calendarHost) {
+                var days = els.calendarHost.querySelectorAll('.flatpickr-day');
+                for (var i = 0; i < days.length; i++) {
+                    markReserved(days[i]);
+                }
+            }
+        }
+
+        function markReserved(dayElem) {
+            if (!dayElem || !dayElem.dateObj) {
+                return;
+            }
+            if (findReserved(toIso(dayElem.dateObj))) {
+                dayElem.classList.add('is-reserved');
+            }
+        }
+
+        function findReserved(iso) {
+            for (var i = 0; i < reservedRanges.length; i++) {
+                var r = reservedRanges[i];
+                if (r && r.from && r.to && iso >= r.from && iso <= r.to) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // ── Utilidades de fecha ──
+
+        function pad2(n) {
+            return (n < 10 ? '0' : '') + n;
+        }
+
+        function toIso(date) {
+            if (!date) {
+                return null;
+            }
+            return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
+        }
+
+        function parseIso(iso) {
+            var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+            if (!m) {
+                return null;
+            }
+            return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+        }
+
+        function addDays(date, n) {
+            var d = new Date(date.getTime());
+            d.setDate(d.getDate() + n);
+            return d;
+        }
+
+        function addDaysIso(iso, n) {
+            var d = parseIso(iso);
+            return d ? toIso(addDays(d, n)) : iso;
+        }
+
+        function diasEntre(startIso, endIso) {
+            var a = parseIso(startIso);
+            var b = parseIso(endIso);
+            if (!a || !b) {
+                return 0;
+            }
+            return Math.round((b.getTime() - a.getTime()) / 86400000) + 1;
+        }
+
+        function todayIso() {
+            var now = new Date();
+            return toIso(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+        }
+
+        function rangoCorto(start, end) {
+            var a = parseIso(start);
+            var b = parseIso(end);
+            if (!a || !b) {
+                return fmtFecha(start) + ' – ' + fmtFecha(end);
+            }
+            var da = a.getDate();
+            var db = b.getDate();
+            var ma = MESES[a.getMonth()];
+            var mb = MESES[b.getMonth()];
+            var yb = b.getFullYear();
+            if (a.getFullYear() === yb && a.getMonth() === b.getMonth()) {
+                return da + ' – ' + db + ' ' + mb + ' ' + yb;
+            }
+            return da + ' ' + ma + ' – ' + db + ' ' + mb + ' ' + yb;
+        }
+
         // ───────────────────────── Bolsa y checkout ─────────────────────────
 
         function addLinesToBag(items) {
@@ -825,9 +1229,6 @@
         }
 
         // ───────────────────────── Fechas, WhatsApp y medición ─────────────────────────
-
-        var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
-            'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
         function fmtFecha(iso) {
             var match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
