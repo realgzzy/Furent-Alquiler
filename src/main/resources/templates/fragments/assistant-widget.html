@@ -85,6 +85,19 @@
         .fa-bubble.user { background: #E07A3A; color: #fff; border-bottom-right-radius: 6px; }
         .fa-bubble.error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
 
+        /* Markdown mínimo que compone assistant.js con nodos seguros */
+        .fa-bubble.assistant > *:first-child { margin-top: 0; }
+        .fa-bubble.assistant > *:last-child { margin-bottom: 0; }
+        .fa-md-p { margin: 0 0 .5rem; }
+        .fa-md-h { margin: .2rem 0 .4rem; font-weight: 800; }
+        .fa-bubble ul, .fa-bubble ol { margin: .3rem 0 .5rem; padding-left: 1.15rem; }
+        .fa-bubble li { margin: .12rem 0; }
+        .fa-md-code {
+            background: rgba(0,0,0,.07); border-radius: 5px; padding: .05rem .32rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
+        }
+        .fa-md-link { color: #C2630F; text-decoration: underline; word-break: break-word; }
+
         .fa-typing { display: inline-flex; gap: 4px; align-items: center; }
         .fa-typing span { width: 6px; height: 6px; border-radius: 9999px; background: #C2630F; opacity: .4; animation: fa-blink 1.2s infinite; }
         .fa-typing span:nth-child(2) { animation-delay: .18s; }
@@ -113,11 +126,20 @@
 
         .fa-quote { background: #fff; border: 1px solid #EFEFEF; border-radius: 16px; padding: .85rem; width: 100%; }
         .fa-quote h4 { margin: 0 0 .5rem; font-size: 13px; font-weight: 800; color: #212121; }
-        .fa-quote-item { display: flex; justify-content: space-between; gap: .5rem; font-size: 12.5px; padding: .28rem 0; color: #424242; }
+        .fa-quote-item { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-size: 12.5px; padding: .28rem 0; color: #424242; }
         .fa-quote-item span:last-child { font-weight: 700; white-space: nowrap; }
         .fa-quote-total { display: flex; justify-content: space-between; font-size: 14px; font-weight: 800; color: #212121; margin-top: .5rem; padding-top: .5rem; border-top: 1px dashed #E0E0E0; }
         .fa-quote-note { font-size: 11px; color: #9E9E9E; margin: .5rem 0 0; line-height: 1.45; }
         .fa-quote-actions { display: flex; gap: .5rem; margin-top: .7rem; }
+        .fa-quote-dates { margin: -.1rem 0 .55rem; font-size: 11.5px; color: #757575; font-weight: 600; }
+        .fa-quote-item-main { display: flex; flex-direction: column; min-width: 0; }
+        .fa-quote-item-name { font-weight: 700; color: #424242; }
+        .fa-quote-item-unit { font-size: 11px; color: #9E9E9E; }
+        .fa-quote-item-sub { font-weight: 800; white-space: nowrap; }
+        .fa-quote-stock {
+            margin: .55rem 0 0; padding: .45rem .6rem; font-size: 11.5px; color: #B45309;
+            background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 10px;
+        }
 
         /* ───────── Chips ───────── */
         .fa-chips { display: flex; flex-wrap: wrap; gap: .4rem; padding: .75rem 1rem 0; background: #FAFAFA; }
@@ -159,6 +181,11 @@
         .dark .fa-card-name, .dark .fa-quote h4, .dark .fa-quote-total { color: #F5F5F5; }
         .dark .fa-input { background: #232323; border-color: #3a3a3a; color: #ECECEC; }
         .dark .fa-composer { background: #1e1e1e; border-color: #2f2f2f; }
+        .dark .fa-quote-dates { color: #9E9E9E; }
+        .dark .fa-quote-item-name { color: #DDDDDD; }
+        .dark .fa-quote-stock { color: #FCD9A8; background: #3A2A12; border-color: #6B4A1E; }
+        .dark .fa-md-code { background: rgba(255,255,255,.1); }
+        .dark .fa-md-link { color: #F0A868; }
 
         @media (max-width: 480px) {
             #furent-assistant-panel { right: .5rem; bottom: .5rem; width: calc(100vw - 1rem); height: calc(100vh - 1rem); border-radius: 20px; }
