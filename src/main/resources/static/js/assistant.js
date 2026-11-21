@@ -18,6 +18,10 @@
     var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
         'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
+    // Tokens de Markdown inline. Vive en el ámbito del módulo porque `renderRestored()` (que se
+    // ejecuta al iniciar) también renderiza Markdown, antes de que se declaren los `var` de `init`.
+    var INLINE_RE = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*\n]+\*|_[^_\n]+_|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
+
     document.addEventListener('DOMContentLoaded', init);
 
     function init() {
@@ -1285,8 +1289,6 @@
         // Parser mínimo que construye nodos de texto: el contenido del modelo nunca se inyecta
         // como HTML. Soporta negrita, itálica, código en línea, listas y encabezados, con enlaces
         // limitados a http(s), mailto, rutas relativas y anclas.
-
-        var INLINE_RE = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*\n]+\*|_[^_\n]+_|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
 
         function renderMarkdown(container, text) {
             container.textContent = '';
