@@ -15,6 +15,8 @@
     var STORAGE_KEY = 'furent_assistant_state_v1';
     var MAX_RESTORE = 60;
     var MAX_STORED_MESSAGES = 40;
+    // Las conversaciones son temporales: el hilo local se descarta a las 24 h.
+    var STORAGE_TTL_MS = 24 * 60 * 60 * 1000;
     var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
         'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -39,6 +41,7 @@
             send: document.getElementById('furent-assistant-send'),
             close: document.getElementById('furent-assistant-close'),
             chips: document.getElementById('furent-assistant-chips'),
+            chipsToggle: document.getElementById('furent-assistant-chips-toggle'),
             badge: document.getElementById('furent-assistant-badge'),
             datesPill: document.getElementById('furent-assistant-dates-pill'),
             datesLabel: document.getElementById('furent-assistant-dates-label'),
@@ -93,13 +96,39 @@
                 submitFromInput();
             }
         });
+        if (els.chipsToggle) {
+            els.chipsToggle.addEventListener('click', toggleSuggestions);
+        }
+
+        document.addEventListener('click', function (event) {
+            if (!isOpen) {
+                return;
+            }
+            if (els.calendar && !els.calendar.hidden
+                    && !els.calendar.contains(event.target)
+                    && !els.datesPill.contains(event.target)) {
+                closeCalendar();
+            }
+            if (els.chips && !els.chips.hidden
+                    && !els.chips.contains(event.target)
+                    && els.chipsToggle && !els.chipsToggle.contains(event.target)) {
+                collapseSuggestions();
+            }
+        });
 
         document.addEventListener('keydown', function (event) {
             if (!isOpen) {
                 return;
             }
             if (event.key === 'Escape') {
-                closePanel();
+                // Cierra primero los desplegables; el panel solo si ya están cerrados.
+                if (els.calendar && !els.calendar.hidden) {
+                    closeCalendar();
+                } else if (els.chips && !els.chips.hidden) {
+                    collapseSuggestions();
+                } else {
+                    closePanel();
+                }
             } else if (event.key === 'Tab') {
                 trapFocus(event);
             }
@@ -112,11 +141,15 @@
                 return;
             }
             lastFocused = document.activeElement;
+            isOpen = true;
             els.panel.hidden = false;
             els.launcher.hidden = true;
             els.launcher.setAttribute('aria-expanded', 'true');
+            // El chat es temporal: si el hilo guardado superó las 24 h, se empieza de cero.
+            if (isStateExpired()) {
+                resetConversation();
+            }
             hideBadge();
-            isOpen = true;
             window.setTimeout(function () { els.input.focus(); }, 60);
         }
 
@@ -128,6 +161,8 @@
             els.launcher.hidden = false;
             els.launcher.setAttribute('aria-expanded', 'false');
             isOpen = false;
+            closeCalendar();
+            collapseSuggestions();
             if (lastFocused && typeof lastFocused.focus === 'function') {
                 lastFocused.focus();
             }
@@ -170,7 +205,7 @@
             if (!text || isStreaming) {
                 return;
             }
-            hideChips();
+            collapseSuggestions();
             appendUserBubble(text, true);
             rememberMessage('USER', text);
             lastUserText = text;
@@ -270,7 +305,11 @@
             switch (type) {
                 case 'meta':
                     if (data && data.conversationId) {
-                        state.conversationId = data.conversationId;
+                        if (state.conversationId !== data.conversationId) {
+                            // Conversación nueva: reinicia la cuenta de 24 h del hilo local.
+                            state.conversationId = data.conversationId;
+                            state.expiresAt = Date.now() + STORAGE_TTL_MS;
+                        }
                         saveState();
                     }
                     if (data && data.whatsapp) {
@@ -853,6 +892,7 @@
         }
 
         function openCalendar() {
+            collapseSuggestions();
             els.calendar.hidden = false;
             els.datesPill.setAttribute('aria-expanded', 'true');
             if (authenticated) {
@@ -1227,9 +1267,26 @@
 
         // ───────────────────────── Utilidades ─────────────────────────
 
-        function hideChips() {
-            if (els.chips) {
-                els.chips.style.display = 'none';
+        function toggleSuggestions() {
+            if (!els.chips) {
+                return;
+            }
+            var open = els.chips.hidden;
+            els.chips.hidden = !open;
+            if (els.chipsToggle) {
+                els.chipsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            if (open) {
+                closeCalendar();
+            }
+        }
+
+        function collapseSuggestions() {
+            if (els.chips && !els.chips.hidden) {
+                els.chips.hidden = true;
+            }
+            if (els.chipsToggle) {
+                els.chipsToggle.setAttribute('aria-expanded', 'false');
             }
         }
 
@@ -1488,23 +1545,46 @@
 
         // ───────────────────────── Persistencia ─────────────────────────
 
+        function freshState() {
+            return { conversationId: null, messages: [], expiresAt: Date.now() + STORAGE_TTL_MS };
+        }
+
         function loadState() {
             try {
                 var raw = localStorage.getItem(STORAGE_KEY);
                 if (!raw) {
-                    return { conversationId: null, messages: [] };
+                    return freshState();
                 }
                 var parsed = JSON.parse(raw);
                 if (!parsed || typeof parsed !== 'object') {
-                    return { conversationId: null, messages: [] };
+                    return freshState();
+                }
+                // Chat temporal: si el hilo guardado superó las 24 h, se descarta.
+                if (parsed.expiresAt && Date.now() >= Number(parsed.expiresAt)) {
+                    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* opcional */ }
+                    return freshState();
                 }
                 if (!Array.isArray(parsed.messages)) {
                     parsed.messages = [];
                 }
+                if (!parsed.expiresAt) {
+                    parsed.expiresAt = Date.now() + STORAGE_TTL_MS;
+                }
                 return parsed;
             } catch (e) {
-                return { conversationId: null, messages: [] };
+                return freshState();
             }
+        }
+
+        function isStateExpired() {
+            return !!(state.expiresAt && Date.now() >= Number(state.expiresAt));
+        }
+
+        function resetConversation() {
+            state = freshState();
+            saveState();
+            els.messages.textContent = '';
+            renderRestored();
         }
 
         function saveState() {
@@ -1536,7 +1616,9 @@
                     + 'organizando y te ayudo a encontrar mobiliario y a cotizar.';
                 welcome.appendChild(bubble);
                 els.messages.appendChild(welcome);
-                showBadge();
+                if (!isOpen) {
+                    showBadge();
+                }
                 return;
             }
             restored.forEach(function (message) {

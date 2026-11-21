@@ -47,7 +47,9 @@ public class AssistantConversationService {
                 AssistantConversation conversation = existing.get();
                 if (context.authenticated() && conversation.getUserId() == null) {
                     conversation.setUserId(context.userId());
-                    conversation.setExpireAt(null);
+                }
+                if (conversation.getExpireAt() == null) {
+                    conversation.setExpireAt(expireAt());
                 }
                 if (pageContext != null && !pageContext.isBlank()) {
                     conversation.setPageContext(pageContext);
@@ -60,9 +62,7 @@ public class AssistantConversationService {
         conversation.setUserId(context.authenticated() ? context.userId() : null);
         conversation.setPageContext(pageContext);
         conversation.setTenantId(TenantContext.getCurrentTenant());
-        if (!context.authenticated()) {
-            conversation.setExpireAt(Instant.now().plus(properties.getRetentionDays(), ChronoUnit.DAYS));
-        }
+        conversation.setExpireAt(expireAt());
         return conversationRepository.save(conversation);
     }
 
@@ -129,10 +129,13 @@ public class AssistantConversationService {
 
     public void close(AssistantConversation conversation) {
         conversation.setEstado(AssistantConversation.ESTADO_CERRADA);
-        if (conversation.getUserId() == null) {
-            conversation.setExpireAt(Instant.now().plus(properties.getRetentionDays(), ChronoUnit.DAYS));
-        }
+        conversation.setExpireAt(expireAt());
         conversationRepository.save(conversation);
+    }
+
+    /** Momento en que el chat (y sus mensajes) dejan de conservarse. */
+    private Instant expireAt() {
+        return Instant.now().plus(properties.getSessionHours(), ChronoUnit.HOURS);
     }
 
     private void persist(AssistantConversation conversation, String rol, String contenido,
@@ -142,6 +145,7 @@ public class AssistantConversationService {
         message.setArgumentosResumen(argumentosResumen);
         message.setTokens(tokens);
         message.setModelo(modelo);
+        message.setExpireAt(conversation.getExpireAt() != null ? conversation.getExpireAt() : expireAt());
         messageRepository.save(message);
 
         conversation.setUltimoMensaje(Instant.now());

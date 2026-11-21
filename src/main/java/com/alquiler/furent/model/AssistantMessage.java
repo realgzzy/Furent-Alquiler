@@ -2,6 +2,7 @@ package com.alquiler.furent.model;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
@@ -31,6 +32,10 @@ public class AssistantMessage {
     private int tokens;
     private String modelo;
     private Instant createdAt;
+
+    /** Momento en que Mongo borra el mensaje (índice TTL); hereda la caducidad del chat. */
+    @Indexed(expireAfterSeconds = 0)
+    private Instant expireAt;
 
     public AssistantMessage() {
         this.createdAt = Instant.now();
@@ -113,5 +118,13 @@ public class AssistantMessage {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Instant getExpireAt() {
+        return expireAt;
+    }
+
+    public void setExpireAt(Instant expireAt) {
+        this.expireAt = expireAt;
     }
 }

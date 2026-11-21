@@ -33,7 +33,7 @@ class AssistantConversationServiceTest {
     @BeforeEach
     void setUp() {
         AssistantProperties properties = new AssistantProperties();
-        properties.setRetentionDays(30);
+        properties.setSessionHours(24);
         service = new AssistantConversationService(conversationRepository, messageRepository, properties);
         lenient().when(conversationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
@@ -62,11 +62,11 @@ class AssistantConversationServiceTest {
     }
 
     @Test
-    void crearConversacionDeUsuarioNoExpira() {
+    void crearConversacionDeUsuarioTambienEsTemporal() {
         AssistantConversation created = service.resolve(null, new ToolContext("u1", "s1"), null);
 
         assertNotNull(created.getUserId());
-        assertNull(created.getExpireAt());
+        assertNotNull(created.getExpireAt());
     }
 
     @Test
@@ -80,6 +80,6 @@ class AssistantConversationServiceTest {
 
         assertNotNull(resolved);
         assertTrue("u1".equals(resolved.getUserId()));
-        assertNull(resolved.getExpireAt());
+        assertNotNull(resolved.getExpireAt());
     }
 }

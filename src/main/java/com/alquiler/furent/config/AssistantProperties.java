@@ -33,7 +33,8 @@ public class AssistantProperties {
     private int requestTimeoutSeconds = 30;
     private String whatsappNumber = "573105782442";
     private String knowledgeFile = "classpath:assistant/knowledge.yml";
-    private int retentionDays = 180;
+    /** Horas que se conservan las conversaciones y sus mensajes (chat temporal). */
+    private int sessionHours = 24;
     private long emitterTimeoutMillis = 60_000L;
 
     /**
@@ -163,12 +164,12 @@ public class AssistantProperties {
         this.knowledgeFile = knowledgeFile;
     }
 
-    public int getRetentionDays() {
-        return retentionDays;
+    public int getSessionHours() {
+        return sessionHours;
     }
 
-    public void setRetentionDays(int retentionDays) {
-        this.retentionDays = retentionDays;
+    public void setSessionHours(int sessionHours) {
+        this.sessionHours = sessionHours;
     }
 
     public long getEmitterTimeoutMillis() {

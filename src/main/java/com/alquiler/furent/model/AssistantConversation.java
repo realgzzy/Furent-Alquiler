@@ -11,8 +11,8 @@ import java.time.Instant;
  * Conversación del asistente virtual.
  *
  * El {@code sessionId} se genera en el servidor y se liga a la HttpSession.
- * {@code expireAt} solo se asigna a conversaciones de invitados; Mongo las elimina
- * automáticamente mediante un índice TTL.
+ * {@code expireAt} es la caducidad del chat (temporal): Mongo elimina la conversación
+ * automáticamente mediante un índice TTL cuando pasa esa fecha.
  */
 @Document(collection = "asistente_conversaciones")
 public class AssistantConversation {

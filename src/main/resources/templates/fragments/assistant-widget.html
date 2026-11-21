@@ -119,10 +119,12 @@
         }
         .fa-header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: rgba(255, 255, 255, .18); }
         .fa-avatar {
-            width: 42px; height: 42px; border-radius: var(--fa-r); background: rgba(255, 255, 255, .2);
-            border: 1px solid rgba(255, 255, 255, .28);
+            width: 42px; height: 42px; border-radius: var(--fa-r); background: #fff;
+            border: 1px solid rgba(255, 255, 255, .55);
+            box-shadow: 0 2px 6px rgba(36, 28, 21, .18); overflow: hidden;
             display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
         }
+        .fa-avatar img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.34); display: block; }
         .fa-head-text { min-width: 0; }
         .fa-header h2 { margin: 0; font-size: var(--fa-lg); font-weight: 800; letter-spacing: -.01em; }
         .fa-header p { margin: 2px 0 0; font-size: var(--fa-xs); font-weight: 500; color: rgba(255, 255, 255, .92); display: flex; align-items: center; gap: 6px; }
@@ -138,7 +140,7 @@
         .fa-close:focus-visible { outline: 2px solid rgba(255, 255, 255, .75); outline-offset: 2px; }
 
         .fa-messages {
-            flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: var(--fa-s4);
+            flex: 1 1 auto; min-height: 120px; overflow-y: auto; overflow-x: hidden; padding: var(--fa-s4);
             background: var(--fa-surface-2); display: flex; flex-direction: column; gap: var(--fa-s3);
             scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: var(--fa-line-2) transparent;
         }
@@ -229,8 +231,10 @@
             background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--fa-r-sm);
         }
 
-        /* ───────── Chips de sugerencia ───────── */
-        .fa-chips { display: flex; flex-wrap: wrap; gap: var(--fa-s2); padding: var(--fa-s3) var(--fa-s4) 0; background: var(--fa-surface-2); }
+        /* ───────── Sugerencias (desplegable bajo el input) ───────── */
+        .fa-suggestions { display: flex; flex-wrap: wrap; gap: var(--fa-s2); padding: var(--fa-s3) 0 0; }
+        .fa-suggestions[hidden] { display: none; }
+        .fa-suggestions:not([hidden]) { animation: fa-rise var(--fa-dur) var(--fa-ease-out); }
         .fa-chip {
             display: inline-flex; align-items: center; gap: 6px;
             border: 1px solid var(--fa-accent-line); background: var(--fa-surface); color: var(--fa-accent-strong); cursor: pointer;
@@ -242,8 +246,24 @@
         .fa-chip:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
         .fa-chip svg { color: var(--fa-accent); flex: 0 0 auto; }
 
+        /* Fila de herramientas del compositor (sugerencias + fechas) */
+        .fa-tools { display: flex; align-items: center; flex-wrap: wrap; gap: var(--fa-s2); margin-top: var(--fa-s2); }
+        .fa-tool {
+            display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+            border: 1px solid var(--fa-line-2); background: var(--fa-surface); color: var(--fa-ink-2);
+            border-radius: var(--fa-r-pill); padding: 6px 12px; font-size: var(--fa-sm); font-weight: 700; font-family: inherit;
+            transition: background var(--fa-dur) var(--fa-ease), border-color var(--fa-dur) var(--fa-ease), color var(--fa-dur) var(--fa-ease);
+        }
+        .fa-tool:hover { background: var(--fa-surface-3); }
+        .fa-tool:active { transform: scale(.98); }
+        .fa-tool:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
+        .fa-tool svg { flex: 0 0 auto; }
+        .fa-tool[aria-expanded="true"] { border-color: var(--fa-accent); background: var(--fa-accent-soft); color: var(--fa-accent-strong); }
+        .fa-tool .fa-chev { transition: transform var(--fa-dur) var(--fa-ease); }
+        .fa-tool[aria-expanded="true"] .fa-chev { transform: rotate(180deg); }
+
         /* ───────── Compositor ───────── */
-        .fa-composer { flex: 0 0 auto; border-top: 1px solid var(--fa-line); background: var(--fa-surface); padding: var(--fa-s3) var(--fa-s4) var(--fa-s2); }
+        .fa-composer { position: relative; flex: 0 0 auto; border-top: 1px solid var(--fa-line); background: var(--fa-surface); padding: var(--fa-s3) var(--fa-s4) var(--fa-s2); }
         .fa-input-row { display: flex; gap: var(--fa-s2); align-items: flex-end; }
         .fa-input {
             flex: 1 1 auto; resize: none; max-height: 120px; min-height: 44px;
@@ -267,7 +287,6 @@
         .fa-disclaimer { font-size: var(--fa-2xs); color: var(--fa-ink-3); text-align: center; margin: var(--fa-s2) 0 0; line-height: 1.4; }
 
         /* ───────── Fechas / calendario ───────── */
-        .fa-dates { padding: var(--fa-s2) var(--fa-s4) 0; }
         .fa-dates-pill {
             display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
             border: 1px dashed var(--fa-accent-line); background: var(--fa-accent-soft); color: var(--fa-accent-strong);
@@ -280,9 +299,14 @@
         .fa-dates-pill[data-active="true"] { border-style: solid; border-color: var(--fa-accent); background: var(--fa-accent); color: #fff; }
         .fa-dates-pill svg { flex: 0 0 auto; }
 
+        /* El calendario flota sobre el hilo: así la conversación nunca se oculta. */
         .fa-calendar {
-            margin: var(--fa-s2) var(--fa-s4) 0; padding: var(--fa-s3);
+            position: absolute; left: var(--fa-s3); right: var(--fa-s3); bottom: calc(100% + var(--fa-s1));
+            z-index: 6; margin: 0; padding: var(--fa-s3);
             border: 1px solid var(--fa-line); border-radius: var(--fa-r-lg); background: var(--fa-surface);
+            box-shadow: var(--fa-shadow-2);
+            max-height: min(58vh, 380px); overflow-y: auto;
+            scrollbar-width: thin;
         }
         .fa-calendar[hidden] { display: none; }
         .fa-calendar:not([hidden]) { animation: fa-rise var(--fa-dur) var(--fa-ease-out); }
@@ -335,6 +359,9 @@
         .dark #furent-assistant-panel .fa-dates-pill[data-active="true"] { background: var(--fa-accent); color: #fff; border-color: var(--fa-accent); }
         .dark #furent-assistant-panel .fa-chip { background: #2a231d; border-color: #54371d; color: #f0b483; }
         .dark #furent-assistant-panel .fa-chip:hover { background: #3a2a1c; }
+        .dark #furent-assistant-panel .fa-tool { background: #2a231d; border-color: #453a30; color: #cbbdaf; }
+        .dark #furent-assistant-panel .fa-tool:hover { background: #352c24; }
+        .dark #furent-assistant-panel .fa-tool[aria-expanded="true"] { background: #3a2a1c; border-color: var(--fa-accent); color: #f0b483; }
         .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.prevMonthDay,
         .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.nextMonthDay { color: #6b5f55; }
         .dark #furent-assistant-panel .fa-calendar-host .flatpickr-day.inRange { background: #4a3618; border-color: #4a3618; color: #f5c088; }
@@ -373,9 +400,7 @@
              th:attr="data-chat-url=@{/api/asistente/chat},data-authenticated=${currentUser != null}">
         <header class="fa-header">
             <div class="fa-avatar" aria-hidden="true">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z"/>
-                </svg>
+                <img th:src="@{/images/furent-logo.png}" alt="">
             </div>
             <div class="fa-head-text">
                 <h2 id="furent-assistant-title">Asistente Furent</h2>
@@ -390,47 +415,7 @@
 
         <div class="fa-messages" id="furent-assistant-messages" role="log" aria-live="polite"></div>
 
-        <div class="fa-chips" id="furent-assistant-chips">
-            <button type="button" class="fa-chip" data-prompt="Necesito sillas y mesas para una boda">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"/></svg>
-                Sillas para una boda
-            </button>
-            <button type="button" class="fa-chip" data-prompt="¿Qué mobiliario tienen para eventos corporativos?">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3.75h6a1.5 1.5 0 0 1 1.5 1.5v1.5H20a1.5 1.5 0 0 1 1.5 1.5v10.5A1.5 1.5 0 0 1 20 20.25H4a1.5 1.5 0 0 1-1.5-1.5V8.25A1.5 1.5 0 0 1 4 6.75h3.5v-1.5A1.5 1.5 0 0 1 9 3.75Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12.75h19M12 11.25v3"/></svg>
-                Evento corporativo
-            </button>
-            <button type="button" class="fa-chip" data-prompt="¿Cómo funcionan los envíos y el montaje?">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M1.5 4.5h13.5v11.25H1.5zM15 8.25h3.75L21 11.25v4.5h-6z"/><circle cx="6" cy="18" r="1.9"/><circle cx="17.25" cy="18" r="1.9"/></svg>
-                Envíos y montaje
-            </button>
-            <button type="button" class="fa-chip" data-prompt="Quiero cotizar para 100 invitados">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/></svg>
-                Cotizar mi evento
-            </button>
-        </div>
-
         <div class="fa-composer">
-            <div class="fa-dates" id="furent-assistant-dates-bar">
-                <button type="button" class="fa-dates-pill" id="furent-assistant-dates-pill"
-                        aria-haspopup="dialog" aria-expanded="false">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
-                    </svg>
-                    <span id="furent-assistant-dates-label">Elegir fechas</span>
-                </button>
-            </div>
-
-            <div class="fa-calendar" id="furent-assistant-calendar" hidden>
-                <div class="fa-calendar-host" id="furent-assistant-calendar-host">
-                    <input type="text" class="fa-sr" id="furent-assistant-dates-input" tabindex="-1" aria-hidden="true" autocomplete="off">
-                </div>
-                <p class="fa-calendar-hint" id="furent-assistant-calendar-hint">Máximo 7 días por alquiler.</p>
-                <div class="fa-calendar-actions">
-                    <button type="button" class="fa-btn fa-btn-ghost" id="furent-assistant-calendar-clear">Limpiar</button>
-                    <button type="button" class="fa-btn fa-btn-primary" id="furent-assistant-calendar-use" disabled>Usar estas fechas</button>
-                </div>
-            </div>
-
             <div class="fa-input-row">
                 <label class="fa-sr" for="furent-assistant-input">Escribe tu mensaje</label>
                 <textarea id="furent-assistant-input" class="fa-input" rows="1" maxlength="1000"
@@ -441,7 +426,59 @@
                     </svg>
                 </button>
             </div>
-            <p class="fa-disclaimer">Asistente con IA. Confirma precios y disponibilidad antes de reservar.</p>
+
+            <div class="fa-tools">
+                <button type="button" class="fa-tool" id="furent-assistant-chips-toggle"
+                        aria-expanded="false" aria-controls="furent-assistant-chips">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/>
+                    </svg>
+                    <span>Sugerencias</span>
+                    <svg class="fa-chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/>
+                    </svg>
+                </button>
+                <button type="button" class="fa-dates-pill" id="furent-assistant-dates-pill"
+                        aria-haspopup="dialog" aria-expanded="false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
+                    </svg>
+                    <span id="furent-assistant-dates-label">Elegir fechas</span>
+                </button>
+            </div>
+
+            <div class="fa-suggestions" id="furent-assistant-chips" hidden>
+                <button type="button" class="fa-chip" data-prompt="Necesito sillas y mesas para una boda">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"/></svg>
+                    Sillas para una boda
+                </button>
+                <button type="button" class="fa-chip" data-prompt="¿Qué mobiliario tienen para eventos corporativos?">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3.75h6a1.5 1.5 0 0 1 1.5 1.5v1.5H20a1.5 1.5 0 0 1 1.5 1.5v10.5A1.5 1.5 0 0 1 20 20.25H4a1.5 1.5 0 0 1-1.5-1.5V8.25A1.5 1.5 0 0 1 4 6.75h3.5v-1.5A1.5 1.5 0 0 1 9 3.75Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12.75h19M12 11.25v3"/></svg>
+                    Evento corporativo
+                </button>
+                <button type="button" class="fa-chip" data-prompt="¿Cómo funcionan los envíos y el montaje?">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M1.5 4.5h13.5v11.25H1.5zM15 8.25h3.75L21 11.25v4.5h-6z"/><circle cx="6" cy="18" r="1.9"/><circle cx="17.25" cy="18" r="1.9"/></svg>
+                    Envíos y montaje
+                </button>
+                <button type="button" class="fa-chip" data-prompt="Quiero cotizar para 100 invitados">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/></svg>
+                    Cotizar mi evento
+                </button>
+            </div>
+
+            <div class="fa-calendar" id="furent-assistant-calendar" hidden role="dialog" aria-label="Elegir fechas">
+                <div class="fa-calendar-host" id="furent-assistant-calendar-host">
+                    <input type="text" class="fa-sr" id="furent-assistant-dates-input" tabindex="-1" aria-hidden="true" autocomplete="off">
+                </div>
+                <p class="fa-calendar-hint" id="furent-assistant-calendar-hint">Elige desde y hasta. Máximo 7 días por alquiler.</p>
+                <div class="fa-calendar-actions">
+                    <button type="button" class="fa-btn fa-btn-ghost" id="furent-assistant-calendar-clear">Limpiar</button>
+                    <button type="button" class="fa-btn fa-btn-primary" id="furent-assistant-calendar-use" disabled>Usar estas fechas</button>
+                </div>
+            </div>
+
+            <p class="fa-disclaimer">Este chat es temporal: se borra a las 24 h. Asistente con IA; confirma precios y disponibilidad antes de reservar.</p>
         </div>
     </section>
 
