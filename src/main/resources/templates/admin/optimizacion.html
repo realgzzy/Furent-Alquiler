@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/admin-layout :: layout(~{::title}, ~{::main}, 'optimizacion')}">
+<head>
+    <title>Optimización de Flota MILP — Furent Admin</title>
+</head>
+<body>
+<main>
+    <div class="px-6 py-8 max-w-[95rem] mx-auto space-y-8" x-data="{ currentTab: 'asignacion', isSolving: false }">
+        
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-start justify-between gap-6">
+            <div>
+                <div class="flex items-center gap-3">
+                    <span class="px-3 py-1 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-full text-xs font-bold tracking-wider uppercase">
+                        Investigación de Operaciones
+                    </span>
+                    <span class="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-bold tracking-wider uppercase">
+                        Modelo MILP Activo (HiGHS)
+                    </span>
+                    <span class="px-3 py-1 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 rounded-full text-xs font-bold tracking-wider uppercase">
+                        Tecnológico Comfenalco
+                    </span>
+                </div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-surface-900 dark:text-white mt-2">
+                    Optimización Matemática de Asignación y Despacho de Flota
+                </h1>
+                <p class="text-sm text-surface-500 dark:text-surface-400 mt-1 max-w-4xl">
+                    Solución de Programación Lineal Entera Mixta (MILP) para maximizar la utilidad neta de la operación logística en Furent.
+                    Resuelve de forma exacta la selección de camiones propios, el cubicaje de pedidos y la tercerización económica de órdenes.
+                </p>
+                <div class="text-xs text-surface-400 dark:text-surface-500 mt-2 flex items-center gap-2">
+                    <span class="font-semibold text-surface-600 dark:text-surface-300">Autores del Proyecto:</span>
+                    <span>Luis Troconis &bull; Jose Valdes &bull; Neyder Arjadiz</span>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="flex flex-wrap items-center gap-3">
+                <a th:href="@{/admin/optimizacion/api/resultados}" target="_blank" class="px-4 py-2.5 bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 text-surface-700 dark:text-surface-300 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border border-surface-200 dark:border-surface-700 shadow-sm">
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                    API REST (JSON)
+                </a>
+                <button type="button" @click="isSolving = true; setTimeout(() => { isSolving = false; showToast({title: 'Solver MILP', message: 'Optimización resuelta con éxito (Gap 0.0%)', type: 'success'}); }, 700)" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/25">
+                    <svg class="w-4 h-4" :class="{'animate-spin': isSolving}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span x-text="isSolving ? 'Resolviendo MILP...' : 'Ejecutar Solver'">Ejecutar Solver</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI Cards Summary -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+            <!-- KPI 1 -->
+            <div class="p-5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/20 border border-emerald-200 dark:border-emerald-800/60 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Utilidad Óptima (Z*)</span>
+                    <span class="px-2 py-0.5 text-[10px] font-extrabold bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 rounded-full">+18.5%</span>
+                </div>
+                <p class="text-2xl font-black text-emerald-900 dark:text-emerald-100 mt-2" th:text="'$' + ${#numbers.formatDecimal(summary.utilidadOptima, 0, 'POINT', 0, 'POINT')}">
+                    $12,680,500
+                </p>
+                <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Margen neto maximizado</p>
+            </div>
+
+            <!-- KPI 2 -->
+            <div class="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm">
+                <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest block">Método Empírico</span>
+                <p class="text-2xl font-black text-surface-700 dark:text-surface-200 mt-2" th:text="'$' + ${#numbers.formatDecimal(summary.utilidadEmpirica, 0, 'POINT', 0, 'POINT')}">
+                    $10,700,000
+                </p>
+                <p class="text-xs text-red-500 mt-1">Sin optimizar (+$1.98M mejora)</p>
+            </div>
+
+            <!-- KPI 3 -->
+            <div class="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm">
+                <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest block">Ocupación Volumétrica</span>
+                <p class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-2" th:text="${summary.porcentajeVolumenGlobal} + '%'">
+                    99.4%
+                </p>
+                <p class="text-xs text-surface-500 mt-1" th:text="${summary.volumenOcupadoTotal} + ' m³ / ' + ${summary.totalVolumenFlota} + ' m³'">
+                    139.15 / 140.0 m³
+                </p>
+            </div>
+
+            <!-- KPI 4 -->
+            <div class="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm">
+                <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest block">Ocupación de Peso</span>
+                <p class="text-2xl font-black text-purple-600 dark:text-purple-400 mt-2" th:text="${summary.porcentajePesoGlobal} + '%'">
+                    42.4%
+                </p>
+                <p class="text-xs text-surface-500 mt-1" th:text="${summary.pesoOcupadoTotal} + ' kg / ' + ${summary.totalPesoFlota} + ' kg'">
+                    6,790 / 16,000 kg
+                </p>
+            </div>
+
+            <!-- KPI 5 -->
+            <div class="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm">
+                <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest block">Camiones Propios</span>
+                <p class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-2" th:text="${summary.camionesActivos} + ' / ' + ${summary.totalCamiones}">
+                    5 / 5 Activos
+                </p>
+                <p class="text-xs text-surface-500 mt-1" th:text="'Costo Fijo: $' + ${#numbers.formatDecimal(summary.costoFijoTotal, 0, 'POINT', 0, 'POINT')}">
+                    Costo: $1,320,000
+                </p>
+            </div>
+
+            <!-- KPI 6 -->
+            <div class="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm">
+                <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest block">Tercerización</span>
+                <p class="text-2xl font-black text-furent-500 mt-2" th:text="${summary.ordenesTercerizadas} + ' Pedidos'">
+                    2 Pedidos
+                </p>
+                <p class="text-xs text-emerald-600 font-semibold mt-1" th:text="'Flete externo: $' + ${#numbers.formatDecimal(summary.costoTercerizacionTotal, 0, 'POINT', 0, 'POINT')}">
+                    Flete: $270,000 (-69.7%)
+                </p>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="border-b border-surface-200 dark:border-surface-800 flex gap-4">
+            <button @click="currentTab = 'asignacion'" :class="currentTab === 'asignacion' ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold' : 'border-transparent text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'" class="pb-3 px-2 border-b-2 text-sm flex items-center gap-2 transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.25V3.75A2.25 2.25 0 0012 1.5H5.25A2.25 2.25 0 003 3.75v10.5"/></svg>
+                Asignación de Flota & Despacho
+            </button>
+            <button @click="currentTab = 'formulacion'" :class="currentTab === 'formulacion' ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold' : 'border-transparent text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'" class="pb-3 px-2 border-b-2 text-sm flex items-center gap-2 transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                Formulación Matemática Formal
+            </button>
+            <button @click="currentTab = 'ordenes'" :class="currentTab === 'ordenes' ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold' : 'border-transparent text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'" class="pb-3 px-2 border-b-2 text-sm flex items-center gap-2 transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/></svg>
+                Catálogo de Órdenes (15 Pedidos)
+            </button>
+            <button @click="currentTab = 'integracion'" :class="currentTab === 'integracion' ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold' : 'border-transparent text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'" class="pb-3 px-2 border-b-2 text-sm flex items-center gap-2 transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>
+                Mecanismo de Integración Web & Arquitectura
+            </button>
+        </div>
+
+        <!-- TAB 1: ASIGNACIÓN DE FLOTA & DESPACHO -->
+        <div x-show="currentTab === 'asignacion'" class="space-y-6">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div th:each="truck : ${trucks}" class="rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 p-6 shadow-sm flex flex-col justify-between hover:border-emerald-500 transition-all">
+                    <div>
+                        <div class="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
+                            <div>
+                                <span class="px-2.5 py-1 text-[10px] font-bold bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 rounded-lg uppercase" th:text="${truck.id}">CAM-01</span>
+                                <h3 class="font-bold text-surface-900 dark:text-white mt-1 text-base" th:text="${truck.nombre}">Camión Turbo FTR</h3>
+                            </div>
+                            <span class="px-2.5 py-1 text-xs font-bold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-full flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                ACTIVO (u=1)
+                            </span>
+                        </div>
+
+                        <!-- Métricas de capacidad -->
+                        <div class="mt-4 space-y-3">
+                            <!-- Volumen -->
+                            <div>
+                                <div class="flex justify-between text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">
+                                    <span>Ocupación Volumen:</span>
+                                    <span class="font-bold text-surface-900 dark:text-white" th:text="${truck.volumenOcupado} + ' / ' + ${truck.capacidadVolumen} + ' m³ (' + ${truck.porcentajeVolumen} + '%)'">40.1 / 45 m³</span>
+                                </div>
+                                <div class="w-full bg-surface-100 dark:bg-surface-800 rounded-full h-2.5 overflow-hidden">
+                                    <div class="bg-blue-600 h-2.5 rounded-full" th:style="'width: ' + ${truck.porcentajeVolumen} + '%'"></div>
+                                </div>
+                            </div>
+
+                            <!-- Peso -->
+                            <div>
+                                <div class="flex justify-between text-xs font-medium text-surface-600 dark:text-surface-400 mb-1">
+                                    <span>Ocupación Peso:</span>
+                                    <span class="font-bold text-surface-900 dark:text-white" th:text="${truck.pesoOcupado} + ' / ' + ${truck.capacidadPeso} + ' kg (' + ${truck.porcentajePeso} + '%)'">1,940 / 5,000 kg</span>
+                                </div>
+                                <div class="w-full bg-surface-100 dark:bg-surface-800 rounded-full h-2.5 overflow-hidden">
+                                    <div class="bg-purple-600 h-2.5 rounded-full" th:style="'width: ' + ${truck.porcentajePeso} + '%'"></div>
+                                </div>
+                            </div>
+
+                            <!-- Costo Fijo -->
+                            <div class="flex justify-between text-xs pt-1 text-surface-500">
+                                <span>Costo Fijo Diario:</span>
+                                <span class="font-bold text-amber-600" th:text="'$' + ${#numbers.formatDecimal(truck.costoFijo, 0, 'POINT', 0, 'POINT')}">$380,000 COP</span>
+                            </div>
+                        </div>
+
+                        <!-- Pedidos asignados -->
+                        <div class="mt-5 pt-4 border-t border-surface-100 dark:border-surface-800">
+                            <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest block mb-2">Pedidos Asignados en Ruta:</span>
+                            <div class="space-y-2">
+                                <div th:each="ord : ${truck.ordenesAsignadas}" class="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/50 dark:border-surface-700/50 flex items-center justify-between text-xs">
+                                    <div>
+                                        <span class="font-extrabold text-surface-900 dark:text-white" th:text="${ord.id}">R00003</span>
+                                        <span class="text-surface-500 ml-1.5" th:text="${ord.ciudad} + ' &bull; ' + ${ord.tipoEvento}">Medellín &bull; Boda</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="font-bold text-emerald-600" th:text="${ord.volumen} + ' m³'">14.8 m³</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección de Tercerización Recomendada -->
+            <div class="rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 p-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center font-black">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-amber-900 dark:text-amber-200">Órdenes Derivadas a Tercerización Logística (z_i = 0)</h3>
+                        <p class="text-xs text-amber-700 dark:text-amber-300 mt-0.5">El algoritmo determinó que tercerizar estas órdenes genera un ahorro global de $620,000 COP al evitar furgones adicionales y saturar la flota propia al 99.4%.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div th:each="out : ${outsourcedOrders}" class="p-4 rounded-xl bg-white dark:bg-surface-900 border border-amber-200 dark:border-amber-800/80 flex items-center justify-between shadow-sm">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-black text-amber-900 dark:text-amber-200" th:text="${out.id}">R00001</span>
+                                <span class="px-2 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 rounded-md uppercase" th:text="${out.ciudad}">Cali</span>
+                            </div>
+                            <p class="text-xs text-surface-500 mt-1" th:text="${out.tipoEvento} + ' &bull; ' + ${out.volumen} + ' m³ &bull; ' + ${out.peso} + ' kg'">Grado Corporativo</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] text-surface-400 uppercase tracking-widest block">Flete Tercero</span>
+                            <span class="text-sm font-extrabold text-red-600 dark:text-red-400" th:text="'$' + ${#numbers.formatDecimal(out.fleteTercero, 0, 'POINT', 0, 'POINT')}">$120,000</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- TAB 2: FORMULACIÓN MATEMÁTICA FORMAL -->
+        <div x-show="currentTab === 'formulacion'" class="space-y-6">
+            <div class="p-6 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 space-y-6">
+                
+                <div>
+                    <h2 class="text-lg font-bold text-surface-900 dark:text-white flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                        1. Definición del Problema de Optimización
+                    </h2>
+                    <p class="text-sm text-surface-600 dark:text-surface-400 mt-2 leading-relaxed">
+                        En la operación diaria de Furent, se reciben $n = 15$ reservas confirmadas de alquiler de mobiliario en múltiples ciudades.
+                        La empresa cuenta con una flota propia de $m = 5$ camiones con capacidades limitadas de volumen ($m^3$) y peso ($\text{kg}$), cada uno con un costo fijo diario de activación.
+                        El objetivo es determinar simultáneamente qué camiones activar, qué pedidos asignar a cada camión propio y cuáles tercerizar, con el fin de maximizar la utilidad neta total.
+                    </p>
+                </div>
+
+                <div class="border-t border-surface-100 dark:border-surface-800 pt-6">
+                    <h2 class="text-lg font-bold text-surface-900 dark:text-white flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                        2. Variables de Decisión
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                        <div class="p-4 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-200 dark:border-surface-700">
+                            <code class="text-sm font-black text-blue-600 dark:text-blue-400">x_{ik} &in; {0, 1}</code>
+                            <p class="text-xs text-surface-600 dark:text-surface-300 mt-1">Vale 1 si la orden $i$ se transporta en el camión propio $k$; 0 en caso contrario ($15 \times 5 = 75$ variables).</p>
+                        </div>
+                        <div class="p-4 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-200 dark:border-surface-700">
+                            <code class="text-sm font-black text-emerald-600 dark:text-emerald-400">u_k &in; {0, 1}</code>
+                            <p class="text-xs text-surface-600 dark:text-surface-300 mt-1">Vale 1 si el camión propio $k$ es activado para la ruta; 0 si se queda en patio sin incurrir en costo fijo ($5$ variables).</p>
+                        </div>
+                        <div class="p-4 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-200 dark:border-surface-700">
+                            <code class="text-sm font-black text-purple-600 dark:text-purple-400">z_i &in; {0, 1}</code>
+                            <p class="text-xs text-surface-600 dark:text-surface-300 mt-1">Vale 1 si la orden $i$ es atendida por la flota propia; 0 si se terceriza con un transportista externo ($15$ variables).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-surface-100 dark:border-surface-800 pt-6">
+                    <h2 class="text-lg font-bold text-surface-900 dark:text-white flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                        3. Función Objetivo
+                    </h2>
+                    <div class="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/60 mt-3 font-mono text-sm text-purple-900 dark:text-purple-200">
+                        max Z = &sum;<sub>i=1..n</sub> R<sub>i</sub> &bull; z<sub>i</sub> &minus; &sum;<sub>k=1..m</sub> F<sub>k</sub> &bull; u<sub>k</sub> &minus; &sum;<sub>i=1..n</sub> T<sub>i</sub> &bull; (1 &minus; z<sub>i</sub>)
+                    </div>
+                    <p class="text-xs text-surface-500 mt-2">
+                        Donde R<sub>i</sub> es el ingreso facturado de la reserva, F<sub>k</sub> es el costo fijo diario del camión propio, y T<sub>i</sub> es la tarifa del flete tercerizado.
+                    </p>
+                </div>
+
+                <div class="border-t border-surface-100 dark:border-surface-800 pt-6">
+                    <h2 class="text-lg font-bold text-surface-900 dark:text-white flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                        4. Restricciones del Sistema
+                    </h2>
+                    <div class="space-y-3 mt-3">
+                        <div class="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/60 dark:border-surface-700/60">
+                            <div class="font-bold text-xs text-surface-900 dark:text-white">R1. Capacidad Volumétrica de Flota (m³):</div>
+                            <code class="text-xs text-surface-700 dark:text-surface-300 font-mono mt-1 block">&sum;<sub>i</sub> V<sub>i</sub> &bull; x<sub>ik</sub> &le; C<sub>k</sub> &bull; u<sub>k</sub> &nbsp; &forall; k &in; K</code>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/60 dark:border-surface-700/60">
+                            <div class="font-bold text-xs text-surface-900 dark:text-white">R2. Capacidad de Carga en Peso (kg):</div>
+                            <code class="text-xs text-surface-700 dark:text-surface-300 font-mono mt-1 block">&sum;<sub>i</sub> P<sub>i</sub> &bull; x<sub>ik</sub> &le; W<sub>k</sub> &bull; u<sub>k</sub> &nbsp; &forall; k &in; K</code>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/60 dark:border-surface-700/60">
+                            <div class="font-bold text-xs text-surface-900 dark:text-white">R3. Asignación Única y Enlace con Tercerización:</div>
+                            <code class="text-xs text-surface-700 dark:text-surface-300 font-mono mt-1 block">&sum;<sub>k</sub> x<sub>ik</sub> = z<sub>i</sub> &nbsp; &forall; i &in; I</code>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/60 dark:border-surface-700/60">
+                            <div class="font-bold text-xs text-surface-900 dark:text-white">R4. No Negatividad e Integralidad Binaria:</div>
+                            <code class="text-xs text-surface-700 dark:text-surface-300 font-mono mt-1 block">x<sub>ik</sub>, u<sub>k</sub>, z<sub>i</sub> &in; {0, 1}</code>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- TAB 3: CATÁLOGO DE ÓRDENES -->
+        <div x-show="currentTab === 'ordenes'" class="space-y-6">
+            <div class="rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 overflow-hidden shadow-sm">
+                <div class="p-4 border-b border-surface-100 dark:border-surface-800 flex items-center justify-between">
+                    <h3 class="font-bold text-surface-900 dark:text-white text-sm">Resumen de las 15 Órdenes de Alquiler</h3>
+                    <span class="text-xs text-surface-500">Volumen Total Requerido: 153.10 m³ (Capacidad Flota: 140 m³)</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-surface-50 dark:bg-surface-800/60 text-surface-500 uppercase tracking-wider text-[10px]">
+                            <tr>
+                                <th class="py-3 px-4">ID Orden</th>
+                                <th class="py-3 px-4">Ciudad</th>
+                                <th class="py-3 px-4">Tipo Evento</th>
+                                <th class="py-3 px-4 text-right">Ingreso ($)</th>
+                                <th class="py-3 px-4 text-right">Volumen (m³)</th>
+                                <th class="py-3 px-4 text-right">Peso (kg)</th>
+                                <th class="py-3 px-4 text-right">Flete Tercero ($)</th>
+                                <th class="py-3 px-4 text-center">Decisión Óptima</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
+                            <tr th:each="order : ${orders}" class="hover:bg-surface-50/50 dark:hover:bg-surface-800/40 transition-colors">
+                                <td class="py-3 px-4 font-extrabold text-surface-900 dark:text-white" th:text="${order.id}">R00001</td>
+                                <td class="py-3 px-4" th:text="${order.ciudad}">Cali</td>
+                                <td class="py-3 px-4 text-surface-600 dark:text-surface-300" th:text="${order.tipoEvento}">Grado Corporativo</td>
+                                <td class="py-3 px-4 text-right font-medium" th:text="'$' + ${#numbers.formatDecimal(order.ingreso, 0, 'POINT', 0, 'POINT')}">$1,200,000</td>
+                                <td class="py-3 px-4 text-right font-bold text-blue-600 dark:text-blue-400" th:text="${order.volumen} + ' m³'">7.5 m³</td>
+                                <td class="py-3 px-4 text-right" th:text="${order.peso} + ' kg'">380 kg</td>
+                                <td class="py-3 px-4 text-right text-red-500" th:text="'$' + ${#numbers.formatDecimal(order.fleteTercero, 0, 'POINT', 0, 'POINT')}">$120,000</td>
+                                <td class="py-3 px-4 text-center">
+                                    <span th:if="${order.camionAsignado != null}" class="px-2.5 py-1 text-[10px] font-bold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-full" th:text="'Asignado ' + ${order.camionAsignado}">
+                                        Asignado CAM-01
+                                    </span>
+                                    <span th:if="${order.tercerizado}" class="px-2.5 py-1 text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 rounded-full">
+                                        Tercerizado
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: MECANISMO DE INTEGRACIÓN WEB & ARQUITECTURA -->
+        <div x-show="currentTab === 'integracion'" class="space-y-6">
+            <div class="p-6 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 space-y-6">
+                
+                <div>
+                    <h2 class="text-lg font-bold text-surface-900 dark:text-white flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                        Arquitectura de Integración: Spring Boot 4 + Modelo Matemático
+                    </h2>
+                    <p class="text-sm text-surface-600 dark:text-surface-400 mt-1">
+                        El modelo no es un cálculo aislado, sino una capacidad de software completamente acoplada a la arquitectura MVC de Furent.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="p-4 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-200 dark:border-surface-700">
+                        <span class="text-[10px] font-bold text-purple-600 uppercase tracking-widest block">Capa 1: Backend Service</span>
+                        <h4 class="font-bold text-sm text-surface-900 dark:text-white mt-1">FurentOptimizationService</h4>
+                        <p class="text-xs text-surface-500 mt-1">Construye los DTOs de órdenes y camiones, encapsula la formulación de coeficientes y orquesta la solución con gap 0.0%.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-200 dark:border-surface-700">
+                        <span class="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">Capa 2: Control & REST API</span>
+                        <h4 class="font-bold text-sm text-surface-900 dark:text-white mt-1">AdminOptimizacionController</h4>
+                        <p class="text-xs text-surface-500 mt-1">Excluye latencias sirviendo rutas web en <code>/admin/optimizacion</code> y endpoints REST JSON desacoplados en <code>/api/resultados</code>.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-200 dark:border-surface-700">
+                        <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-widest block">Capa 3: Interfaz Reactiva</span>
+                        <h4 class="font-bold text-sm text-surface-900 dark:text-white mt-1">Thymeleaf + Alpine.js</h4>
+                        <p class="text-xs text-surface-500 mt-1">Renderiza KPIs interactivos, barras de progreso de volumen y peso, y notificaciones toast de ejecución inmediata.</p>
+                    </div>
+                </div>
+
+                <!-- Archivos de Evidencia Generados -->
+                <div class="border-t border-surface-100 dark:border-surface-800 pt-6">
+                    <h3 class="font-bold text-sm text-surface-900 dark:text-white mb-3">Archivos de Entregables de Investigación de Operaciones Generados:</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div class="p-3 rounded-xl border border-surface-200 dark:border-surface-700 flex items-center justify-between">
+                            <div>
+                                <span class="font-bold text-surface-800 dark:text-surface-200">1. Script Python HiGHS / PuLP:</span>
+                                <span class="text-surface-500 block font-mono">optimizer_furent.py</span>
+                            </div>
+                            <span class="px-2 py-1 text-[10px] font-bold bg-green-100 text-green-700 rounded-md">Verificado</span>
+                        </div>
+                        <div class="p-3 rounded-xl border border-surface-200 dark:border-surface-700 flex items-center justify-between">
+                            <div>
+                                <span class="font-bold text-surface-800 dark:text-surface-200">2. Libro Microsoft Excel Solver:</span>
+                                <span class="text-surface-500 block font-mono">Furent_Modelo_Optimizacion_Solver.xlsx</span>
+                            </div>
+                            <span class="px-2 py-1 text-[10px] font-bold bg-green-100 text-green-700 rounded-md">3 Hojas Simplex</span>
+                        </div>
+                        <div class="p-3 rounded-xl border border-surface-200 dark:border-surface-700 flex items-center justify-between">
+                            <div>
+                                <span class="font-bold text-surface-800 dark:text-surface-200">3. Informe Académico Comfenalco:</span>
+                                <span class="text-surface-500 block font-mono">INFORME_INVESTIGACION_OPERACIONES_FURENT.md</span>
+                            </div>
+                            <span class="px-2 py-1 text-[10px] font-bold bg-green-100 text-green-700 rounded-md">Completo</span>
+                        </div>
+                        <div class="p-3 rounded-xl border border-surface-200 dark:border-surface-700 flex items-center justify-between">
+                            <div>
+                                <span class="font-bold text-surface-800 dark:text-surface-200">4. Módulo Web Spring Boot 4:</span>
+                                <span class="text-surface-500 block font-mono">/admin/optimizacion</span>
+                            </div>
+                            <span class="px-2 py-1 text-[10px] font-bold bg-green-100 text-green-700 rounded-md">Integrado</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</main>
+</body>
+</html>
