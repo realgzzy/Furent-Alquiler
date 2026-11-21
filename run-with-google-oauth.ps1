@@ -1,6 +1,15 @@
 # Script para ejecutar Furent con Google OAuth2 configurado
 # Windows PowerShell
 
+# Asegurar entorno JDK para compilación
+if (-not $env:JAVA_HOME -or -not (Test-Path "$env:JAVA_HOME\bin\javac.exe")) {
+    $ideJdk = "c:\Users\ldtro\.antigravity-ide\extensions\redhat.java-1.58.0-win32-x64\jre\25.0.4.1-win32-x86_64"
+    if (Test-Path "$ideJdk\bin\javac.exe") {
+        $env:JAVA_HOME = $ideJdk
+        $env:Path = "$ideJdk\bin;" + $env:Path
+    }
+}
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Furent - Inicio con Google OAuth2" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
