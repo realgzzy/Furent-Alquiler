@@ -280,6 +280,33 @@
         /* Resaltado de datos importantes (==texto==). */
         .fa-hl { background: var(--fa-accent-soft); color: var(--fa-accent-strong); font-weight: 800; border-radius: 4px; padding: 0 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 
+        /* Englobes (callouts): bloques para resaltar información importante. Sintaxis: > [!TIPO].
+           Cada variante ajusta su color mediante variables locales (--fa-callout-*). */
+        .fa-callout {
+            --fa-callout-accent: #3b82f6;
+            --fa-callout-bg: rgba(59, 130, 246, .09);
+            --fa-callout-ink: #1d4ed8;
+            display: flex; gap: var(--fa-s2); align-items: flex-start;
+            margin: var(--fa-s2) 0; padding: var(--fa-s3);
+            background: var(--fa-callout-bg);
+            border: 1px solid var(--fa-callout-accent);
+            border-left-width: 3px;
+            border-radius: var(--fa-r);
+        }
+        .fa-callout-ico { flex: 0 0 auto; display: inline-flex; margin-top: 1px; color: var(--fa-callout-accent); }
+        .fa-callout-ico svg { display: block; }
+        .fa-callout-body { min-width: 0; flex: 1 1 auto; }
+        .fa-callout-title { margin: 0 0 3px; font-size: var(--fa-2xs); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--fa-callout-ink); }
+        .fa-callout-content { font-size: var(--fa-sm); color: var(--fa-ink); }
+        .fa-callout-content > *:first-child { margin-top: 0; }
+        .fa-callout-content > *:last-child { margin-bottom: 0; }
+        .fa-callout--info { --fa-callout-accent: #3b82f6; --fa-callout-bg: rgba(59, 130, 246, .09); --fa-callout-ink: #1d4ed8; }
+        .fa-callout--tip { --fa-callout-accent: #d97706; --fa-callout-bg: rgba(217, 119, 6, .1); --fa-callout-ink: #b45309; }
+        .fa-callout--precio { --fa-callout-accent: #16a34a; --fa-callout-bg: rgba(22, 163, 74, .1); --fa-callout-ink: #15803d; }
+        .fa-callout--fecha { --fa-callout-accent: #7c3aed; --fa-callout-bg: rgba(124, 58, 237, .1); --fa-callout-ink: #6d28d9; }
+        .fa-callout--alerta { --fa-callout-accent: #dc2626; --fa-callout-bg: rgba(220, 38, 38, .09); --fa-callout-ink: #b91c1c; }
+        .fa-callout--exito { --fa-callout-accent: #0d9488; --fa-callout-bg: rgba(13, 148, 136, .1); --fa-callout-ink: #0f766e; }
+
         .fa-typing { display: inline-flex; gap: 4px; align-items: center; padding: 2px 0; }
         .fa-typing span { width: 6px; height: 6px; border-radius: var(--fa-r-pill); background: var(--fa-accent); opacity: .4; animation: fa-blink 1.2s infinite; }
         .fa-typing span:nth-child(2) { animation-delay: .18s; }
@@ -648,6 +675,12 @@
         .dark #furent-assistant-panel .fa-md-code { background: rgba(255, 255, 255, .1); }
         .dark #furent-assistant-panel .fa-md-link { color: #f0a868; }
         .dark #furent-assistant-panel .fa-hl { background: #3a2a1c; color: #f5c088; }
+        .dark #furent-assistant-panel .fa-callout--info { --fa-callout-accent: #60a5fa; --fa-callout-bg: rgba(96, 165, 250, .15); --fa-callout-ink: #bfdbfe; }
+        .dark #furent-assistant-panel .fa-callout--tip { --fa-callout-accent: #f0b45f; --fa-callout-bg: rgba(240, 180, 95, .14); --fa-callout-ink: #fcd9a8; }
+        .dark #furent-assistant-panel .fa-callout--precio { --fa-callout-accent: #4ade80; --fa-callout-bg: rgba(74, 222, 128, .13); --fa-callout-ink: #bbf7d0; }
+        .dark #furent-assistant-panel .fa-callout--fecha { --fa-callout-accent: #a78bfa; --fa-callout-bg: rgba(167, 139, 250, .15); --fa-callout-ink: #ddd6fe; }
+        .dark #furent-assistant-panel .fa-callout--alerta { --fa-callout-accent: #f87171; --fa-callout-bg: rgba(248, 113, 113, .14); --fa-callout-ink: #fecaca; }
+        .dark #furent-assistant-panel .fa-callout--exito { --fa-callout-accent: #2dd4bf; --fa-callout-bg: rgba(45, 212, 191, .14); --fa-callout-ink: #99f6e4; }
         .dark #furent-assistant-panel .fa-quote-ico { background: #3a2a1c; color: #f0b483; }
         .dark #furent-assistant-panel .fa-btn-ghost:hover { background: #3f342a; }
         .dark #furent-assistant-panel .fa-chip { background: #2a231d; border-color: #54371d; color: #f0b483; }

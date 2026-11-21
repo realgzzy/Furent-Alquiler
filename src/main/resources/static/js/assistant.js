@@ -1096,6 +1096,11 @@
                 'M12 6.4v11.2'],
             pencil: ['M16.6 3.5a2.1 2.1 0 0 1 3 3L7 19.2l-4 1 1-4Z', 'M13.5 6.5l4 4'],
             chevron: ['m6 9.5 6 6 6-6'],
+            info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M12 11v5', 'M12 7.5h.01'],
+            bulb: ['M12 3.5a5.5 5.5 0 0 0-3.3 9.9c.6.5 1 1.2 1.1 2v.6h4.4v-.6c.1-.8.5-1.5 1.1-2A5.5 5.5 0 0 0 12 3.5Z',
+                'M10 19h4', 'M10.6 21.5h2.8'],
+            alert: ['M12 3.6 21.6 20.4H2.4Z', 'M12 10v4.2', 'M12 17.3h.01'],
+            check: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'm8.4 12.2 2.5 2.5 4.7-5.1'],
             eraser: ['M4 20h16',
                 'M13.5 5.5 8 11l3.5 3.5 5.5-5.5a2.47 2.47 0 0 0-3.5-3.5Z',
                 'm9.5 12.5-3 3a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l3-3']
@@ -2859,6 +2864,17 @@
                     i++;
                     continue;
                 }
+                var callout = line.match(/^\s*>\s*\[!([A-Za-zÁÉÍÓÚÑáéíóúñ]+)\]\s*(.*)$/);
+                if (callout) {
+                    var inner = [];
+                    i++;
+                    while (i < lines.length && /^\s*>/.test(lines[i])) {
+                        inner.push(lines[i].replace(/^\s*>\s?/, ''));
+                        i++;
+                    }
+                    container.appendChild(buildCallout(callout[1], callout[2].trim(), inner));
+                    continue;
+                }
                 if (/^\s*[-*•]\s+/.test(line)) {
                     var ul = document.createElement('ul');
                     while (i < lines.length) {
@@ -2904,7 +2920,8 @@
                 while (i < lines.length && !/^\s*$/.test(lines[i])
                         && !/^\s*[-*•]\s+/.test(lines[i])
                         && !/^\s*\d+[.)]\s+/.test(lines[i])
-                        && !/^\s*#{1,6}\s+/.test(lines[i])) {
+                        && !/^\s*#{1,6}\s+/.test(lines[i])
+                        && !/^\s*>\s*\[!/.test(lines[i])) {
                     if (parte > 0) {
                         para.appendChild(document.createElement('br'));
                     }
@@ -2914,6 +2931,57 @@
                 }
                 container.appendChild(para);
             }
+        }
+
+        // Englobes (callouts) para resaltar información importante. El modelo los escribe con la
+        // sintaxis de alerta: "> [!TIPO]" y luego líneas "> contenido". Se aceptan varios alias.
+        var CALLOUTS = {
+            info: { cls: 'info', icon: 'info', title: 'Información' },
+            dato: { cls: 'info', icon: 'info', title: 'Dato útil' },
+            nota: { cls: 'info', icon: 'info', title: 'Nota' },
+            idea: { cls: 'tip', icon: 'bulb', title: 'Idea' },
+            tip: { cls: 'tip', icon: 'bulb', title: 'Idea' },
+            consejo: { cls: 'tip', icon: 'bulb', title: 'Idea' },
+            sugerencia: { cls: 'tip', icon: 'bulb', title: 'Idea' },
+            precio: { cls: 'precio', icon: 'coin', title: 'Precio' },
+            costo: { cls: 'precio', icon: 'coin', title: 'Precio' },
+            total: { cls: 'precio', icon: 'coin', title: 'Precio' },
+            price: { cls: 'precio', icon: 'coin', title: 'Precio' },
+            fecha: { cls: 'fecha', icon: 'calendar', title: 'Fechas' },
+            fechas: { cls: 'fecha', icon: 'calendar', title: 'Fechas' },
+            hora: { cls: 'fecha', icon: 'calendar', title: 'Fechas' },
+            date: { cls: 'fecha', icon: 'calendar', title: 'Fechas' },
+            alerta: { cls: 'alerta', icon: 'alert', title: 'Importante' },
+            importante: { cls: 'alerta', icon: 'alert', title: 'Importante' },
+            atencion: { cls: 'alerta', icon: 'alert', title: 'Importante' },
+            ojo: { cls: 'alerta', icon: 'alert', title: 'Importante' },
+            warning: { cls: 'alerta', icon: 'alert', title: 'Importante' },
+            exito: { cls: 'exito', icon: 'check', title: 'Listo' },
+            listo: { cls: 'exito', icon: 'check', title: 'Listo' },
+            hecho: { cls: 'exito', icon: 'check', title: 'Listo' },
+            ok: { cls: 'exito', icon: 'check', title: 'Listo' }
+        };
+
+        function buildCallout(tipo, titulo, lineas) {
+            var def = CALLOUTS[String(tipo || '').toLowerCase()] || CALLOUTS.info;
+            var wrap = document.createElement('div');
+            wrap.className = 'fa-callout fa-callout--' + def.cls;
+            var ico = document.createElement('span');
+            ico.className = 'fa-callout-ico';
+            ico.appendChild(svgIcon(ICONS[def.icon], 17));
+            var body = document.createElement('div');
+            body.className = 'fa-callout-body';
+            var head = document.createElement('p');
+            head.className = 'fa-callout-title';
+            head.textContent = titulo || def.title;
+            body.appendChild(head);
+            var content = document.createElement('div');
+            content.className = 'fa-callout-content';
+            renderMarkdown(content, lineas.join('\n'));
+            body.appendChild(content);
+            wrap.appendChild(ico);
+            wrap.appendChild(body);
+            return wrap;
         }
 
         function appendInline(container, text) {
