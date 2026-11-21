@@ -4,8 +4,8 @@
  * - Habla con POST /api/asistente/chat y consume el stream SSE con fetch + ReadableStream.
  * - Renderiza todo con textContent/createElement: el texto del modelo nunca se inyecta como HTML.
  * - Markdown mínimo (negrita, itálica, resaltado ==texto==, listas y enlaces) con nodos seguros.
- * - El historial de chats vive en el servidor: al cargar siempre se empieza un chat nuevo y el
- *   botón "Mis chats" (izquierda) lista las conversaciones propias para abrir o borrar.
+ * - El historial de chats vive en el servidor: al cargar siempre se empieza un chat nuevo y la
+ *   opción "Mis chats" del menú lista las conversaciones propias para abrir o borrar.
  * - Las entradas estructuradas (formulario de evento, calendario de fechas, bolsa y seguimiento
  *   del alquiler) se muestran en el panel lateral izquierdo del chat.
  * - Integra cotizaciones con la bolsa (`furent_bag`) y el checkout de la web.
@@ -111,6 +111,7 @@
             quickDates: document.getElementById('furent-assistant-quick-dates'),
             quickEvent: document.getElementById('furent-assistant-quick-event'),
             quickBag: document.getElementById('furent-assistant-quick-bag'),
+            quickChats: document.getElementById('furent-assistant-quick-chats'),
             quickSuggest: document.getElementById('furent-assistant-quick-suggest'),
             chips: document.getElementById('furent-assistant-chips'),
             side: document.getElementById('furent-assistant-side'),
@@ -129,7 +130,6 @@
             eventTime: document.getElementById('furent-assistant-event-time'),
             timeQuick: document.getElementById('furent-assistant-time-quick'),
             timeWrap: document.getElementById('furent-assistant-event-time-wrap'),
-            historyToggle: document.getElementById('furent-assistant-history-toggle'),
             history: document.getElementById('furent-assistant-history'),
             historyList: document.getElementById('furent-assistant-history-list'),
             historyClose: document.getElementById('furent-assistant-history-close'),
@@ -198,6 +198,16 @@
         if (els.quickSuggest) {
             els.quickSuggest.addEventListener('click', toggleSuggestions);
         }
+        if (els.quickChats) {
+            els.quickChats.addEventListener('click', function () {
+                if (els.history && !els.history.hidden) {
+                    closeHistory();
+                } else {
+                    collapseQuick();
+                    openHistory();
+                }
+            });
+        }
         if (els.sideClose) {
             els.sideClose.addEventListener('click', function () { closeSidePanel(); collapseQuick(); });
         }
@@ -233,15 +243,6 @@
             }
         });
 
-        if (els.historyToggle) {
-            els.historyToggle.addEventListener('click', function () {
-                if (els.history && !els.history.hidden) {
-                    closeHistory();
-                } else {
-                    openHistory();
-                }
-            });
-        }
         if (els.historyClose) {
             els.historyClose.addEventListener('click', closeHistory);
         }
@@ -380,6 +381,7 @@
             isOpen = false;
             collapseSuggestions();
             collapseQuick();
+            closeHistory();
             lockPageScroll(false);
             if (lastFocused && typeof lastFocused.focus === 'function') {
                 lastFocused.focus();
@@ -1871,7 +1873,7 @@
                 del.setAttribute('aria-label', 'Eliminar chat');
                 del.appendChild(svgIcon(ICONS.trash, 15));
                 del.addEventListener('click', function () {
-                    deleteConversation(conversation.conversationId);
+                    startDelete(item, conversation);
                 });
                 item.appendChild(del);
 
@@ -1987,8 +1989,39 @@
             }
         }
 
-        function deleteConversation(id) {
-            if (!id || !window.confirm('¿Eliminar este chat? Esta acción no se puede deshacer.')) {
+        /**
+         * Confirmación de borrado en línea: reemplaza el contenido del ítem por un aviso con
+         * "Cancelar" y "Eliminar". Todo ocurre dentro del propio historial (sin `window.confirm`).
+         */
+        function startDelete(item, conversation) {
+            if (!item) {
+                return;
+            }
+            item.textContent = '';
+            var box = document.createElement('div');
+            box.className = 'fa-hist-confirm';
+            var text = document.createElement('p');
+            text.className = 'fa-hist-confirm-text';
+            text.textContent = '¿Eliminar "' + (conversation.titulo || 'este chat')
+                + '"? Esta acción no se puede deshacer.';
+            box.appendChild(text);
+            var actions = document.createElement('div');
+            actions.className = 'fa-hist-confirm-actions';
+            actions.appendChild(button('Cancelar', 'fa-btn-ghost', function () {
+                renderHistoryList();
+            }));
+            var confirmBtn = button('Eliminar', 'fa-btn-danger', function () {
+                confirmBtn.disabled = true;
+                performDelete(conversation.conversationId);
+            });
+            actions.appendChild(confirmBtn);
+            box.appendChild(actions);
+            item.appendChild(box);
+            confirmBtn.focus();
+        }
+
+        function performDelete(id) {
+            if (!id) {
                 return;
             }
             fetch(listUrl + '/' + encodeURIComponent(id), {
@@ -2006,6 +2039,7 @@
                 }
             }).catch(function () {
                 toast('No se pudo eliminar el chat', 'error');
+                renderHistoryList();
             });
         }
 
@@ -2020,8 +2054,8 @@
                 return;
             }
             els.history.hidden = false;
-            if (els.historyToggle) {
-                els.historyToggle.setAttribute('aria-expanded', 'true');
+            if (els.quickChats) {
+                els.quickChats.setAttribute('aria-expanded', 'true');
             }
             loadChatList();
         }
@@ -2031,8 +2065,8 @@
                 return;
             }
             els.history.hidden = true;
-            if (els.historyToggle) {
-                els.historyToggle.setAttribute('aria-expanded', 'false');
+            if (els.quickChats) {
+                els.quickChats.setAttribute('aria-expanded', 'false');
             }
         }
 
