@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 @Controller
-@RequestMapping("/admin")
+@RequestMapping("/admin/pagos")
 public class AdminPagosController {
 
     private final PaymentService paymentService;
@@ -20,13 +20,13 @@ public class AdminPagosController {
         this.paymentService = paymentService;
     }
 
-    @GetMapping("/pagos")
+    @GetMapping
     @ResponseBody
     public ResponseEntity<List<Payment>> listPayments() {
         return ResponseEntity.ok(paymentService.getAllPayments());
     }
 
-    @PostMapping("/pagos/confirmar/{id}")
+    @PostMapping("/confirmar/{id}")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> confirmPayment(@PathVariable String id,
             @RequestParam(required = false) String referencia,

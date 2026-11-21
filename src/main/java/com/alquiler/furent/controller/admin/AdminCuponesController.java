@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Controller
-@RequestMapping("/admin")
+@RequestMapping("/admin/cupones")
 public class AdminCuponesController {
 
     private final CouponService couponService;
@@ -20,13 +20,13 @@ public class AdminCuponesController {
         this.couponService = couponService;
     }
 
-    @GetMapping("/cupones")
+    @GetMapping
     public String listCoupons(Model model) {
         model.addAttribute("cupones", couponService.getAll());
         return "admin/cupones";
     }
 
-    @PostMapping("/cupones/guardar")
+    @PostMapping("/guardar")
     public String saveCoupon(@RequestParam String codigo, @RequestParam String tipo,
             @RequestParam BigDecimal valor, @RequestParam String validoDesde,
             @RequestParam String validoHasta, @RequestParam int usosMaximos,
@@ -52,7 +52,7 @@ public class AdminCuponesController {
         return "redirect:/admin/cupones";
     }
 
-    @PostMapping("/cupones/eliminar/{id}")
+    @PostMapping("/eliminar/{id}")
     public String deleteCoupon(@PathVariable String id, RedirectAttributes redirectAttributes) {
         couponService.delete(id);
         redirectAttributes.addFlashAttribute("success", "Cupón eliminado");

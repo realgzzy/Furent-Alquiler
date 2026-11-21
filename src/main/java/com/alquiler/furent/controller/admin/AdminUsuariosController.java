@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 
 @Controller
-@RequestMapping("/admin")
+@RequestMapping("/admin/usuarios")
 public class AdminUsuariosController {
 
     private final UserService userService;
@@ -28,7 +28,7 @@ public class AdminUsuariosController {
         this.auditLogService = auditLogService;
     }
 
-    @GetMapping("/usuarios")
+    @GetMapping
     public String listUsers(@RequestParam(defaultValue = "0") int page,
                             @RequestParam(defaultValue = "25") int size,
                             Model model) {
@@ -44,7 +44,7 @@ public class AdminUsuariosController {
         return "admin/usuarios";
     }
 
-    @PostMapping("/usuarios/rol/{id}")
+    @PostMapping("/rol/{id}")
     @ResponseBody
     public String updateRole(@PathVariable String id, @RequestParam String role) {
         com.alquiler.furent.model.User user = userService.findById(id).orElseThrow();
@@ -53,7 +53,7 @@ public class AdminUsuariosController {
         return "OK";
     }
 
-    @PostMapping("/usuarios/estado/{id}")
+    @PostMapping("/estado/{id}")
     @ResponseBody
     public String updateEstado(@PathVariable String id, @RequestParam boolean activo,
             @RequestParam(required = false) String razon,
@@ -97,7 +97,7 @@ public class AdminUsuariosController {
         return "OK";
     }
 
-    @GetMapping("/usuarios/detalles/{id}")
+    @GetMapping("/detalles/{id}")
     @ResponseBody
     public UserAdminDetailsDTO getDetalles(@PathVariable String id) {
         User user = userService.findById(id).orElseThrow();

@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @Controller
-@RequestMapping("/admin")
+@RequestMapping("/admin/reservas")
 public class AdminReservasController {
 
     private final ReservationService reservationService;
@@ -43,7 +43,7 @@ public class AdminReservasController {
         this.paymentService = paymentService;
     }
 
-    @GetMapping("/reservas")
+    @GetMapping
     public String listReservations(Model model) {
         List<Reservation> reservas = reservationService.getAllReservations();
         model.addAttribute("reservas", reservas);
@@ -70,7 +70,7 @@ public class AdminReservasController {
         return "admin/reservas";
     }
 
-    @PostMapping("/reservas/eliminar/{id}")
+    @PostMapping("/eliminar/{id}")
     public String deleteReservation(@PathVariable String id,
                                     Authentication authentication,
                                     RedirectAttributes redirectAttributes) {
@@ -89,7 +89,7 @@ public class AdminReservasController {
         return "redirect:/admin/reservas";
     }
 
-    @PostMapping("/reservas/estado/{id}")
+    @PostMapping("/estado/{id}")
     public String updateReservationStatus(@PathVariable String id, @RequestParam String estado,
             @RequestParam(required = false) String nota,
             Authentication authentication,
@@ -123,7 +123,7 @@ public class AdminReservasController {
         return "redirect:/admin/reservas";
     }
 
-    @PostMapping("/reservas/{id}/abono")
+    @PostMapping("/{id}/abono")
     public String registrarAbono(@PathVariable String id,
                                   @RequestParam BigDecimal monto,
                                   @RequestParam(defaultValue = "ABONO") String tipoPago,
@@ -143,7 +143,7 @@ public class AdminReservasController {
         return "redirect:/admin/reservas";
     }
 
-    @GetMapping("/reservas/contrato/{id}")
+    @GetMapping("/contrato/{id}")
     public ResponseEntity<byte[]> downloadContrato(@PathVariable String id) {
         Reservation reservation = reservationService.getById(id).orElseThrow();
 

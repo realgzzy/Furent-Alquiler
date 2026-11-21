@@ -7,7 +7,6 @@ import com.alquiler.furent.repository.InspirationImageRepository;
 import com.alquiler.furent.repository.ProductRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,11 +34,14 @@ public class InspirationService {
     @Value("${furent.upload.inspiration-dir:uploads/inspiration}")
     private String uploadDir;
 
-    @Autowired
-    private InspirationImageRepository inspirationImageRepository;
+    private final InspirationImageRepository inspirationImageRepository;
+    private final ProductRepository productRepository;
 
-    @Autowired
-    private ProductRepository productRepository;
+    public InspirationService(InspirationImageRepository inspirationImageRepository,
+            ProductRepository productRepository) {
+        this.inspirationImageRepository = inspirationImageRepository;
+        this.productRepository = productRepository;
+    }
 
     public List<InspirationImage> getAllImages(String tenantId) {
         return inspirationImageRepository.findByTenantIdOrderByDisplayOrderAsc(tenantId);

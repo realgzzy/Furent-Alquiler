@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
-@RequestMapping("/admin")
+@RequestMapping("/admin/exportar")
 public class AdminExportController {
 
     private final ExportService exportService;
@@ -28,7 +28,7 @@ public class AdminExportController {
         this.userService = userService;
     }
 
-    @GetMapping("/exportar/productos")
+    @GetMapping("/productos")
     public ResponseEntity<byte[]> exportProducts() {
         byte[] csv = exportService.exportProductsCsv(productService.getAllProducts());
         return ResponseEntity.ok()
@@ -37,7 +37,7 @@ public class AdminExportController {
                 .body(csv);
     }
 
-    @GetMapping("/exportar/reservas")
+    @GetMapping("/reservas")
     public ResponseEntity<byte[]> exportReservations() {
         byte[] csv = exportService.exportReservationsCsv(reservationService.getAllReservations());
         return ResponseEntity.ok()
@@ -46,7 +46,7 @@ public class AdminExportController {
                 .body(csv);
     }
 
-    @GetMapping("/exportar/usuarios")
+    @GetMapping("/usuarios")
     public ResponseEntity<byte[]> exportUsers() {
         byte[] csv = exportService.exportUsersCsv(userService.getAllUsers());
         return ResponseEntity.ok()

@@ -5,7 +5,6 @@ import com.alquiler.furent.model.InspirationImage.InspirationPin;
 import com.alquiler.furent.model.Product;
 import com.alquiler.furent.repository.ProductRepository;
 import com.alquiler.furent.service.InspirationService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -23,11 +22,14 @@ import java.util.Optional;
 @RequestMapping("/admin/inspiracion")
 public class AdminInspiracionController {
 
-    @Autowired
-    private InspirationService inspirationService;
+    private final InspirationService inspirationService;
+    private final ProductRepository productRepository;
 
-    @Autowired
-    private ProductRepository productRepository;
+    public AdminInspiracionController(InspirationService inspirationService,
+            ProductRepository productRepository) {
+        this.inspirationService = inspirationService;
+        this.productRepository = productRepository;
+    }
 
     private String getTenantId(HttpSession session) {
         String tenantId = (String) session.getAttribute("tenantId");
