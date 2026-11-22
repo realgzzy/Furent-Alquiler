@@ -31,9 +31,10 @@
                         </button>
                     </form>
                     <form th:action="@{'/admin/asistente/' + ${conversacion.id} + '/eliminar'}" method="post"
-                          onsubmit="return confirm('¿Eliminar esta conversación y todos sus mensajes? Esta acción no se puede deshacer.');">
-                        <button type="submit"
-                                class="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-red-700 transition-colors shadow-sm">
+                          th:attr="data-asx-titulo=${conversacion.titulo != null and !#strings.isEmpty(conversacion.titulo) ? #strings.abbreviate(conversacion.titulo, 52) : ('Conversación #' + #strings.substring(conversacion.id, 0, 8))}">
+                        <button type="button"
+                                class="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-red-700 transition-colors shadow-sm"
+                                onclick="asxEliminarConversacion(this.closest('form'))">
                             Eliminar
                         </button>
                     </form>
@@ -145,6 +146,22 @@
                 </div>
             </div>
         </div>
+
+        <script>
+            // Confirmación de eliminar conversación mediante el modal global del layout admin.
+            function asxEliminarConversacion(form) {
+                if (!form) return;
+                var titulo = form.getAttribute('data-asx-titulo') || 'esta conversación';
+                window.showModal({
+                    type: 'error',
+                    title: 'Eliminar conversación',
+                    message: '¿Seguro que quieres eliminar «' + titulo + '»? Se borrarán la conversación y todos sus mensajes. Esta acción no se puede deshacer.',
+                    confirmText: 'Sí, eliminar',
+                    cancelText: 'Cancelar',
+                    onConfirm: function () { form.submit(); }
+                });
+            }
+        </script>
     </main>
 </body>
 </html>
