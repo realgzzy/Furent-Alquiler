@@ -15,6 +15,11 @@
 
     var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
         'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    var MESES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    // Semana en español: empieza el lunes.
+    var DIAS_CORTOS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
+    var DIAS_LARGO = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
     var BAG_KEY = 'furent_bag';
     // Conversación activa, para sobrevivir la navegación entre páginas (no las recargas).
     var ACTIVE_KEY = 'furent_active_conversation';
@@ -124,7 +129,6 @@
             viewReco: document.getElementById('furent-assistant-view-reco'),
             viewAlquiler: document.getElementById('furent-assistant-view-alquiler'),
             calendarHost: document.getElementById('furent-assistant-calendar-host'),
-            datesInput: document.getElementById('furent-assistant-dates-input'),
             calendarClear: document.getElementById('furent-assistant-calendar-clear'),
             calendarUse: document.getElementById('furent-assistant-calendar-use'),
             calendarHint: document.getElementById('furent-assistant-calendar-hint'),
@@ -163,15 +167,15 @@
         var chatList = [];
         var authGateShown = false;
 
-        // Estado del calendario de fechas.
-        var fp = null;                 // instancia de flatpickr (null si no está disponible)
-        var formFp = null;             // flatpickr del rango de fechas del formulario
+        // Estado del calendario de fechas (RangeCalendar propio, sin dependencias externas).
+        var datesCalendar = null;      // calendario del panel lateral "Elegir fechas"
+        var formFieldCal = null;       // calendario del campo de fechas del formulario
+        var formPopover = null;        // popover abierto del campo de fechas (o null)
         var pendingStart = null;       // inicio elegido pero aún sin enviar (ISO y-m-d)
         var pendingEnd = null;         // fin elegido pero aún sin enviar (ISO y-m-d)
         var lastProductIds = [];       // ids de los productos mostrados, para consultar disponibilidad
         var reservedCache = {};        // { "ids": [{from,to}] } caché por conjunto de productos
         var reservedRanges = [];       // rangos ocupados vigentes para el contexto actual
-        var nativeDates = false;       // true si se degradó a <input type="date">
         var pendingTime = '';          // hora del evento elegida en la vista de fechas
 
         els.launcher.addEventListener('click', openPanel);
@@ -1186,6 +1190,8 @@
                 'M12 6.4v11.2'],
             pencil: ['M16.6 3.5a2.1 2.1 0 0 1 3 3L7 19.2l-4 1 1-4Z', 'M13.5 6.5l4 4'],
             chevron: ['m6 9.5 6 6 6-6'],
+            chevronLeft: ['m14.5 6-6 6 6 6'],
+            chevronRight: ['m9.5 6 6 6-6 6'],
             info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M12 11v5', 'M12 7.5h.01'],
             bulb: ['M12 3.5a5.5 5.5 0 0 0-3.3 9.9c.6.5 1 1.2 1.1 2v.6h4.4v-.6c.1-.8.5-1.5 1.1-2A5.5 5.5 0 0 0 12 3.5Z',
                 'M10 19h4', 'M10.6 21.5h2.8'],
@@ -1261,6 +1267,9 @@
             if (vista === 'fechas') {
                 if (authenticated) {
                     loadReservedDays();
+                }
+                if (datesCalendar) {
+                    datesCalendar.setRange(pendingStart, pendingEnd);
                 }
                 syncTimeQuick();
                 updateDatesUI();
@@ -1983,12 +1992,16 @@
             return wrap;
         }
 
-        /** Une los campos de fecha en un único flatpickr (rango), como en la pasarela. */
+        /**
+         * Campo de fechas del formulario: disparador estilo DateRangePicker de HeroUI
+         * (rango seleccionado + separador) y un popover con el RangeCalendar propio.
+         * El popover se anexa al panel para heredar los tokens --fa-* y el modo oscuro.
+         */
         function buildDateRangeField(dateFields, inputs) {
             var first = dateFields[0];
             var second = dateFields[1] || null;
 
-            var wrap = document.createElement('label');
+            var wrap = document.createElement('div');
             wrap.className = 'fa-field';
             var head = document.createElement('span');
             head.className = 'fa-field-head';
@@ -2005,12 +2018,17 @@
             ico.appendChild(svgIcon(ICONS.calendar, 16));
             control.appendChild(ico);
 
-            var input = document.createElement('input');
-            input.type = 'text';
-            input.readOnly = true;
-            input.autocomplete = 'off';
-            input.placeholder = second ? 'Selecciona el rango de fechas...' : 'Selecciona una fecha...';
-            control.appendChild(input);
+            // Disparador: mismo lenguaje que el resto de controles del formulario.
+            var trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.className = 'fa-daterange';
+            trigger.setAttribute('aria-haspopup', 'dialog');
+            trigger.setAttribute('aria-expanded', 'false');
+            var text = document.createElement('span');
+            text.className = 'fa-daterange-text is-placeholder';
+            text.textContent = second ? 'Selecciona el rango de fechas...' : 'Selecciona una fecha...';
+            trigger.appendChild(text);
+            control.appendChild(trigger);
 
             var hiddenStart = hiddenInput(first.name);
             inputs[first.name] = hiddenStart;
@@ -2022,66 +2040,168 @@
                 control.appendChild(hiddenEnd);
             }
 
-            var clear = document.createElement('button');
-            clear.type = 'button';
-            clear.className = 'fa-control-action';
-            clear.setAttribute('aria-label', 'Limpiar fechas');
-            clear.setAttribute('title', 'Limpiar fechas');
-            clear.appendChild(svgIcon(ICONS.eraser, 16));
-            clear.addEventListener('click', function (event) {
-                event.preventDefault();
-                event.stopPropagation();
-                if (formFp && typeof formFp.clear === 'function') {
-                    formFp.clear();
-                }
-            });
-            control.appendChild(clear);
+            var clearBtn = document.createElement('button');
+            clearBtn.type = 'button';
+            clearBtn.className = 'fa-control-action';
+            clearBtn.setAttribute('aria-label', 'Limpiar fechas');
+            clearBtn.setAttribute('title', 'Limpiar fechas');
+            clearBtn.appendChild(svgIcon(ICONS.eraser, 16));
+            control.appendChild(clearBtn);
 
             wrap.appendChild(control);
 
-            if (typeof window.flatpickr === 'function') {
-                try {
-                    formFp = window.flatpickr(input, {
-                        locale: 'es',
-                        mode: second ? 'range' : 'single',
-                        minDate: 'today',
-                        dateFormat: 'Y-m-d',
-                        altInput: true,
-                        altFormat: 'j \\de M, Y',
-                        disableMobile: true,
-                        onReady: function (d, s, instance) {
-                            instance.calendarContainer.classList.add('fa-fp');
-                        },
-                        onChange: function (dates, str, instance) {
-                            var start = (dates && dates[0]) ? toIso(dates[0]) : '';
-                            var end = (dates && dates.length > 1) ? toIso(dates[dates.length - 1]) : '';
-                            // El alquiler es de máximo 7 días: recorta el rango si se supera.
-                            if (start && end && second && diasEntre(start, end) > DETALLES_MAX_DIAS) {
-                                end = addDaysIso(start, DETALLES_MAX_DIAS - 1);
-                                if (instance && typeof instance.setDate === 'function') {
-                                    instance.setDate([start, end], false);
-                                }
-                            }
-                            // Tras elegir la fecha inicial, el calendario no permite pasar de 7 días.
-                            syncRangeLimit(instance);
-                            hiddenStart.value = start;
-                            if (hiddenEnd) {
-                                hiddenEnd.value = end;
-                            }
-                            control.classList.toggle('has-value', !!start);
-                            // Los campos ocultos no emiten 'input' al asignarles valor: lo avisamos a mano
-                            // para que la vista (p. ej. el checklist) reaccione al rango elegido.
-                            hiddenStart.dispatchEvent(new Event('input'));
-                            if (hiddenEnd) {
-                                hiddenEnd.dispatchEvent(new Event('input'));
-                            }
-                        }
-                    });
-                } catch (e) {
-                    formFp = null;
+            function updateTrigger() {
+                var s = hiddenStart.value;
+                var e = hiddenEnd ? hiddenEnd.value : '';
+                if (!s) {
+                    text.classList.add('is-placeholder');
+                    text.textContent = second ? 'Selecciona el rango de fechas...' : 'Selecciona una fecha...';
+                    return;
                 }
+                text.classList.remove('is-placeholder');
+                text.textContent = (e && e !== s) ? rangoCorto(s, e) : fmtFecha(s);
             }
+
+            // El calendario vive dentro del popover; no requiere dependencias externas.
+            var cal = createRangeCalendar({
+                single: !second,
+                maxSpan: DETALLES_MAX_DIAS,
+                onChange: function (s, e) {
+                    hiddenStart.value = s || '';
+                    if (hiddenEnd) {
+                        hiddenEnd.value = e || '';
+                    }
+                    control.classList.toggle('has-value', !!s);
+                    updateTrigger();
+                    // Los campos ocultos no emiten 'input' al asignarles valor: lo avisamos a mano
+                    // para que la vista (p. ej. el checklist) reaccione al rango elegido.
+                    hiddenStart.dispatchEvent(new Event('input'));
+                    if (hiddenEnd) {
+                        hiddenEnd.dispatchEvent(new Event('input'));
+                    }
+                }
+            });
+            formFieldCal = cal;
+
+            var pop = document.createElement('div');
+            pop.className = 'fa-daterange-pop';
+            pop.setAttribute('role', 'dialog');
+            pop.setAttribute('aria-label', 'Selecciona el rango de fechas');
+            pop.hidden = true;
+            pop.appendChild(cal.el);
+
+            trigger.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!pop.hidden) {
+                    closeFormPopover();
+                    return;
+                }
+                openFormPopover({
+                    anchor: trigger,
+                    pop: pop,
+                    cal: cal,
+                    onClose: function () { trigger.setAttribute('aria-expanded', 'false'); }
+                });
+                trigger.setAttribute('aria-expanded', 'true');
+            });
+
+            clearBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                cal.clear();
+                hiddenStart.value = '';
+                if (hiddenEnd) {
+                    hiddenEnd.value = '';
+                }
+                control.classList.remove('has-value');
+                updateTrigger();
+                hiddenStart.dispatchEvent(new Event('input'));
+                if (hiddenEnd) {
+                    hiddenEnd.dispatchEvent(new Event('input'));
+                }
+            });
+
+            updateTrigger();
             return wrap;
+        }
+
+        /** Abre el popover del calendario del formulario, anclado a su disparador. */
+        function openFormPopover(ctx) {
+            closeFormPopover();
+            els.panel.appendChild(ctx.pop);
+            ctx.pop.hidden = false;
+            formPopover = ctx;
+            positionFormPopover();
+            if (ctx.cal && typeof ctx.cal.focus === 'function') {
+                ctx.cal.focus();
+            }
+
+            ctx.onDoc = function (event) {
+                if (ctx.pop.contains(event.target) || ctx.anchor.contains(event.target)) {
+                    return;
+                }
+                closeFormPopover();
+            };
+            ctx.onKey = function (event) {
+                if (event.key === 'Escape') {
+                    closeFormPopover();
+                    ctx.anchor.focus();
+                }
+            };
+            ctx.onReflow = positionFormPopover;
+            document.addEventListener('mousedown', ctx.onDoc, true);
+            document.addEventListener('keydown', ctx.onKey, true);
+            var body = els.panel.querySelector('.fa-side-body');
+            if (body) {
+                body.addEventListener('scroll', ctx.onReflow, { passive: true });
+            }
+            window.addEventListener('resize', ctx.onReflow);
+        }
+
+        /** Coloca el popover bajo el disparador y lo mantiene dentro del panel. */
+        function positionFormPopover() {
+            if (!formPopover) {
+                return;
+            }
+            var panelRect = els.panel.getBoundingClientRect();
+            var anchorRect = formPopover.anchor.getBoundingClientRect();
+            var pop = formPopover.pop;
+            var width = pop.offsetWidth || 292;
+            var height = pop.offsetHeight || 360;
+            var left = anchorRect.left - panelRect.left;
+            var top = anchorRect.bottom - panelRect.top + 8;
+            var maxLeft = panelRect.width - width - 12;
+            left = Math.max(12, Math.min(left, Math.max(12, maxLeft)));
+            if (top + height > panelRect.height - 12) {
+                var above = anchorRect.top - panelRect.top - height - 8;
+                top = above >= 12 ? above : Math.max(12, panelRect.height - height - 12);
+            }
+            pop.style.left = Math.round(left) + 'px';
+            pop.style.top = Math.round(top) + 'px';
+        }
+
+        /** Cierra y limpia el popover del calendario del formulario. */
+        function closeFormPopover() {
+            if (!formPopover) {
+                return;
+            }
+            var ctx = formPopover;
+            formPopover = null;
+            document.removeEventListener('mousedown', ctx.onDoc, true);
+            document.removeEventListener('keydown', ctx.onKey, true);
+            var body = els.panel.querySelector('.fa-side-body');
+            if (body) {
+                body.removeEventListener('scroll', ctx.onReflow);
+            }
+            window.removeEventListener('resize', ctx.onReflow);
+            if (ctx.pop.parentNode) {
+                ctx.pop.parentNode.removeChild(ctx.pop);
+            }
+            ctx.pop.hidden = true;
+            if (ctx.onClose) {
+                ctx.onClose();
+            }
         }
 
         function hiddenInput(name) {
@@ -2092,10 +2212,8 @@
         }
 
         function destroyFormFp() {
-            if (formFp && typeof formFp.destroy === 'function') {
-                try { formFp.destroy(); } catch (e) { /* opcional */ }
-            }
-            formFp = null;
+            closeFormPopover();
+            formFieldCal = null;
         }
 
         // ── Vista: recomendación ──
@@ -2776,7 +2894,7 @@
         // ───────────────────────── Fechas / calendario ─────────────────────────
 
         function initDatePicker() {
-            if (!els.datesInput || !els.calendarUse) {
+            if (!els.calendarHost || !els.calendarUse) {
                 return;
             }
             if (els.calendarClear) {
@@ -2784,119 +2902,377 @@
             }
             els.calendarUse.addEventListener('click', useDates);
 
-            if (typeof window.flatpickr === 'function') {
-                try {
-                    fp = window.flatpickr(els.datesInput, {
-                        locale: 'es',
-                        mode: 'range',
-                        inline: true,
-                        minDate: 'today',
-                        dateFormat: 'Y-m-d',
-                        showMonths: 1,
-                        disableMobile: true,
-                        onReady: function (dObj, dStr, instance) {
-                            instance.calendarContainer.classList.add('fa-fp');
-                        },
-                        onChange: onDatesChange,
-                        onDayCreate: function (dObj, dStr, instance, dayElem) {
-                            markReserved(dayElem);
-                        }
-                    });
-                } catch (e) {
-                    fp = null;
+            els.calendarHost.textContent = '';
+            datesCalendar = createRangeCalendar({
+                maxSpan: DETALLES_MAX_DIAS,
+                start: pendingStart,
+                end: pendingEnd,
+                onChange: function (start, end) {
+                    pendingStart = start || null;
+                    pendingEnd = end || null;
+                    updateDatesUI();
                 }
-            }
-            if (!fp) {
-                nativeDates = true;
-                buildNativeFallback();
-            }
+            });
+            els.calendarHost.appendChild(datesCalendar.el);
             syncTimeQuick();
             updateDatesUI();
         }
 
-        function buildNativeFallback() {
-            if (!els.calendarHost) {
-                return;
-            }
-            els.calendarHost.textContent = '';
-            var wrap = document.createElement('div');
-            wrap.className = 'fa-native-dates';
+        // ── RangeCalendar (réplica del componente de HeroUI, sin dependencias) ──
 
-            var startField = nativeField('Desde', 'furent-assistant-native-start');
-            var endField = nativeField('Hasta', 'furent-assistant-native-end');
-            wrap.appendChild(startField.wrap);
-            wrap.appendChild(endField.wrap);
-            els.calendarHost.appendChild(wrap);
-            els._nativeStart = startField.input;
-            els._nativeEnd = endField.input;
-
-            function sync() {
-                var start = startField.input.value;
-                var end = endField.input.value;
-                if (start && end && diasEntre(start, end) > DETALLES_MAX_DIAS) {
-                    end = addDaysIso(start, DETALLES_MAX_DIAS - 1);
-                    endField.input.value = end;
-                }
-                pendingStart = start || null;
-                pendingEnd = end || null;
-                updateDatesUI();
-            }
-            startField.input.addEventListener('change', sync);
-            endField.input.addEventListener('change', sync);
+        /** Primer día del mes de `date`. */
+        function startOfMonth(date) {
+            return new Date(date.getFullYear(), date.getMonth(), 1);
         }
 
-        function nativeField(label, id) {
-            var wrap = document.createElement('label');
-            wrap.className = 'fa-native-field';
-            wrap.setAttribute('for', id);
-            wrap.appendChild(document.createTextNode(label));
-            var input = document.createElement('input');
-            input.type = 'date';
-            input.id = id;
-            input.min = todayIso();
-            wrap.appendChild(input);
-            return { wrap: wrap, input: input };
+        /** Índice absoluto del mes (año * 12 + mes), para comparar meses. */
+        function monthIndex(date) {
+            return date.getFullYear() * 12 + date.getMonth();
         }
 
-        function onDatesChange(selectedDates, dateStr, instance) {
-            if (!selectedDates || selectedDates.length === 0) {
-                pendingStart = null;
-                pendingEnd = null;
-                syncRangeLimit(instance);
-                updateDatesUI();
-                return;
-            }
-            pendingStart = toIso(selectedDates[0]);
-            pendingEnd = selectedDates.length > 1 ? toIso(selectedDates[selectedDates.length - 1]) : null;
-
-            if (pendingStart && pendingEnd && diasEntre(pendingStart, pendingEnd) > DETALLES_MAX_DIAS) {
-                pendingEnd = addDaysIso(pendingStart, DETALLES_MAX_DIAS - 1);
-                if (instance && typeof instance.setDate === 'function') {
-                    instance.setDate([pendingStart, pendingEnd], false);
-                }
-            }
-            syncRangeLimit(instance);
-            updateDatesUI();
+        /** Suma meses a `date` conservando el primer día del mes. */
+        function addMonths(date, n) {
+            return new Date(date.getFullYear(), date.getMonth() + n, 1);
         }
 
         /**
-         * Mantiene el rango de fechas dentro de DETALLES_MAX_DIAS (7 días), igual que la
-         * pasarela de cotización: tras elegir la fecha inicial fija `maxDate` a inicio + 6
-         * para que flatpickr deshabilite el resto; al quedar completo (o limpio) lo libera.
+         * Construye un calendario de rango (o de fecha única) con el aspecto y la
+         * interacción del RangeCalendar de HeroUI. Devuelve el nodo y una API mínima
+         * para leer/fijar el rango, refrescar la vista y limpiar la selección.
+         *
+         * Conserva la lógica actual: no permite fechas pasadas, marca los días ocupados
+         * (reservedRanges) y limita el rango a `maxSpan` días (DETALLES_MAX_DIAS).
          */
-        function syncRangeLimit(instance) {
-            if (!instance || typeof instance.set !== 'function'
-                    || !instance.config || instance.config.mode !== 'range') {
-                return;
+        function createRangeCalendar(opts) {
+            opts = opts || {};
+            var maxSpan = opts.maxSpan || DETALLES_MAX_DIAS;
+            var single = !!opts.single;
+            var onChange = opts.onChange || function () {};
+
+            var root = document.createElement('div');
+            root.className = 'fa-rc';
+            root.setAttribute('role', 'group');
+            root.setAttribute('aria-label', single ? 'Calendario' : 'Rango de fechas');
+
+            var initial = opts.start ? parseIso(opts.start) : null;
+            var view = startOfMonth(initial || new Date());
+            var start = opts.start || null;
+            var end = opts.end || null;
+            var hoverIso = null;
+
+            /** Mientras se elige el segundo extremo, la ventana se limita a `maxSpan` días. */
+            function inAllowedWindow(iso) {
+                if (single || !start || end) {
+                    return true;
+                }
+                return iso >= addDaysIso(start, -(maxSpan - 1)) && iso <= addDaysIso(start, maxSpan - 1);
             }
-            var dates = instance.selectedDates || [];
-            if (dates.length === 1 && dates[0]) {
-                var max = addDays(dates[0], DETALLES_MAX_DIAS - 1);
-                max.setHours(23, 59, 59, 999);
-                instance.set('maxDate', max);
-            } else {
-                instance.set('maxDate', null);
+
+            function dayDisabled(iso) {
+                if (iso < todayIso()) { return true; }
+                if (findReserved(iso)) { return true; }
+                return !inAllowedWindow(iso);
             }
+
+            /** ¿Hay algún día ocupado dentro del rango [lo, hi]? */
+            function rangeHasReserved(lo, hi) {
+                for (var i = 0; i < reservedRanges.length; i++) {
+                    var r = reservedRanges[i];
+                    if (r && r.from && r.to && r.from <= hi && r.to >= lo) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            function buildDay(date, hoy) {
+                var iso = toIso(date);
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'fa-rc-day';
+                btn.setAttribute('role', 'gridcell');
+                btn.setAttribute('data-iso', iso);
+                btn.setAttribute('aria-label', DIAS_LARGO[(date.getDay() + 6) % 7] + ', '
+                    + date.getDate() + ' de ' + MESES_LARGO[date.getMonth()] + ' de ' + date.getFullYear());
+
+                var num = document.createElement('span');
+                num.className = 'fa-rc-day-num';
+                num.textContent = String(date.getDate());
+                btn.appendChild(num);
+
+                if (date.getMonth() !== view.getMonth()) {
+                    btn.setAttribute('data-outside', 'true');
+                }
+                if (iso === hoy) {
+                    btn.setAttribute('data-today', 'true');
+                }
+                if (findReserved(iso)) {
+                    btn.setAttribute('data-unavailable', 'true');
+                }
+                if (dayDisabled(iso)) {
+                    btn.setAttribute('data-disabled', 'true');
+                    btn.disabled = true;
+                }
+
+                var rs = null;
+                var re = null;
+                if (start && end) {
+                    rs = start;
+                    re = end;
+                } else if (start && hoverIso) {
+                    rs = start < hoverIso ? start : hoverIso;
+                    re = start < hoverIso ? hoverIso : start;
+                } else if (start) {
+                    rs = start;
+                    re = start;
+                }
+                if (rs && iso >= rs && iso <= re) {
+                    btn.setAttribute('data-in-selection', 'true');
+                }
+                if (rs && iso === rs) {
+                    btn.setAttribute('data-selection-start', 'true');
+                    btn.setAttribute('data-selected', 'true');
+                }
+                if (re && iso === re && re !== rs) {
+                    btn.setAttribute('data-selection-end', 'true');
+                    btn.setAttribute('data-selected', 'true');
+                }
+                return btn;
+            }
+
+            function render() {
+                root.textContent = '';
+
+                var head = document.createElement('div');
+                head.className = 'fa-rc-head';
+
+                var prev = document.createElement('button');
+                prev.type = 'button';
+                prev.className = 'fa-rc-nav';
+                prev.setAttribute('data-nav', '-1');
+                prev.setAttribute('aria-label', 'Mes anterior');
+                prev.appendChild(svgIcon(ICONS.chevronLeft, 16));
+                if (monthIndex(view) <= monthIndex(startOfMonth(new Date()))) {
+                    prev.disabled = true;
+                }
+
+                var title = document.createElement('span');
+                title.className = 'fa-rc-title';
+                title.setAttribute('aria-live', 'polite');
+                title.textContent = MESES_LARGO[view.getMonth()] + ' ' + view.getFullYear();
+
+                var next = document.createElement('button');
+                next.type = 'button';
+                next.className = 'fa-rc-nav';
+                next.setAttribute('data-nav', '1');
+                next.setAttribute('aria-label', 'Mes siguiente');
+                next.appendChild(svgIcon(ICONS.chevronRight, 16));
+
+                head.appendChild(prev);
+                head.appendChild(title);
+                head.appendChild(next);
+                root.appendChild(head);
+
+                var grid = document.createElement('div');
+                grid.className = 'fa-rc-grid';
+                grid.setAttribute('role', 'grid');
+
+                var week = document.createElement('div');
+                week.className = 'fa-rc-week';
+                week.setAttribute('role', 'row');
+                DIAS_CORTOS.forEach(function (dia, i) {
+                    var wd = document.createElement('abbr');
+                    wd.className = 'fa-rc-wd';
+                    wd.setAttribute('role', 'columnheader');
+                    wd.setAttribute('aria-label', DIAS_LARGO[i]);
+                    wd.textContent = dia;
+                    week.appendChild(wd);
+                });
+                grid.appendChild(week);
+
+                var hoy = todayIso();
+                var first = startOfMonth(view);
+                var offset = (first.getDay() + 6) % 7;   // semana empieza en lunes
+                var cellStart = addDays(first, -offset);
+                for (var w = 0; w < 6; w++) {
+                    var row = document.createElement('div');
+                    row.className = 'fa-rc-row';
+                    row.setAttribute('role', 'row');
+                    for (var c = 0; c < 7; c++) {
+                        row.appendChild(buildDay(addDays(cellStart, w * 7 + c), hoy));
+                    }
+                    grid.appendChild(row);
+                }
+                root.appendChild(grid);
+            }
+
+            function selectIso(iso) {
+                if (single) {
+                    start = iso;
+                    end = iso;
+                    hoverIso = null;
+                    render();
+                    onChange(start, end);
+                    return;
+                }
+                if (!start || end) {
+                    start = iso;
+                    end = null;
+                } else if (iso < start) {
+                    end = start;
+                    start = iso;
+                } else {
+                    end = iso;
+                }
+                // No se permite un rango que cruce días ocupados.
+                if (start && end && rangeHasReserved(start, end)) {
+                    start = iso;
+                    end = null;
+                }
+                // Recorte de seguridad (la ventana ya limita a maxSpan).
+                if (start && end && diasEntre(start, end) > maxSpan) {
+                    end = addDaysIso(start, maxSpan - 1);
+                }
+                hoverIso = null;
+                render();
+                onChange(start, end);
+            }
+
+            /** Lleva el foco a la fecha indicada, cambiando de mes si es necesario. */
+            function focusIso(iso) {
+                var d = parseIso(iso);
+                if (!d) {
+                    return;
+                }
+                if (monthIndex(d) !== monthIndex(view)) {
+                    view = startOfMonth(d);
+                    render();
+                }
+                var btns = root.querySelectorAll('.fa-rc-day');
+                var fallback = null;
+                for (var i = 0; i < btns.length; i++) {
+                    var b = btns[i];
+                    if (b.disabled) { continue; }
+                    if (b.getAttribute('data-iso') === iso) { b.focus(); return; }
+                    if (!b.hasAttribute('data-outside') && !fallback) { fallback = b; }
+                }
+                if (fallback) { fallback.focus(); }
+            }
+
+            /** Avanza `delta` días saltando los días no disponibles. */
+            function stepEnabled(fromIso, delta) {
+                var dir = delta > 0 ? 1 : -1;
+                var step = Math.abs(delta);
+                var iso = fromIso;
+                for (var i = 0; i < 60; i++) {
+                    iso = addDaysIso(iso, dir * step);
+                    if (!dayDisabled(iso)) { return iso; }
+                }
+                return iso;
+            }
+
+            function weekEdge(iso, dir) {
+                var d = parseIso(iso);
+                if (!d) { return iso; }
+                var dow = (d.getDay() + 6) % 7;   // 0 = lunes
+                return addDaysIso(iso, dir < 0 ? -dow : (6 - dow));
+            }
+
+            function shiftMonthIso(iso, delta) {
+                var d = parseIso(iso);
+                if (!d) { return iso; }
+                var target = new Date(d.getFullYear(), d.getMonth() + delta, 1);
+                var last = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+                target.setDate(Math.min(d.getDate(), last));
+                return toIso(target);
+            }
+
+            root.addEventListener('click', function (event) {
+                var nav = event.target.closest ? event.target.closest('[data-nav]') : null;
+                if (nav && root.contains(nav)) {
+                    event.preventDefault();
+                    if (nav.disabled) { return; }
+                    view = addMonths(view, parseInt(nav.getAttribute('data-nav'), 10));
+                    render();
+                    return;
+                }
+                var cell = event.target.closest ? event.target.closest('.fa-rc-day') : null;
+                if (!cell || cell.disabled) {
+                    return;
+                }
+                event.preventDefault();
+                selectIso(cell.getAttribute('data-iso'));
+            });
+
+            root.addEventListener('mouseover', function (event) {
+                if (single || !start || end) { return; }
+                var cell = event.target.closest ? event.target.closest('.fa-rc-day') : null;
+                if (!cell || cell.disabled) { return; }
+                var iso = cell.getAttribute('data-iso');
+                if (iso !== hoverIso) {
+                    hoverIso = iso;
+                    render();
+                }
+            });
+
+            root.addEventListener('mouseleave', function () {
+                if (hoverIso) {
+                    hoverIso = null;
+                    render();
+                }
+            });
+
+            root.addEventListener('keydown', function (event) {
+                var cell = event.target.closest ? event.target.closest('.fa-rc-day') : null;
+                if (!cell) { return; }
+                var iso = cell.getAttribute('data-iso');
+                var key = event.key;
+                var target = null;
+                if (key === 'Enter' || key === ' ') {
+                    event.preventDefault();
+                    cell.click();
+                    return;
+                } else if (key === 'ArrowLeft') { target = stepEnabled(iso, -1); }
+                else if (key === 'ArrowRight') { target = stepEnabled(iso, 1); }
+                else if (key === 'ArrowUp') { target = stepEnabled(iso, -7); }
+                else if (key === 'ArrowDown') { target = stepEnabled(iso, 7); }
+                else if (key === 'Home') { target = weekEdge(iso, -1); }
+                else if (key === 'End') { target = weekEdge(iso, 1); }
+                else if (key === 'PageUp') { target = shiftMonthIso(iso, -1); }
+                else if (key === 'PageDown') { target = shiftMonthIso(iso, 1); }
+                else { return; }
+                event.preventDefault();
+                if (target) { focusIso(target); }
+            });
+
+            render();
+
+            return {
+                el: root,
+                getStart: function () { return start; },
+                getEnd: function () { return end; },
+                setRange: function (s, e) {
+                    start = s || null;
+                    end = e || null;
+                    hoverIso = null;
+                    if (start) {
+                        var d = parseIso(start);
+                        if (d) { view = startOfMonth(d); }
+                    }
+                    render();
+                },
+                clear: function () {
+                    start = null;
+                    end = null;
+                    hoverIso = null;
+                    render();
+                },
+                refresh: render,
+                focus: function () { focusIso(start || todayIso()); },
+                destroy: function () {
+                    if (root.parentNode) { root.parentNode.removeChild(root); }
+                }
+            };
         }
 
         function updateDatesUI() {
@@ -2962,17 +3338,11 @@
             pendingTime = '';
             lastProductIds = [];
             reservedRanges = [];
-            if (fp && typeof fp.clear === 'function') {
-                try { fp.clear(false); } catch (e) { /* opcional */ }
+            if (datesCalendar) {
+                datesCalendar.clear();
             }
-            if (fp && typeof fp.set === 'function') {
-                try { fp.set('disable', []); } catch (e) { /* opcional */ }
-            }
-            if (els._nativeStart) {
-                els._nativeStart.value = '';
-            }
-            if (els._nativeEnd) {
-                els._nativeEnd.value = '';
+            if (formFieldCal) {
+                formFieldCal.clear();
             }
             if (els.eventTime) {
                 els.eventTime.value = '';
@@ -2996,14 +3366,8 @@
             pendingStart = null;
             pendingEnd = null;
             pendingTime = '';
-            if (fp && typeof fp.clear === 'function') {
-                try { fp.clear(false); } catch (e) { /* opcional */ }
-            }
-            if (els._nativeStart) {
-                els._nativeStart.value = '';
-            }
-            if (els._nativeEnd) {
-                els._nativeEnd.value = '';
+            if (datesCalendar) {
+                datesCalendar.clear();
             }
             if (els.eventTime) {
                 els.eventTime.value = '';
@@ -3069,23 +3433,11 @@
 
         function applyReserved(ranges) {
             reservedRanges = ranges || [];
-            if (fp && typeof fp.set === 'function') {
-                try { fp.set('disable', reservedRanges); } catch (e) { /* opcional */ }
+            if (datesCalendar) {
+                datesCalendar.refresh();
             }
-            if (els.calendarHost) {
-                var days = els.calendarHost.querySelectorAll('.flatpickr-day');
-                for (var i = 0; i < days.length; i++) {
-                    markReserved(days[i]);
-                }
-            }
-        }
-
-        function markReserved(dayElem) {
-            if (!dayElem || !dayElem.dateObj) {
-                return;
-            }
-            if (findReserved(toIso(dayElem.dateObj))) {
-                dayElem.classList.add('is-reserved');
+            if (formFieldCal) {
+                formFieldCal.refresh();
             }
         }
 
