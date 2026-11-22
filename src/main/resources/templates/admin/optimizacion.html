@@ -347,7 +347,7 @@
                             El plan no alcanza a cubrir del todo estas unidades-día; conviene comprar inventario o reprogramar.
                         </p>
                         <div class="flex flex-wrap gap-1.5 mt-3">
-                            <template x-for="s in resultado.shortfalls" :key="s.productId + s.date">
+                            <template x-for="s in (resultado?.shortfalls || [])" :key="s.productId + s.date">
                                 <span class="aox-pill aox-pill-accent" x-text="s.nombre + ' · ' + fmtFecha(s.date) + ' · ' + s.qty + ' u.'"></span>
                             </template>
                         </div>
@@ -456,12 +456,12 @@
                         <!-- Cabecera de días -->
                         <div class="aox-heat-row" :style="heatCols()">
                             <div class="aox-heat-sticky"></div>
-                            <template x-for="(dia, di) in resultado.heatmap.dates" :key="'hd'+di">
+                            <template x-for="(dia, di) in (resultado?.heatmap?.dates || [])" :key="'hd'+di">
                                 <div class="aox-heat-day" x-text="diaCorto(dia)"></div>
                             </template>
                         </div>
                         <!-- Filas de producto -->
-                        <template x-for="row in resultado.heatmap.rows" :key="row.productId">
+                        <template x-for="row in (resultado?.heatmap?.rows || [])" :key="row.productId">
                             <div class="aox-heat-row" :style="heatCols()">
                                 <div class="aox-heat-sticky aox-heat-name">
                                     <span class="text-xs font-black text-surface-800 truncate max-w-[10rem]" x-text="row.nombre" :title="row.nombre"></span>
