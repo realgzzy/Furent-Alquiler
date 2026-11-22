@@ -2062,6 +2062,8 @@
                                     instance.setDate([start, end], false);
                                 }
                             }
+                            // Tras elegir la fecha inicial, el calendario no permite pasar de 7 días.
+                            syncRangeLimit(instance);
                             hiddenStart.value = start;
                             if (hiddenEnd) {
                                 hiddenEnd.value = end;
@@ -2073,9 +2075,6 @@
                             if (hiddenEnd) {
                                 hiddenEnd.dispatchEvent(new Event('input'));
                             }
-                        },
-                        onDayCreate: function (dObj, dStr, instance, dayElem) {
-                            limitRangeDay(dayElem, instance);
                         }
                     });
                 } catch (e) {
@@ -2801,7 +2800,6 @@
                         onChange: onDatesChange,
                         onDayCreate: function (dObj, dStr, instance, dayElem) {
                             markReserved(dayElem);
-                            limitRangeDay(dayElem, instance);
                         }
                     });
                 } catch (e) {
@@ -2860,10 +2858,11 @@
             return { wrap: wrap, input: input };
         }
 
-        function onDatesChange(selectedDates) {
+        function onDatesChange(selectedDates, dateStr, instance) {
             if (!selectedDates || selectedDates.length === 0) {
                 pendingStart = null;
                 pendingEnd = null;
+                syncRangeLimit(instance);
                 updateDatesUI();
                 return;
             }
@@ -2872,33 +2871,31 @@
 
             if (pendingStart && pendingEnd && diasEntre(pendingStart, pendingEnd) > DETALLES_MAX_DIAS) {
                 pendingEnd = addDaysIso(pendingStart, DETALLES_MAX_DIAS - 1);
-                if (fp && typeof fp.setDate === 'function') {
-                    fp.setDate([pendingStart, pendingEnd], false);
+                if (instance && typeof instance.setDate === 'function') {
+                    instance.setDate([pendingStart, pendingEnd], false);
                 }
             }
+            syncRangeLimit(instance);
             updateDatesUI();
         }
 
         /**
-         * Limita el rango de fechas a DETALLES_MAX_DIAS (7 días) dentro del propio
-         * calendario: tras elegir la fecha inicial, marca como no disponibles los días
-         * que superen esa ventana para que no se pueda pintar un rango mayor.
-         * flatpickr respeta la clase `flatpickr-disabled` en el hover y en el clic.
+         * Mantiene el rango de fechas dentro de DETALLES_MAX_DIAS (7 días), igual que la
+         * pasarela de cotización: tras elegir la fecha inicial fija `maxDate` a inicio + 6
+         * para que flatpickr deshabilite el resto; al quedar completo (o limpio) lo libera.
          */
-        function limitRangeDay(dayElem, instance) {
-            if (!dayElem || !dayElem.dateObj || !instance || instance.selectedDates.length !== 1) {
+        function syncRangeLimit(instance) {
+            if (!instance || typeof instance.set !== 'function'
+                    || !instance.config || instance.config.mode !== 'range') {
                 return;
             }
-            var start = instance.selectedDates[0];
-            if (!start) {
-                return;
-            }
-            var max = addDays(start, DETALLES_MAX_DIAS - 1);
-            max.setHours(23, 59, 59, 999);
-            if (dayElem.dateObj.getTime() > max.getTime()) {
-                dayElem.classList.add('flatpickr-disabled');
-                dayElem.setAttribute('aria-disabled', 'true');
-                dayElem.tabIndex = -1;
+            var dates = instance.selectedDates || [];
+            if (dates.length === 1 && dates[0]) {
+                var max = addDays(dates[0], DETALLES_MAX_DIAS - 1);
+                max.setHours(23, 59, 59, 999);
+                instance.set('maxDate', max);
+            } else {
+                instance.set('maxDate', null);
             }
         }
 
