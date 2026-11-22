@@ -1,337 +1,965 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/admin-layout :: layout(~{::title}, ~{::main}, 'dashboard')}">
 <head>
-    <title>Dashboard — Furent Admin</title>
+    <title>Resumen — Furent Admin</title>
 </head>
 <body>
-    <main>
-        <div class="px-10 py-8 max-w-[90rem] mx-auto">
-            
-            <div class="flex items-center justify-between mb-10">
-                <div>
-                    <h1 class="text-3xl font-extra-bold tracking-tight text-surface-900">Panel de Control</h1>
-                    <p class="text-sm text-surface-500 mt-1">Supervisión en tiempo real de operaciones y rendimiento.</p>
+<main>
+    <div class="db-scope px-6 sm:px-10 py-8 pb-16 max-w-[92rem] mx-auto"
+         x-data="dashboardPage()" x-init="init()" x-cloak>
+
+        <style>
+            /* ============================================================
+               Resumen · panel de control
+               Identidad Furent: base zinc, una sola tinta de acento (#E07A3A).
+               Registro: "sala de control cálida" — denso, ordenado, editorial.
+               ============================================================ */
+            .db-scope {
+                --db-accent: #E07A3A;
+                --db-accent-strong: #C2630F;
+                --db-accent-soft: #FFF7F0;
+                --db-accent-line: #FED7AA;
+                --db-ink: #18181b;
+                --db-ink-2: #52525b;
+                --db-mute: #71717a;
+                --db-faint: #a1a1aa;
+                --db-line: #f4f4f5;
+                --db-line-2: #e4e4e7;
+                --db-card: #ffffff;
+                --db-hover: #fafafa;
+                --db-grid: rgba(24, 24, 27, .07);
+                --db-tint: #fafafa;
+            }
+            html.dark .db-scope {
+                --db-accent-soft: rgba(224, 122, 58, .14);
+                --db-accent-line: rgba(224, 122, 58, .32);
+                --db-ink: #fafafa;
+                --db-ink-2: #a1a1aa;
+                --db-mute: #71717a;
+                --db-faint: #52525b;
+                --db-line: #1c1c20;
+                --db-line-2: #27272a;
+                --db-card: #131316;
+                --db-hover: #1a1a1e;
+                --db-grid: rgba(255, 255, 255, .07);
+                --db-tint: #17171a;
+            }
+
+            .db-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: var(--db-faint); }
+            .db-tabular { font-variant-numeric: tabular-nums; }
+
+            /* Entrada escalonada */
+            .db-rise { animation: dbRise .5s cubic-bezier(.16, 1, .3, 1) both; }
+            .db-d1 { animation-delay: .04s; } .db-d2 { animation-delay: .09s; }
+            .db-d3 { animation-delay: .14s; } .db-d4 { animation-delay: .19s; }
+            @keyframes dbRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+            /* Tarjetas */
+            .db-card { background: var(--db-card); border: 1px solid var(--db-line); border-radius: 1rem; }
+
+            /* KPIs */
+            .db-kpi { padding: 1.15rem 1.25rem; display: flex; flex-direction: column; }
+            .db-kpi__icon { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: .7rem;
+                            background: var(--db-tint); color: var(--db-ink-2); }
+            .db-kpi__icon--accent { background: var(--db-accent-soft); color: var(--db-accent); }
+            .db-kpi__value { font-size: 1.7rem; line-height: 1; font-weight: 900; letter-spacing: -.02em; color: var(--db-ink); margin-top: 1rem; }
+            .db-kpi__label { font-size: .74rem; font-weight: 700; color: var(--db-mute); margin-top: .45rem; }
+            .db-kpi__sub { font-size: .72rem; font-weight: 600; color: var(--db-mute); margin-top: .35rem; display: flex; align-items: center; gap: .35rem; }
+            .db-kpi__spark { height: 34px; margin-top: .7rem; }
+
+            /* Píldoras de estado */
+            .db-pill { display: inline-flex; align-items: center; gap: .35rem; padding: .22rem .6rem; border-radius: .55rem;
+                       font-size: .62rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+                       border: 1px solid transparent; white-space: nowrap; }
+            .db-dot { width: .4rem; height: .4rem; border-radius: 9999px; background: currentColor; }
+            .db-pill-ok { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+            .db-pill-warn { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+            .db-pill-stop { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+            .db-pill-info { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+            .db-pill-mute { background: var(--db-line); color: var(--db-ink-2); border-color: var(--db-line-2); }
+            .db-pill-accent { background: var(--db-accent-soft); color: var(--db-accent-strong); border-color: var(--db-accent-line); }
+            html.dark .db-pill-ok { background: rgba(22, 163, 74, .14); color: #4ade80; border-color: rgba(22, 163, 74, .32); }
+            html.dark .db-pill-warn { background: rgba(217, 119, 6, .16); color: #fbbf24; border-color: rgba(217, 119, 6, .34); }
+            html.dark .db-pill-stop { background: rgba(220, 38, 38, .16); color: #f87171; border-color: rgba(220, 38, 38, .34); }
+            html.dark .db-pill-info { background: rgba(37, 99, 235, .18); color: #93c5fd; border-color: rgba(37, 99, 235, .34); }
+            html.dark .db-pill-mute { background: rgba(113, 113, 122, .16); color: #a1a1aa; border-color: rgba(113, 113, 122, .3); }
+            html.dark .db-pill-accent { color: #FDBA74; }
+
+            /* Botones */
+            .db-btn { display: inline-flex; align-items: center; gap: .5rem; padding: .6rem .95rem; border-radius: .75rem;
+                      font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; cursor: pointer;
+                      transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .14s ease; white-space: nowrap; }
+            .db-btn:active { transform: scale(.975); }
+            .db-btn:focus-visible { outline: 2px solid var(--db-accent); outline-offset: 2px; }
+            .db-btn-accent { background: var(--db-accent); color: #fff; }
+            .db-btn-accent:hover { background: var(--db-accent-strong); }
+            .db-btn-ghost { background: var(--db-card); border: 1px solid var(--db-line-2); color: var(--db-ink-2); }
+            .db-btn-ghost:hover { border-color: var(--db-faint); color: var(--db-ink); }
+            html.dark .db-btn-ghost { background: #18181b; border-color: #27272a; color: #d4d4d8; }
+            html.dark .db-btn-ghost:hover { border-color: #3f3f46; color: #fff; }
+
+            .db-menu { position: absolute; right: 0; top: calc(100% + .5rem); width: 13rem; z-index: 40;
+                       background: var(--db-card); border: 1px solid var(--db-line-2); border-radius: .9rem; padding: .4rem;
+                       box-shadow: 0 18px 40px -14px rgba(0, 0, 0, .28); }
+            .db-menu__item { display: flex; align-items: center; gap: .6rem; padding: .55rem .7rem; border-radius: .6rem;
+                             font-size: .8rem; font-weight: 600; color: var(--db-ink-2); transition: background-color .14s ease, color .14s ease; }
+            .db-menu__item:hover { background: var(--db-hover); color: var(--db-ink); }
+
+            .db-live { display: inline-flex; align-items: center; gap: .5rem; padding: .55rem .9rem; border-radius: .75rem;
+                       background: var(--db-card); border: 1px solid var(--db-line-2); font-size: .72rem; font-weight: 700; color: var(--db-ink-2); }
+            .db-live__dot { width: .5rem; height: .5rem; border-radius: 9999px; background: #22c55e; animation: dbPulse 1.8s ease-in-out infinite; }
+            @keyframes dbPulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+            /* Segmentado + campos */
+            .db-seg { display: inline-flex; flex-wrap: wrap; padding: .2rem; border-radius: .8rem; background: var(--db-tint); gap: .2rem; }
+            .db-seg__btn { padding: .42rem .72rem; border-radius: .6rem; font-size: .66rem; font-weight: 800;
+                           letter-spacing: .04em; text-transform: uppercase; color: var(--db-mute); transition: all .14s ease; white-space: nowrap; }
+            .db-seg__btn:hover { color: var(--db-ink); }
+            .db-seg__btn[aria-pressed="true"] { background: var(--db-card); color: var(--db-ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+            html.dark .db-seg__btn[aria-pressed="true"] { background: #27272a; box-shadow: none; color: #fff; }
+
+            .db-field { width: 100%; border-radius: .75rem; border: 1px solid var(--db-line-2); background: var(--db-tint);
+                        padding: .58rem .8rem; font-size: .8rem; font-weight: 600; color: var(--db-ink); transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+            .db-field::placeholder { color: var(--db-faint); font-weight: 500; }
+            .db-field:focus { outline: none; border-color: #FDBA74; background: var(--db-card); box-shadow: 0 0 0 4px rgba(224, 122, 58, .1); }
+            .db-field-pl { padding-left: 2.2rem; }
+
+            /* Filas y tabla */
+            .db-row { transition: background-color .16s ease; cursor: pointer; }
+            .db-row:hover { background: var(--db-hover); }
+            .db-th { font-size: .64rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--db-faint); text-align: left; padding: .7rem 1.25rem; }
+            .db-td { padding: .8rem 1.25rem; font-size: .82rem; color: var(--db-ink-2); vertical-align: middle; }
+
+            /* Barra de progreso (atención) */
+            .db-bar { height: .35rem; border-radius: 9999px; background: var(--db-line); overflow: hidden; }
+            .db-bar__fill { height: 100%; border-radius: 9999px; background: var(--db-accent); }
+
+            /* Modal nativo */
+            .db-modal { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; overflow: visible; }
+            .db-modal::backdrop { background: rgba(24, 24, 27, .5); backdrop-filter: blur(3px); }
+            html.dark .db-modal::backdrop { background: rgba(0, 0, 0, .66); }
+            .db-modal[open] .db-modal__card { animation: dbPop .22s cubic-bezier(.16, 1, .3, 1) both; }
+            @keyframes dbPop { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+
+            /* Accesos rápidos */
+            .db-quick { display: flex; align-items: center; gap: .75rem; padding: .8rem .9rem; border-radius: .8rem;
+                        border: 1px solid var(--db-line); background: var(--db-card); transition: border-color .16s ease, transform .14s ease; }
+            .db-quick:hover { border-color: var(--db-accent-line); transform: translateY(-1px); }
+            .db-quick__icon { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: .6rem;
+                              background: var(--db-accent-soft); color: var(--db-accent); flex-shrink: 0; }
+
+            /* Línea de tiempo */
+            .db-tl__dot { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem; border-radius: .6rem;
+                          background: var(--db-tint); color: var(--db-ink-2); flex-shrink: 0; }
+            .db-tl__dot--warn { background: rgba(217, 119, 6, .14); color: #b45309; }
+            .db-tl__dot--crit { background: rgba(220, 38, 38, .14); color: #b91c1c; }
+            html.dark .db-tl__dot--warn { color: #fbbf24; }
+            html.dark .db-tl__dot--crit { color: #f87171; }
+
+            @media (prefers-reduced-motion: reduce) {
+                .db-rise { animation: none !important; opacity: 1 !important; transform: none !important; }
+                .db-live__dot { animation: none !important; }
+                .db-quick, .db-row { transition: none !important; }
+                .db-modal[open] .db-modal__card { animation: none !important; }
+            }
+        </style>
+
+        <!-- ============================ Cabecera ============================ -->
+        <header class="db-rise flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div class="min-w-0">
+                <div class="flex items-center gap-2.5 mb-3">
+                    <span class="db-label">Panel de control</span>
+                    <span class="block size-1 rounded-full bg-surface-300"></span>
+                    <span class="db-pill db-pill-accent db-tabular"
+                          x-text="num(stats.alertas) + ' por atender'">0 por atender</span>
                 </div>
-                <div class="flex items-center gap-3">
-                    <span class="px-4 py-2 bg-white rounded-xl text-xs font-semibold text-surface-600 shadow-soft border border-surface-100 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Sistema en línea
-                    </span>
-                    <button onclick="window.print()" class="px-4 py-2 bg-white border border-surface-200 text-surface-700 rounded-xl text-xs font-bold shadow-sm hover:bg-surface-50 transition-all flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.872a9.124 9.124 0 012.845-2.845m0 0a9.124 9.124 0 012.845 2.845m-2.845-2.845V19.5m0 0h-6.75m6.75 0h6.75M3.375 5.25h17.25M3.75 6v13.5A2.25 2.25 0 006 21.75h12a2.25 2.25 0 002.25-2.25V6m-18 0l1.35-2.7a2.25 2.25 0 011.83-1.05h1.14a2.25 2.25 0 011.83 1.05l1.35 2.7" /></svg>
-                        Generar Reporte
+                <h1 class="text-[2.1rem] leading-none font-black tracking-tight text-surface-900 dark:text-white">Resumen general</h1>
+                <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-3 max-w-2xl">
+                    Cómo va el negocio hoy y qué conviene atender primero. Los indicadores se actualizan con cada reserva, mensaje y pago.
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                <span class="db-live"><span class="db-live__dot"></span> Sistema en línea</span>
+                <button type="button" onclick="location.reload()" class="db-btn db-btn-ghost" aria-label="Actualizar datos">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m0 4.992l-3.181-3.183a8.25 8.25 0 00-13.803 3.7M4.031 14.652H1.039m0 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M1.039 14.652v4.992"/></svg>
+                    Actualizar
+                </button>
+                <div class="relative" @click.outside="exportOpen = false">
+                    <button type="button" @click="exportOpen = !exportOpen" :aria-expanded="exportOpen" class="db-btn db-btn-ghost">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                        Exportar
                     </button>
-                    <div class="relative" id="exportMenuWrapper">
-                        <button onclick="document.getElementById('exportDropdown').classList.toggle('hidden')" class="px-4 py-2 bg-furent-500 text-white rounded-xl text-xs font-bold shadow-sm hover:bg-furent-600 transition-all flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-                            Exportar CSV
-                        </button>
-                        <div id="exportDropdown" class="hidden absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-hover border border-surface-100 py-2 z-50">
-                            <a th:href="@{/admin/exportar/productos}" class="block px-4 py-2 text-xs font-medium text-surface-600 hover:bg-surface-50">📦 Productos</a>
-                            <a th:href="@{/admin/exportar/reservas}" class="block px-4 py-2 text-xs font-medium text-surface-600 hover:bg-surface-50">📋 Reservas</a>
-                            <a th:href="@{/admin/exportar/usuarios}" class="block px-4 py-2 text-xs font-medium text-surface-600 hover:bg-surface-50">👥 Usuarios</a>
-                        </div>
+                    <div x-show="exportOpen" x-cloak x-transition.origin.top.right class="db-menu">
+                        <a th:href="@{/admin/exportar/reservas}" class="db-menu__item">
+                            <svg class="w-4 h-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z"/></svg>
+                            Reservas (CSV)
+                        </a>
+                        <a th:href="@{/admin/exportar/productos}" class="db-menu__item">
+                            <svg class="w-4 h-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+                            Catálogo (CSV)
+                        </a>
+                        <a th:href="@{/admin/exportar/usuarios}" class="db-menu__item">
+                            <svg class="w-4 h-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+                            Clientes (CSV)
+                        </a>
                     </div>
                 </div>
+                <button type="button" onclick="window.print()" class="db-btn db-btn-accent">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5z"/></svg>
+                    Generar reporte
+                </button>
             </div>
+        </header>
 
-            <!-- Enhanced Stats Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                <!-- Revenue Card -->
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-surface-200 hover:border-furent-300 transition-colors group">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="w-12 h-12 rounded-2xl bg-furent-50 flex items-center justify-center text-furent-600 group-hover:bg-furent-500 group-hover:text-white transition-all duration-300">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </div>
-                        <span class="text-[10px] font-bold text-furent-700 bg-furent-100 px-2.5 py-1 rounded-lg uppercase tracking-wider">Ingresos Totales</span>
+        <!-- ============================ KPIs ============================ -->
+        <section class="db-rise db-d1 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mt-7" aria-label="Indicadores principales">
+            <!-- Ingresos -->
+            <article class="db-card db-kpi">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="db-kpi__icon db-kpi__icon--accent">
+                        <svg class="w-4.5 h-4.5" style="width:1.15rem;height:1.15rem" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </span>
+                    <span class="db-pill db-pill-mute">Histórico</span>
+                </div>
+                <p class="db-kpi__value db-tabular" x-text="compact(stats.ingresos)">$0</p>
+                <p class="db-kpi__label">Ingresos facturados</p>
+                <div class="db-kpi__spark"><canvas id="db-spark" role="img" aria-label="Tendencia de ingresos de los últimos 14 días"></canvas></div>
+            </article>
+
+            <!-- Reservas -->
+            <article class="db-card db-kpi">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="db-kpi__icon">
+                        <svg class="w-4.5 h-4.5" style="width:1.15rem;height:1.15rem" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                    </span>
+                </div>
+                <p class="db-kpi__value db-tabular" x-text="num(stats.reservas)">0</p>
+                <p class="db-kpi__label">Reservas totales</p>
+                <p class="db-kpi__sub"><span class="db-dot" style="color:#d97706"></span><span x-text="num(stats.pendientes) + ' por confirmar'">0 por confirmar</span></p>
+            </article>
+
+            <!-- Ticket promedio -->
+            <article class="db-card db-kpi">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="db-kpi__icon">
+                        <svg class="w-4.5 h-4.5" style="width:1.15rem;height:1.15rem" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 4.5h.008v.008h-.008V13.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
+                    </span>
+                </div>
+                <p class="db-kpi__value db-tabular" x-text="compact(stats.ticket)">$0</p>
+                <p class="db-kpi__label">Ticket promedio</p>
+                <p class="db-kpi__sub"><span x-text="num(stats.facturables) + ' reservas facturadas'">0 reservas facturadas</span></p>
+            </article>
+
+            <!-- Clientes -->
+            <article class="db-card db-kpi">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="db-kpi__icon">
+                        <svg class="w-4.5 h-4.5" style="width:1.15rem;height:1.15rem" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z"/></svg>
+                    </span>
+                </div>
+                <p class="db-kpi__value db-tabular" x-text="num(stats.usuarios)">0</p>
+                <p class="db-kpi__label">Clientes registrados</p>
+                <p class="db-kpi__sub"><span class="db-dot" style="color:#16a34a"></span><span x-text="'+' + num(stats.nuevos) + ' en 30 días'">+0 en 30 días</span></p>
+            </article>
+
+            <!-- Por atender -->
+            <article class="db-card db-kpi col-span-2 md:col-span-1"
+                     :style="stats.alertas > 0 ? 'box-shadow: inset 0 0 0 1px var(--db-accent-line)' : ''">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="db-kpi__icon" :class="stats.alertas > 0 ? 'db-kpi__icon--accent' : ''">
+                        <svg class="w-4.5 h-4.5" style="width:1.15rem;height:1.15rem" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>
+                    </span>
+                </div>
+                <p class="db-kpi__value db-tabular" x-text="num(stats.alertas)">0</p>
+                <p class="db-kpi__label">Requieren tu atención</p>
+                <p class="db-kpi__sub" x-show="stats.alertas > 0"><span x-text="num(stats.mensajes) + ' mensajes · ' + num(stats.resenas) + ' reseñas'">0 mensajes · 0 reseñas</span></p>
+                <p class="db-kpi__sub" x-show="stats.alertas === 0"><span class="db-dot" style="color:#16a34a"></span><span>Todo al día</span></p>
+            </article>
+        </section>
+
+        <!-- ============================ Gráficos ============================ -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-5">
+            <article class="db-card db-rise db-d2 lg:col-span-8 p-5 sm:p-6">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-surface-900 dark:text-white">Ingresos en el tiempo</h2>
+                        <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-0.5">Últimos 14 días · pesos colombianos</p>
                     </div>
-                    <p class="text-sm font-semibold text-surface-500">Recaudación</p>
-                    <h3 class="text-3xl font-extrabold text-surface-900 tracking-tight mt-1" th:text="'$' + ${#numbers.formatInteger(totalIngresos, 1, 'POINT')}">$0</h3>
+                    <div class="flex items-center gap-5">
+                        <div class="text-right">
+                            <p class="db-label">Total 14 días</p>
+                            <p class="text-sm font-black text-surface-900 dark:text-white db-tabular" x-text="compact(serieTotal)">$0</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="db-label">Promedio / día</p>
+                            <p class="text-sm font-black text-surface-900 dark:text-white db-tabular" x-text="compact(seriePromedio)">$0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 relative h-[260px]">
+                    <canvas id="db-revenue" role="img" aria-label="Evolución de ingresos de los últimos 14 días"></canvas>
+                </div>
+            </article>
+
+            <article class="db-card db-rise db-d3 lg:col-span-4 p-5 sm:p-6">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-surface-900 dark:text-white">Reservas por estado</h2>
+                        <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-0.5">Distribución actual del ciclo</p>
+                    </div>
+                </div>
+                <div class="mt-4 relative h-[190px]">
+                    <canvas id="db-status" role="img" aria-label="Distribución de reservas por estado"></canvas>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span class="text-2xl font-black text-surface-900 dark:text-white db-tabular" x-text="num(stats.reservas)">0</span>
+                        <span class="db-label mt-1">reservas</span>
+                    </div>
+                </div>
+                <ul id="db-status-legend" class="mt-5 space-y-2.5"></ul>
+            </article>
+        </section>
+
+        <!-- ============================ Reservas + atención ============================ -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-5">
+            <article class="db-card db-rise db-d3 lg:col-span-8 overflow-hidden">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 sm:px-6 border-b border-[color:var(--db-line)]">
+                    <div>
+                        <h2 class="text-base font-bold text-surface-900 dark:text-white">Reservas recientes</h2>
+                        <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-0.5">Haz clic en una fila para ver el detalle</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="relative w-full sm:w-56">
+                            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                            <input type="text" x-model="busqueda" class="db-field db-field-pl" placeholder="Buscar cliente o #reserva" aria-label="Buscar reserva">
+                        </div>
+                        <a th:href="@{/admin/reservas}" class="db-btn db-btn-ghost hidden sm:inline-flex">Ver todas</a>
+                    </div>
                 </div>
 
-                <!-- Products Card -->
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-surface-200 group">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-500 group-hover:text-white transition-all duration-300">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
-                        </div>
-                        <span class="text-[10px] font-bold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-lg uppercase tracking-wider">Catálogo</span>
+                <div class="px-5 sm:px-6 pt-4">
+                    <div class="db-seg">
+                        <template x-for="opt in filtros" :key="opt.key">
+                            <button type="button" class="db-seg__btn" :aria-pressed="filtro === opt.key" @click="filtro = opt.key"
+                                    x-text="opt.label + ' · ' + num(conteo(opt.key))"></button>
+                        </template>
                     </div>
-                    <p class="text-sm font-semibold text-surface-500">Mobiliarios</p>
-                    <h3 class="text-3xl font-extrabold text-surface-900 tracking-tight mt-1" th:text="${totalProductos}">0</h3>
                 </div>
 
-                <!-- Active Reservations -->
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-surface-200 group">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-600 group-hover:bg-green-500 group-hover:text-white transition-all duration-300">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                <div class="overflow-x-auto overflow-y-auto mt-3 max-h-[30rem]">
+                    <table class="w-full min-w-[720px]">
+                        <thead class="sticky top-0 z-[1] bg-[color:var(--db-card)]">
+                            <tr class="border-b border-[color:var(--db-line)]">
+                                <th scope="col" class="db-th">Reserva</th>
+                                <th scope="col" class="db-th">Cliente</th>
+                                <th scope="col" class="db-th">Evento</th>
+                                <th scope="col" class="db-th">Inicio</th>
+                                <th scope="col" class="db-th text-right">Monto</th>
+                                <th scope="col" class="db-th">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="r in filtradas" :key="r.id">
+                                <tr class="db-row border-b border-[color:var(--db-line)]" @click="abrirDetalle(r)" tabindex="0" @keydown.enter="abrirDetalle(r)">
+                                    <td class="db-td"><span class="font-mono text-[.72rem] font-bold text-surface-500 dark:text-surface-400" x-text="refReserva(r.id)"></span></td>
+                                    <td class="db-td">
+                                        <p class="font-bold text-surface-900 dark:text-white leading-tight" x-text="r.cliente"></p>
+                                        <p class="text-[.7rem] text-surface-400 dark:text-surface-500" x-text="r.email"></p>
+                                    </td>
+                                    <td class="db-td" x-text="r.tipoEvento || '—'"></td>
+                                    <td class="db-td db-tabular" x-text="fechaCorta(r.fechaInicio)"></td>
+                                    <td class="db-td text-right font-bold text-surface-900 dark:text-white db-tabular" x-text="money(r.total)"></td>
+                                    <td class="db-td"><span class="db-pill" :class="pillEstado(r.estado)" x-text="etiqueta(r.estado)"></span></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                    <div x-show="filtradas.length === 0" class="py-14 text-center">
+                        <div class="mx-auto w-11 h-11 rounded-xl bg-[color:var(--db-tint)] flex items-center justify-center text-surface-400 mb-3">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
                         </div>
-                        <span class="text-[10px] font-bold text-green-700 bg-green-100 px-2.5 py-1 rounded-lg uppercase tracking-wider">Eventos Activos</span>
+                        <p class="text-sm font-bold text-surface-500 dark:text-surface-400">No hay reservas para este filtro</p>
                     </div>
-                    <p class="text-sm font-semibold text-surface-500">Reservas en curso</p>
-                    <h3 class="text-3xl font-extrabold text-surface-900 tracking-tight mt-1" th:text="${reservasActivas}">0</h3>
                 </div>
+            </article>
 
-                <!-- Users -->
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-surface-200 group">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="w-12 h-12 rounded-2xl bg-surface-100 flex items-center justify-center text-surface-600 group-hover:bg-surface-900 group-hover:text-white transition-all duration-300">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
-                        </div>
+            <!-- Requiere tu atención -->
+            <div class="lg:col-span-4 db-rise db-d4 flex flex-col gap-5">
+                <article class="db-card p-5 sm:p-6">
+                    <div class="flex items-center justify-between gap-3">
+                        <h2 class="text-base font-bold text-surface-900 dark:text-white">Requiere tu atención</h2>
+                        <span class="db-pill db-pill-mute" th:if="${alertasTotales == 0}">Al día</span>
                     </div>
-                    <p class="text-sm font-semibold text-surface-500">Usuarios Totales</p>
-                    <h3 class="text-3xl font-extrabold text-surface-900 tracking-tight mt-1" th:text="${totalUsuarios}">0</h3>
-                </div>
-            </div>
+                    <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-0.5">Lo que conviene resolver primero</p>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                <!-- Analytics Chart (Point 1) -->
-                <div class="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-surface-200">
-                    <div class="flex items-center justify-between mb-8">
-                        <div>
-                            <h3 class="text-lg font-bold text-surface-900">Análisis de Ingresos</h3>
-                            <p class="text-xs text-surface-500 font-medium">Volumen de ventas por día</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <span class="flex items-center gap-1.5 text-[10px] font-bold text-furent-600 bg-furent-50 px-3 py-1.5 rounded-full border border-furent-100">
-                                <span class="w-2 h-2 rounded-full bg-furent-500"></span>
-                                Ventas Diarias
+                    <div class="mt-4 space-y-2.5">
+                        <a th:href="@{/admin/reservas}" class="db-quick">
+                            <span class="db-quick__icon" style="background:rgba(217,119,6,.12);color:#b45309">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             </span>
-                        </div>
-                    </div>
-                    <div class="h-[300px] w-full">
-                        <canvas id="revenueChart"></canvas>
-                    </div>
-                </div>
+                            <span class="min-w-0 flex-1">
+                                <span class="block text-sm font-bold text-surface-900 dark:text-white">Reservas por confirmar</span>
+                                <span class="block text-[.72rem] text-surface-400 dark:text-surface-500">Aprueba para asegurar el evento</span>
+                            </span>
+                            <span class="text-lg font-black text-surface-900 dark:text-white db-tabular" th:text="${reservasPendientes}">0</span>
+                        </a>
 
-                <!-- Fast Ops Panel (Point 2 & 3) -->
-                <div class="space-y-6">
-                    <div class="bg-surface-900 rounded-3xl p-8 border border-surface-800 relative overflow-hidden group">
-                        <div class="relative z-10 text-white">
-                            <div class="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6">
-                                <svg class="w-6 h-6 text-furent-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
-                            </div>
-                            <h3 class="text-xl font-bold mb-2">Logística Hoy</h3>
-                            <p class="text-sm text-surface-400 mb-6 font-medium leading-relaxed">Verifica las entregas programadas y prepara las rutas de transporte.</p>
-                            <a href="/admin/logistica" class="inline-flex items-center gap-2 text-sm font-bold px-6 py-3 bg-furent-500 hover:bg-furent-600 text-white rounded-xl transition-all shadow-lg shadow-furent-500/20">
-                                Ver Calendario →
-                            </a>
-                        </div>
-                        <div class="absolute -right-8 -bottom-8 w-40 h-40 bg-furent-500/10 rounded-full blur-3xl pointer-events-none"></div>
-                    </div>
+                        <a th:href="@{/admin/mensajes}" class="db-quick">
+                            <span class="db-quick__icon" style="background:rgba(37,99,235,.12);color:#1d4ed8">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block text-sm font-bold text-surface-900 dark:text-white">Mensajes sin leer</span>
+                                <span class="block text-[.72rem] text-surface-400 dark:text-surface-500">Responde las consultas del sitio</span>
+                            </span>
+                            <span class="text-lg font-black text-surface-900 dark:text-white db-tabular" th:text="${mensajesNoLeidos}">0</span>
+                        </a>
 
-                    <div class="bg-white rounded-3xl p-6 border border-surface-200">
-                        <h3 class="text-xs font-bold text-surface-500 mb-6 uppercase tracking-widest">Alertas de Stock</h3>
-                        <div class="space-y-4">
-                            <div th:if="${totalProductos == 0}" class="text-center py-4 opacity-40">
-                                <p class="text-sm">Sin datos de inventario</p>
-                            </div>
-                            <!-- This could be improved with real low-stock data from backend later -->
-                            <div class="flex items-center justify-between p-3 rounded-2xl bg-surface-50 border border-surface-100">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-surface-200">
-                                        <svg class="w-5 h-5 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
-                                    </div>
-                                    <div>
-                                        <p class="text-xs font-bold text-surface-900">Salud de Inventario</p>
-                                        <p class="text-[10px] text-green-600 font-bold uppercase">Óptimo</p>
-                                    </div>
-                                </div>
-                                <span class="text-sm font-extrabold text-surface-900" th:text="${totalProductos}">0</span>
-                            </div>
-                        </div>
+                        <a th:href="@{/admin/mensajes}" class="db-quick">
+                            <span class="db-quick__icon" style="background:rgba(224,122,58,.14);color:#C2630F">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.563.563 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block text-sm font-bold text-surface-900 dark:text-white">Reseñas sin responder</span>
+                                <span class="block text-[.72rem] text-surface-400 dark:text-surface-500">Agradece o aclara el feedback</span>
+                            </span>
+                            <span class="text-lg font-black text-surface-900 dark:text-white db-tabular" th:text="${resenasPorResponder}">0</span>
+                        </a>
                     </div>
-                </div>
+                </article>
+
+                <article class="db-card p-5 sm:p-6">
+                    <h2 class="text-base font-bold text-surface-900 dark:text-white">Accesos rápidos</h2>
+                    <div class="grid grid-cols-2 gap-2.5 mt-4">
+                        <a th:href="@{/admin/cupones}" class="db-quick">
+                            <span class="db-quick__icon"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z"/></svg></span>
+                            <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Cupones</span>
+                        </a>
+                        <a th:href="@{/admin/logistica}" class="db-quick">
+                            <span class="db-quick__icon"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg></span>
+                            <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Logística</span>
+                        </a>
+                        <a th:href="@{/admin/inspiracion}" class="db-quick">
+                            <span class="db-quick__icon"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5z"/></svg></span>
+                            <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Inspiración</span>
+                        </a>
+                        <a th:href="@{/admin/predicciones}" class="db-quick">
+                            <span class="db-quick__icon"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.518l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg></span>
+                            <span class="text-xs font-bold text-surface-800 dark:text-surface-200">Predicciones</span>
+                        </a>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-[color:var(--db-line)] flex items-center justify-between text-[.72rem] font-semibold text-surface-400 dark:text-surface-500">
+                        <span>Catálogo</span>
+                        <span class="db-tabular"><span th:text="${totalProductos}">0</span> mobiliarios · <span th:text="${totalCategorias}">0</span> colecciones</span>
+                    </div>
+                </article>
             </div>
+        </section>
 
-            <!-- Distribución de estados + listas de actividad -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                <!-- Doughnut Chart: Status Distribution -->
-                <div class="bg-white rounded-3xl p-8 shadow-sm border border-surface-200">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-lg font-bold text-surface-900">Distribución de Estados</h3>
-                        <span class="px-3 py-1 bg-surface-50 border border-surface-200 rounded-lg text-[10px] font-bold text-surface-500 uppercase">Reservas</span>
+        <!-- ============================ Actividad + entregas ============================ -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-5">
+            <article class="db-card db-rise db-d3 lg:col-span-7 p-5 sm:p-6">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-surface-900 dark:text-white">Actividad del sistema</h2>
+                        <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-0.5">Últimos movimientos registrados</p>
                     </div>
-                    <div class="h-[220px] w-full flex items-center justify-center">
-                        <canvas id="statusChart"></canvas>
-                    </div>
-                    <div class="mt-4 space-y-2" id="statusLegend"></div>
+                    <span class="db-pill db-pill-mute">Auditoría</span>
                 </div>
+                <ul class="mt-4 space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
+                    <template x-for="(log, i) in logs" :key="i">
+                        <li class="flex items-start gap-3.5 py-2.5 border-b border-[color:var(--db-line)] last:border-0">
+                            <span class="db-tl__dot" :class="log.severity === 'CRITICAL' ? 'db-tl__dot--crit' : (log.severity === 'WARNING' ? 'db-tl__dot--warn' : '')">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            </span>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="db-pill db-pill-mute" x-text="log.accion || 'ACCIÓN'"></span>
+                                    <span class="text-[.66rem] font-bold text-surface-400 dark:text-surface-500" x-text="hace(log.fecha)"></span>
+                                </div>
+                                <p class="text-sm font-semibold text-surface-800 dark:text-surface-100 mt-1 truncate" x-text="log.detalle || log.entidad || '—'"></p>
+                                <p class="text-[.72rem] text-surface-400 dark:text-surface-500" x-text="'Por ' + (log.usuario || 'sistema')"></p>
+                            </div>
+                        </li>
+                    </template>
+                    <li x-show="logs.length === 0" class="py-14 text-center">
+                        <p class="text-sm font-bold text-surface-400 dark:text-surface-500">Sin registros de actividad</p>
+                    </li>
+                </ul>
+            </article>
 
-                <!-- Últimas reservas + auditoría (ocupan 2 columnas) -->
-                <div class="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <!-- Activity List -->
-                    <div class="bg-white rounded-3xl p-8 shadow-sm border border-surface-200">
-                        <div class="flex items-center justify-between mb-8">
-                            <h3 class="text-xl font-bold text-surface-900">Últimas Reservas</h3>
-                            <a th:href="@{/admin/reservas}" class="text-xs font-bold text-furent-500 hover:underline">Gestionar todas</a>
+            <div class="lg:col-span-5 db-rise db-d4 flex flex-col gap-5">
+                <article class="db-card p-5 sm:p-6">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-base font-bold text-surface-900 dark:text-white">Próximas entregas</h2>
+                            <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-0.5">Reservas que comienzan este mes</p>
                         </div>
-                        <!-- Lista con altura máxima y scroll interno -->
-                        <div class="space-y-6 max-h-[260px] overflow-y-auto pr-1">
-                            <div th:each="r : ${ultimasReservas}" class="flex items-center justify-between group">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-surface-100 to-surface-200 flex items-center justify-center text-surface-700 font-bold shadow-sm" th:text="${r.usuarioNombre != null ? #strings.substring(r.usuarioNombre,0,1) : 'U'}">U</div>
-                                    <div>
-                                        <p class="text-sm font-bold text-surface-900" th:text="${r.usuarioNombre}">Nombre</p>
-                                        <p class="text-[10px] font-bold text-surface-400 uppercase tracking-widest mt-0.5" th:text="${#temporals.format(r.fechaCreacion, 'dd MMM, HH:mm')}">Fecha</p>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <p class="text-sm font-black text-surface-900" th:text="'$' + ${#numbers.formatInteger(r.total, 1, 'POINT')}">$0</p>
-                                    <span th:class="${r.estado == 'PENDIENTE' ? 'text-amber-600' : r.estado == 'CONFIRMADA' ? 'text-blue-600' : r.estado == 'ENTREGADA' ? 'text-green-600' : 'text-surface-400'} + ' text-[9px] font-black uppercase tracking-widest'" th:text="${r.estado}">ESTADO</span>
-                                </div>
+                        <span class="db-pill db-pill-mute">30 días</span>
+                    </div>
+                    <ul class="mt-4 space-y-2.5">
+                        <li th:each="e : ${proximasEntregas}" class="flex items-center gap-3.5 p-2.5 rounded-xl border border-[color:var(--db-line)]">
+                            <div class="flex flex-col items-center justify-center w-11 h-12 rounded-xl bg-[color:var(--db-tint)] shrink-0">
+                                <span class="text-base font-black leading-none text-surface-900 dark:text-white" th:text="${e.dia}">0</span>
+                                <span class="text-[.6rem] font-bold uppercase tracking-wide text-surface-400" th:text="${e.mes}">mes</span>
                             </div>
-                            <div th:if="${#lists.isEmpty(ultimasReservas)}" class="text-center py-12 opacity-30">
-                                <p class="text-sm font-bold italic">No hay actividad reciente</p>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-bold text-surface-900 dark:text-white truncate" th:text="${e.cliente}">Cliente</p>
+                                <p class="text-[.72rem] text-surface-400 dark:text-surface-500 truncate" th:text="${e.tipoEvento != '' ? e.tipoEvento : 'Evento'}">Evento</p>
                             </div>
+                            <span class="db-pill shrink-0"
+                                  th:classappend="${e.diasRestantes == 0 ? 'db-pill-accent' : 'db-pill-mute'}"
+                                  th:text="${e.diasRestantes == 0 ? 'Hoy' : (e.diasRestantes == 1 ? 'Mañana' : 'En ' + e.diasRestantes + ' días')}">En 3 días</span>
+                        </li>
+                        <li th:if="${#lists.isEmpty(proximasEntregas)}" class="py-8 text-center">
+                            <div class="mx-auto w-10 h-10 rounded-xl bg-[color:var(--db-tint)] flex items-center justify-center text-surface-400 mb-2.5">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                            </div>
+                            <p class="text-sm font-bold text-surface-400 dark:text-surface-500">Sin entregas programadas</p>
+                            <p class="text-[.72rem] text-surface-400 dark:text-surface-500 mt-0.5">Todo el calendario está al día</p>
+                        </li>
+                    </ul>
+                </article>
+
+                <article class="db-card p-5 sm:p-6">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-base font-bold text-surface-900 dark:text-white">Eventos por tipo</h2>
+                            <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-0.5">Reparto de la demanda</p>
+                        </div>
+                        <span class="db-pill db-pill-mute">Histórico</span>
+                    </div>
+                    <ul class="mt-4 space-y-3.5">
+                        <li th:each="et : ${eventosPorTipo}">
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="text-sm font-semibold text-surface-700 dark:text-surface-200 truncate" th:text="${et['tipo']}">Boda</span>
+                                <span class="text-sm font-black text-surface-900 dark:text-white db-tabular shrink-0" th:text="${et['total']}">0</span>
+                            </div>
+                            <div class="db-bar mt-2">
+                                <div class="db-bar__fill" th:style="'width:' + ${et['pct']} + '%'"></div>
+                            </div>
+                        </li>
+                        <li th:if="${#lists.isEmpty(eventosPorTipo)}" class="py-8 text-center">
+                            <p class="text-sm font-bold text-surface-400 dark:text-surface-500">Sin datos de eventos</p>
+                        </li>
+                    </ul>
+                </article>
+            </div>
+        </section>
+
+        <!-- ============================ Detalle de reserva ============================ -->
+        <dialog id="db-detalle" class="db-modal fixed inset-0 z-[80] m-auto" @click="cerrarDetalleSiFondo($event)" aria-labelledby="db-det-title">
+            <div class="db-modal__card w-[min(94vw,32rem)] rounded-[1.4rem] bg-white dark:bg-surface-900 border border-surface-100 dark:border-surface-800 shadow-2xl overflow-hidden"
+                 th:attr="data-title='Detalle de reserva'">
+                <template x-if="detalle">
+                    <div>
+                        <div class="flex items-start justify-between gap-3 p-6 pb-4">
+                            <div class="min-w-0">
+                                <p class="db-label">Reserva</p>
+                                <h2 id="db-det-title" class="text-xl font-black text-surface-900 dark:text-white mt-1 font-mono" x-text="refReserva(detalle.id)"></h2>
+                                <p class="text-xs font-semibold text-surface-400 dark:text-surface-500 mt-1" x-text="'Creada el ' + fechaLarga(detalle.fechaCreacion)"></p>
+                            </div>
+                            <span class="db-pill" :class="pillEstado(detalle.estado)" x-text="etiqueta(detalle.estado)"></span>
+                        </div>
+                        <div class="px-6">
+                            <dl class="grid grid-cols-2 gap-x-6 gap-y-4 py-4 border-y border-surface-100 dark:border-surface-800">
+                                <div class="col-span-2">
+                                    <dt class="db-label">Cliente</dt>
+                                    <dd class="text-sm font-bold text-surface-900 dark:text-white mt-0.5" x-text="detalle.cliente"></dd>
+                                    <dd class="text-xs text-surface-400 dark:text-surface-500" x-text="detalle.email"></dd>
+                                </div>
+                                <div>
+                                    <dt class="db-label">Evento</dt>
+                                    <dd class="text-sm font-semibold text-surface-800 dark:text-surface-200 mt-0.5" x-text="detalle.tipoEvento || '—'"></dd>
+                                </div>
+                                <div>
+                                    <dt class="db-label">Ítems</dt>
+                                    <dd class="text-sm font-semibold text-surface-800 dark:text-surface-200 mt-0.5" x-text="num(detalle.items) + (detalle.items === 1 ? ' mobiliario' : ' mobiliarios')"></dd>
+                                </div>
+                                <div>
+                                    <dt class="db-label">Periodo</dt>
+                                    <dd class="text-sm font-semibold text-surface-800 dark:text-surface-200 mt-0.5" x-text="fechaCorta(detalle.fechaInicio) + ' → ' + fechaCorta(detalle.fechaFin)"></dd>
+                                </div>
+                                <div>
+                                    <dt class="db-label">Duración</dt>
+                                    <dd class="text-sm font-semibold text-surface-800 dark:text-surface-200 mt-0.5" x-text="num(detalle.dias) + (detalle.dias === 1 ? ' día' : ' días')"></dd>
+                                </div>
+                                <div class="col-span-2" x-show="detalle.direccion">
+                                    <dt class="db-label">Dirección del evento</dt>
+                                    <dd class="text-sm font-semibold text-surface-800 dark:text-surface-200 mt-0.5" x-text="detalle.direccion"></dd>
+                                </div>
+                                <div x-show="detalle.horaEntrega">
+                                    <dt class="db-label">Hora de entrega</dt>
+                                    <dd class="text-sm font-semibold text-surface-800 dark:text-surface-200 mt-0.5" x-text="detalle.horaEntrega"></dd>
+                                </div>
+                                <div x-show="detalle.metodoPago">
+                                    <dt class="db-label">Pago</dt>
+                                    <dd class="text-sm font-semibold text-surface-800 dark:text-surface-200 mt-0.5" x-text="detalle.metodoPago"></dd>
+                                </div>
+                            </dl>
+                            <div class="flex items-center justify-between py-5">
+                                <span class="db-label">Total</span>
+                                <span class="text-2xl font-black text-surface-900 dark:text-white db-tabular" x-text="money(detalle.total)"></span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 px-6 pb-6">
+                            <button type="button" @click="cerrarDetalle()" class="flex-1 db-btn db-btn-ghost justify-center py-3">Cerrar</button>
+                            <a th:href="@{/admin/reservas}" class="flex-1 db-btn db-btn-accent justify-center py-3">Gestionar reserva</a>
                         </div>
                     </div>
-                    <!-- Audit Logs (Point 6) -->
-                    <div class="bg-surface-50 rounded-3xl p-8 border border-surface-200">
-                        <div class="flex items-center justify-between mb-8">
-                            <h3 class="text-xl font-bold text-surface-900">Auditoría del Sistema</h3>
-                            <span class="px-3 py-1 bg-white border border-surface-200 rounded-lg text-[10px] font-bold text-surface-500 uppercase">Seguridad</span>
-                        </div>
-                        <!-- Lista con altura máxima y scroll interno -->
-                        <div class="space-y-4 max-h-[260px] overflow-y-auto pr-1">
-                            <div th:each="log : ${auditLogs}" class="bg-white p-4 rounded-2xl border border-surface-100 shadow-sm flex gap-4">
-                                <div class="w-10 h-10 rounded-xl bg-surface-900 flex-shrink-0 flex items-center justify-center text-white">
-                                    <svg th:if="${log.accion == 'CREAR'}" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-                                    <svg th:if="${log.accion == 'ACTUALIZAR'}" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
-                                    <svg th:if="${log.accion == 'CAMBIAR_ESTADO'}" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.332.183-.582.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="flex items-center gap-2 mb-1">
-                                        <span class="text-[10px] font-bold text-white bg-surface-900 px-2 py-0.5 rounded uppercase" th:text="${log.accion}">ACCION</span>
-                                        <span class="text-[10px] font-bold text-surface-400" th:text="${#temporals.format(log.fecha, 'HH:mm')}">Time</span>
-                                    </div>
-                                    <p class="text-xs font-bold text-surface-900 truncate" th:text="${log.detalle}">Detalle</p>
-                                    <p class="text-[10px] text-surface-500 font-medium" th:text="'Por: ' + ${log.usuario}">Usuario</p>
-                                </div>
-                            </div>
-                            <div th:if="${#lists.isEmpty(auditLogs)}" class="text-center py-12 opacity-30">
-                                <p class="text-sm font-bold italic">Sin registros de auditoría</p>
-                            </div>
-                        </div>
-                    </div>
-                </div><!-- end lg:col-span-2 -->
-            </div><!-- end 3-col grid -->
-        </div>
+                </template>
+            </div>
+        </dialog>
 
-        <script th:inline="javascript">
-            /*<![CDATA[*/
-            $(document).ready(function() {
-                // Revenue Line Chart
-                const revenueData = /*[[${revenueData}]]*/ {};
-                const labels = Object.keys(revenueData);
-                const values = Object.values(revenueData);
+        <!-- Datos serializados para la interfaz -->
+        <script type="application/json" id="db-data" th:utext="${dashboardJson}">{"reservas":[],"logs":[]}</script>
+    </div>
 
-                const ctx = document.getElementById('revenueChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Ingresos ($)',
-                            data: values,
-                            borderColor: '#E07A3A',
-                            backgroundColor: 'rgba(224, 122, 58, 0.1)',
-                            borderWidth: 3,
-                            fill: true,
-                            tension: 0.4,
-                            pointBackgroundColor: '#fff',
-                            pointBorderColor: '#E07A3A',
-                            pointBorderWidth: 2,
-                            pointRadius: 4,
-                            pointHoverRadius: 6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: '#18181b',
-                                titleFont: { family: 'Outfit', size: 12 },
-                                bodyFont: { family: 'Outfit', size: 14, weight: 'bold' },
-                                padding: 12,
-                                cornerRadius: 12,
-                                displayColors: false,
-                                callbacks: {
-                                    label: function(context) {
-                                        return '$' + context.parsed.y.toLocaleString();
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                grid: { display: false },
-                                ticks: { font: { family: 'Outfit', size: 11 }, color: '#71717a' }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                grid: { color: '#f4f4f5' },
-                                ticks: { 
-                                    font: { family: 'Outfit', size: 11 }, 
-                                    color: '#71717a',
-                                    callback: function(value) { return '$' + value.toLocaleString(); }
-                                }
-                            }
-                        }
+    <!-- Estadísticas para los gráficos -->
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        window.DB_STATS = {
+            ingresos: /*[[${totalIngresos}]]*/ 0,
+            ticket: /*[[${ticketPromedio}]]*/ 0,
+            reservas: /*[[${totalReservas}]]*/ 0,
+            pendientes: /*[[${reservasPendientes}]]*/ 0,
+            confirmadas: /*[[${reservasConfirmadas}]]*/ 0,
+            entregadas: /*[[${reservasActivas}]]*/ 0,
+            completadas: /*[[${reservasCompletadas}]]*/ 0,
+            canceladas: /*[[${reservasCanceladas}]]*/ 0,
+            usuarios: /*[[${totalUsuarios}]]*/ 0,
+            nuevos: /*[[${nuevosClientes}]]*/ 0,
+            productos: /*[[${totalProductos}]]*/ 0,
+            categorias: /*[[${totalCategorias}]]*/ 0,
+            mensajes: /*[[${mensajesNoLeidos}]]*/ 0,
+            resenas: /*[[${resenasPorResponder}]]*/ 0,
+            cupones: /*[[${cuponesActivos}]]*/ 0,
+            alertas: /*[[${alertasTotales}]]*/ 0,
+            serie: /*[[${ingresosSerie}]]*/ {}
+        };
+        window.DB_STATS.facturables = (window.DB_STATS.confirmadas || 0) + (window.DB_STATS.entregadas || 0) + (window.DB_STATS.completadas || 0);
+        /*]]>*/
+    </script>
+
+    <script th:inline="none">
+        // ============================================================
+        // Panel de resumen — interacción (Alpine) + gráficos (Chart.js)
+        // ============================================================
+        var DB_MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+        var DB_STATUS_COLORS = {
+            'PENDIENTE': '#f59e0b', 'CONFIRMADA': '#3b82f6', 'ENTREGADA': '#E07A3A',
+            'COMPLETADA': '#22c55e', 'CANCELADA': '#ef4444'
+        };
+
+        function dashboardPage() {
+            return {
+                stats: window.DB_STATS || {},
+                reservas: [],
+                logs: [],
+                filtro: 'todas',
+                busqueda: '',
+                detalle: null,
+                exportOpen: false,
+                filtros: [
+                    { key: 'todas', label: 'Todas' },
+                    { key: 'PENDIENTE', label: 'Pendientes' },
+                    { key: 'CONFIRMADA', label: 'Confirmadas' },
+                    { key: 'ENTREGADA', label: 'Entregadas' },
+                    { key: 'COMPLETADA', label: 'Completadas' },
+                    { key: 'CANCELADA', label: 'Canceladas' }
+                ],
+
+                init() {
+                    try {
+                        var raw = JSON.parse(document.getElementById('db-data').textContent || '{}');
+                        this.reservas = raw.reservas || [];
+                        this.logs = raw.logs || [];
+                    } catch (e) {
+                        this.reservas = [];
+                        this.logs = [];
                     }
-                });
+                    // Resumen de la serie (aritmética pura, sin depender de Chart.js).
+                    var serie = this.stats.serie || {};
+                    var vals = Object.keys(serie).map(function (k) { return Number(serie[k]) || 0; });
+                    this.serieTotal = vals.reduce(function (a, b) { return a + b; }, 0);
+                    this.seriePromedio = vals.length ? this.serieTotal / vals.length : 0;
+                    // Los gráficos se dibujan tras 'load', cuando el layout ya tiene tamaño.
+                    window.__dbPage = this;
+                    if (document.readyState === 'complete') { dbMountCharts(); }
+                    else { window.addEventListener('load', function () { dbMountCharts(); }); }
+                },
 
-                // Status Distribution Doughnut Chart
-                const statusData = /*[[${statusData}]]*/ {};
-                const statusLabels = Object.keys(statusData);
-                const statusValues = Object.values(statusData);
-                const statusColors = {
-                    'PENDIENTE': '#f59e0b', 'CONFIRMADA': '#3b82f6', 'ENTREGADA': '#22c55e',
-                    'COMPLETADA': '#10b981', 'CANCELADA': '#ef4444'
-                };
-                const bgColors = statusLabels.map(l => statusColors[l] || '#a1a1aa');
-
-                const statusCtx = document.getElementById('statusChart');
-                if (statusCtx) {
-                    new Chart(statusCtx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: statusLabels,
-                            datasets: [{
-                                data: statusValues,
-                                backgroundColor: bgColors,
-                                borderWidth: 0,
-                                hoverOffset: 8
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            cutout: '65%',
-                            plugins: {
-                                legend: { display: false },
-                                tooltip: {
-                                    backgroundColor: '#18181b',
-                                    titleFont: { family: 'Outfit', size: 12 },
-                                    bodyFont: { family: 'Outfit', size: 13, weight: 'bold' },
-                                    padding: 10, cornerRadius: 10
-                                }
-                            }
-                        }
+                // ── Filtrado ──
+                get filtradas() {
+                    var self = this;
+                    var q = this.busqueda.trim().toLowerCase();
+                    return this.reservas.filter(function (r) {
+                        if (self.filtro !== 'todas' && r.estado !== self.filtro) return false;
+                        if (!q) return true;
+                        return (r.cliente || '').toLowerCase().indexOf(q) !== -1
+                            || (r.id || '').toLowerCase().indexOf(q) !== -1;
                     });
-                    // Custom legend
-                    const legendEl = document.getElementById('statusLegend');
-                    if (legendEl) {
-                        legendEl.innerHTML = statusLabels.map((label, i) =>
-                            `<div class="flex items-center justify-between"><div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background:${bgColors[i]}"></span><span class="text-xs font-medium text-surface-600">${label}</span></div><span class="text-xs font-bold text-surface-900">${statusValues[i]}</span></div>`
-                        ).join('');
+                },
+                conteo(key) {
+                    if (key === 'todas') return this.reservas.length;
+                    var self = this;
+                    return this.reservas.filter(function (r) { return r.estado === key; }).length;
+                },
+
+                // ── Detalle ──
+                abrirDetalle(r) {
+                    this.detalle = r;
+                    var d = document.getElementById('db-detalle');
+                    if (d && !d.open) d.showModal();
+                },
+                cerrarDetalle() {
+                    var d = document.getElementById('db-detalle');
+                    if (d) d.close();
+                    this.detalle = null;
+                },
+                cerrarDetalleSiFondo(ev) {
+                    if (ev.target === ev.currentTarget) this.cerrarDetalle();
+                },
+
+                // ── Formato ──
+                num(v) {
+                    v = Number(v) || 0;
+                    return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(v);
+                },
+                money(v) {
+                    return '$ ' + this.num(v);
+                },
+                compact(v) {
+                    v = Number(v) || 0;
+                    if (v >= 1e9) return '$' + (v / 1e9).toFixed(1).replace('.', ',') + ' MM';
+                    if (v >= 1e6) return '$' + (v / 1e6).toFixed(1).replace('.', ',') + ' M';
+                    if (v >= 1e3) return '$' + Math.round(v / 1e3) + ' K';
+                    return '$' + this.num(v);
+                },
+                partes(iso) {
+                    if (!iso) return null;
+                    var s = String(iso).substring(0, 10).split('-');
+                    if (s.length !== 3) return null;
+                    return { y: s[0], m: parseInt(s[1], 10), d: parseInt(s[2], 10) };
+                },
+                fechaCorta(iso) {
+                    var p = this.partes(iso);
+                    if (!p) return '—';
+                    return p.d + ' ' + DB_MESES[p.m - 1];
+                },
+                fechaLarga(iso) {
+                    var p = this.partes(iso);
+                    if (!p) return '—';
+                    return p.d + ' ' + DB_MESES[p.m - 1] + ' ' + p.y;
+                },
+                hace(iso) {
+                    if (!iso) return '';
+                    var d = new Date(String(iso));
+                    if (isNaN(d.getTime())) return this.fechaLarga(iso);
+                    var s = (Date.now() - d.getTime()) / 1000;
+                    if (s < 60) return 'ahora';
+                    if (s < 3600) return 'hace ' + Math.floor(s / 60) + ' min';
+                    if (s < 86400) return 'hace ' + Math.floor(s / 3600) + ' h';
+                    if (s < 604800) return 'hace ' + Math.floor(s / 86400) + ' d';
+                    return this.fechaLarga(iso);
+                },
+                refReserva(id) {
+                    if (!id) return '—';
+                    return '#' + String(id).slice(-6).toUpperCase();
+                },
+                etiqueta(estado) {
+                    return {
+                        PENDIENTE: 'Pendiente', CONFIRMADA: 'Confirmada', ENTREGADA: 'Entregada',
+                        COMPLETADA: 'Completada', CANCELADA: 'Cancelada'
+                    }[estado] || (estado || '—');
+                },
+                pillEstado(estado) {
+                    return {
+                        PENDIENTE: 'db-pill-warn', CONFIRMADA: 'db-pill-info', ENTREGADA: 'db-pill-accent',
+                        COMPLETADA: 'db-pill-ok', CANCELADA: 'db-pill-stop'
+                    }[estado] || 'db-pill-mute';
+                },
+
+                // ── Gráficos ──
+                serieTotal: 0,
+                seriePromedio: 0,
+                buildCharts() {
+                    if (typeof Chart === 'undefined') return;
+                    var serie = this.stats.serie || {};
+                    var labels = Object.keys(serie);
+                    var values = labels.map(function (k) { return Number(serie[k]) || 0; });
+                    var total = values.reduce(function (a, b) { return a + b; }, 0);
+                    this.serieTotal = total;
+                    this.seriePromedio = values.length ? total / values.length : 0;
+
+                    var self = this;
+                    // Reintenta cuando el contenedor ya tiene tamaño (por x-cloak).
+                    var intentos = 0;
+                    (function montar() {
+                        var spark = document.getElementById('db-spark');
+                        if (spark && spark.clientWidth === 0 && intentos < 20) {
+                            intentos++;
+                            return setTimeout(montar, 40);
+                        }
+                        self.dibujar(labels, values);
+                    })();
+                },
+                dibujar(labels, values) {
+                    var t = dbPalette();
+                    if (this._charts) { this._charts.forEach(function (c) { c.destroy(); }); }
+                    var charts = [];
+
+                    var accentFill = function (ctx) {
+                        var area = ctx.chart.chartArea;
+                        if (!area) return 'rgba(224,122,58,0.14)';
+                        var g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                        g.addColorStop(0, 'rgba(224,122,58,0.30)');
+                        g.addColorStop(1, 'rgba(224,122,58,0.01)');
+                        return g;
+                    };
+
+                    // Sparkline
+                    var spark = document.getElementById('db-spark');
+                    if (spark) {
+                        charts.push(new Chart(spark, {
+                            type: 'line',
+                            data: { labels: labels, datasets: [{
+                                data: values, borderColor: t.accent, borderWidth: 2, tension: .4, fill: true,
+                                backgroundColor: accentFill, pointRadius: 0
+                            }] },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                animation: t.reduce ? false : { duration: 500 },
+                                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                                scales: { x: { display: false }, y: { display: false } }
+                            }
+                        }));
                     }
+
+                    // Ingresos (área)
+                    var rev = document.getElementById('db-revenue');
+                    if (rev) {
+                        charts.push(new Chart(rev, {
+                            type: 'line',
+                            data: { labels: labels, datasets: [{
+                                label: 'Ingresos', data: values, borderColor: t.accent, borderWidth: 2.5, tension: .4,
+                                fill: true, backgroundColor: accentFill, pointRadius: 0, pointHoverRadius: 5,
+                                pointHoverBackgroundColor: t.accent, pointHoverBorderColor: t.surface, pointHoverBorderWidth: 2
+                            }] },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                animation: t.reduce ? false : { duration: 650, easing: 'easeOutQuart' },
+                                interaction: { intersect: false, mode: 'index' },
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: dbTooltip(t, { callbacks: { label: function (item) { return ' ' + dbMoney(item.parsed.y); } } })
+                                },
+                                scales: {
+                                    x: { grid: { display: false }, border: { display: false }, ticks: { color: t.tick, font: dbFont(), maxRotation: 0, autoSkipPadding: 14 } },
+                                    y: { beginAtZero: true, grid: { color: t.grid, drawTicks: false }, border: { display: false },
+                                         ticks: { color: t.tick, font: dbFont(), padding: 8, maxTicksLimit: 5, callback: function (v) { return dbCompact(v); } } }
+                                }
+                            }
+                        }));
+                    }
+
+                    // Estados (dona)
+                    var st = document.getElementById('db-status');
+                    var s = this.stats;
+                    var data = [s.pendientes, s.confirmadas, s.entregadas, s.completadas, s.canceladas];
+                    var labels2 = ['Pendientes', 'Confirmadas', 'Entregadas', 'Completadas', 'Canceladas'];
+                    var keys = ['PENDIENTE', 'CONFIRMADA', 'ENTREGADA', 'COMPLETADA', 'CANCELADA'];
+                    var colors = keys.map(function (k) { return DB_STATUS_COLORS[k]; });
+                    var total = data.reduce(function (a, b) { return a + (Number(b) || 0); }, 0);
+                    if (st && total > 0) {
+                        charts.push(new Chart(st, {
+                            type: 'doughnut',
+                            data: { labels: labels2, datasets: [{ data: data, backgroundColor: colors, borderColor: t.surface, borderWidth: 3, hoverOffset: 6 }] },
+                            options: {
+                                responsive: true, maintainAspectRatio: false, cutout: '70%',
+                                animation: t.reduce ? false : { duration: 650, easing: 'easeOutQuart' },
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: dbTooltip(t, { callbacks: { label: function (item) { var pct = total ? Math.round(item.parsed / total * 100) : 0; return ' ' + item.parsed + ' · ' + pct + '%'; } } })
+                                }
+                            }
+                        }));
+                    }
+                    this._charts = charts;
+                    this.buildLegend(labels2, data, colors, total, t);
+                },
+                buildLegend(labels, data, colors, total, t) {
+                    var ul = document.getElementById('db-status-legend');
+                    if (!ul) return;
+                    if (!total) {
+                        ul.innerHTML = '<li class="text-xs font-semibold text-surface-400">Sin reservas registradas</li>';
+                        return;
+                    }
+                    ul.innerHTML = labels.map(function (l, i) {
+                        var pct = total ? Math.round(data[i] / total * 100) : 0;
+                        return '<li class="flex items-center justify-between gap-3">' +
+                            '<span class="flex items-center gap-2 min-w-0">' +
+                            '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + colors[i] + '"></span>' +
+                            '<span class="text-[.8rem] font-medium text-surface-600 dark:text-surface-300 truncate">' + l + '</span></span>' +
+                            '<span class="text-[.8rem] font-bold text-surface-900 dark:text-white shrink-0 db-tabular">' + data[i] + ' · ' + pct + '%</span></li>';
+                    }).join('');
                 }
+            };
+        }
+
+        // ── Utilidades de gráficos ──
+        function dbDark() { return document.documentElement.classList.contains('dark'); }
+        function dbPalette() {
+            var dark = dbDark();
+            return {
+                reduce: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+                accent: '#E07A3A',
+                grid: dark ? 'rgba(255,255,255,0.07)' : 'rgba(24,24,27,0.07)',
+                tick: dark ? '#a1a1aa' : '#71717a',
+                text: dark ? '#e4e4e7' : '#18181b',
+                surface: dark ? '#18181b' : '#ffffff',
+                line: dark ? '#27272a' : '#e4e4e7'
+            };
+        }
+        function dbFont() { return { family: "'Outfit', sans-serif", size: 11, weight: '500' }; }
+        function dbMoney(n) { return '$ ' + new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Math.round(Number(n) || 0)); }
+        function dbCompact(v) {
+            v = Number(v) || 0;
+            if (v >= 1e6) return '$' + (v / 1e6).toFixed(0) + 'M';
+            if (v >= 1e3) return '$' + Math.round(v / 1e3) + 'K';
+            return '$' + v;
+        }
+        function dbTooltip(t, extra) {
+            var base = {
+                backgroundColor: t.surface, titleColor: t.tick, bodyColor: t.text,
+                borderColor: t.line, borderWidth: 1, padding: 12, cornerRadius: 12, boxPadding: 6,
+                usePointStyle: true, titleMarginBottom: 6, displayColors: false,
+                titleFont: { family: "'Outfit', sans-serif", size: 11, weight: '600' },
+                bodyFont: { family: "'Outfit', sans-serif", size: 12, weight: '700' }
+            };
+            return Object.assign(base, extra || {});
+        }
+
+        // Monta los gráficos cuando el contenedor ya tiene tamaño (después de 'load',
+        // momento en que Alpine ya retiró x-cloak y el layout está medido).
+        function dbMountCharts(tries) {
+            tries = tries || 0;
+            var el = document.getElementById('db-revenue');
+            if (el && el.clientWidth === 0 && tries < 30) {
+                return setTimeout(function () { dbMountCharts(tries + 1); }, 50);
+            }
+            if (window.__dbPage && window.__dbPage.buildCharts) {
+                try { window.__dbPage.buildCharts(); } catch (e) { /* noop */ }
+            }
+        }
+
+        // Reconstruye los gráficos al cambiar el tema.
+        if (window.MutationObserver) {
+            var dbObs = new MutationObserver(function () {
+                if (window.__dbPage) { try { window.__dbPage.buildCharts(); } catch (e) { /* noop */ } }
             });
-            /*]]>*/
-        </script>
-    </main>
+            dbObs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        }
+    </script>
+</main>
 </body>
 </html>
