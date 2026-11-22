@@ -123,7 +123,7 @@ public class AdminAssistantController {
             redirectAttributes.addFlashAttribute("error", "La conversación no existe o fue eliminada.");
             return "redirect:/admin/asistente";
         }
-        conversationService.close(found.get());
+        conversationService.close(found.get(), AssistantConversation.MOTIVO_CIERRE_ADMIN);
         auditLogService.log(authentication.getName(), "CERRAR_CONVERSACION_ASISTENTE",
                 "ASISTENTE", id, "Conversación cerrada desde el panel");
         redirectAttributes.addFlashAttribute("success", "Conversación cerrada correctamente.");

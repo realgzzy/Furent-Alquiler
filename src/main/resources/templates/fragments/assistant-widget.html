@@ -250,6 +250,31 @@
             padding: var(--fa-s2) var(--fa-s3);
         }
 
+        /* Aviso de chat cerrado (solo lectura): cubre el cierre por administrador y por vigencia. */
+        .fa-closed-row { display: flex; justify-content: center; }
+        .fa-closed {
+            width: 100%; max-width: 94%; text-align: center;
+            background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--fa-r-lg);
+            padding: var(--fa-s4);
+        }
+        .fa-closed-ico {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 40px; height: 40px; border-radius: var(--fa-r-pill);
+            background: #ffedd5; color: #b45309; margin-bottom: var(--fa-s2);
+        }
+        .fa-closed-title { margin: 0 0 3px; font-size: var(--fa-md); font-weight: 800; color: #9a3412; }
+        .fa-closed-desc { margin: 0; font-size: var(--fa-sm); color: var(--fa-ink-2); line-height: 1.5; }
+        .fa-closed-actions { display: flex; gap: var(--fa-s2); margin-top: var(--fa-s3); }
+        .fa-closed-actions .fa-btn { flex: 1 1 auto; }
+        /* Compositor bloqueado: el chat es solo de lectura. */
+        .fa-composer-card.is-closed { opacity: .65; }
+        /* Etiqueta de "Cerrado" en el historial. */
+        .fa-hist-badge {
+            display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;
+            font-size: var(--fa-2xs); font-weight: 800; color: #b45309;
+            background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--fa-r-pill); padding: 1px 7px;
+        }
+
         /* Markdown mínimo que compone assistant.js con nodos seguros */
         .fa-bubble.assistant > *:first-child { margin-top: 0; }
         .fa-bubble.assistant > *:last-child { margin-bottom: 0; }

@@ -108,6 +108,16 @@ public class AssistantController {
         ToolContext context = resolveContext(userId, httpRequest, request.getBag());
         String tenantId = TenantContext.getCurrentTenant();
 
+        // Un chat cerrado (por el administrador o por cumplir su vigencia) es solo de lectura.
+        if (request.getConversationId() != null && !request.getConversationId().isBlank()) {
+            Optional<AssistantConversation> existing = conversations.find(request.getConversationId());
+            if (existing.isPresent() && conversations.owns(existing.get(), context)
+                    && conversations.isClosed(existing.get())) {
+                return error(HttpStatus.CONFLICT, "CHAT_CLOSED",
+                        "Este chat se cerró y ya no admite mensajes. Abre uno nuevo para seguir hablando con Furi.");
+            }
+        }
+
         SseEmitter emitter = new SseEmitter(properties.getEmitterTimeoutMillis());
         SseAssistantStream stream = new SseAssistantStream(emitter, mapper);
         try {
@@ -229,10 +239,11 @@ public class AssistantController {
         if (found.isEmpty() || !conversations.owns(found.get(), context)) {
             return error(HttpStatus.NOT_FOUND, "NOT_FOUND", "No encontré esa conversación.");
         }
-        conversations.close(found.get());
+        conversations.close(found.get(), AssistantConversation.MOTIVO_CIERRE_USUARIO);
         Map<String, Object> payload = new java.util.LinkedHashMap<>();
         payload.put("conversationId", found.get().getId());
         payload.put("estado", found.get().getEstado());
+        payload.put("motivoCierre", found.get().getMotivoCierre());
         return ResponseEntity.ok(payload);
     }
 
@@ -308,6 +319,7 @@ public class AssistantController {
         Map<String, Object> payload = new java.util.LinkedHashMap<>();
         payload.put("conversationId", conversation.getId());
         payload.put("estado", conversation.getEstado());
+        payload.put("motivoCierre", conversation.getMotivoCierre());
         payload.put("pageContext", conversation.getPageContext());
         payload.put("cotizo", conversation.isCotizo());
         if (conversation.getTotalCotizado() != null) {
@@ -342,6 +354,7 @@ public class AssistantController {
         String titulo = conversation.getTitulo();
         node.put("titulo", titulo == null || titulo.isBlank() ? "Nuevo chat" : titulo);
         node.put("estado", conversation.getEstado());
+        node.put("motivoCierre", conversation.getMotivoCierre());
         node.put("cotizo", conversation.isCotizo());
         if (conversation.getTotalCotizado() != null) {
             node.put("totalCotizado", conversation.getTotalCotizado());

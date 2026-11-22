@@ -157,7 +157,7 @@
         var headerAvatar = panel.querySelector('.fa-avatar img');
         var avatarSrc = headerAvatar ? headerAvatar.getAttribute('src') : '/images/furi.png';
 
-        var state = { conversationId: null, whatsapp: null };
+        var state = { conversationId: null, whatsapp: null, closed: false };
         var isOpen = false;
         var isStreaming = false;
         var currentBubble = null;
@@ -312,6 +312,7 @@
             els.messages.textContent = '';
             state.conversationId = null;
             currentBubble = null;
+            clearChatClosed();
             saveActiveId(null);
             closeSidePanel();
             resetDateState();
@@ -322,7 +323,7 @@
         }
 
         function renderWelcome() {
-            appendNote('Este chat es temporal: se conserva 24 h. Soy un asistente con IA; '
+            appendNote('Este chat se cierra automáticamente a las 24 horas. Soy un asistente con IA; '
                 + 'confirma precios y disponibilidad antes de reservar.');
             typeAssistantMessage('Hola, soy Furi. ¿En qué puedo ayudarte?', 560, function (row) {
                 if (!row.isConnected) {
@@ -373,6 +374,94 @@
             note.textContent = text;
             row.appendChild(note);
             els.messages.appendChild(row);
+        }
+
+        // ───────────────────────── Chat cerrado (solo lectura) ─────────────────────────
+
+        /**
+         * Aviso que se muestra cuando la conversación ya no admite escritura. El motivo
+         * distingue el cierre por administrador del cierre automático por vigencia (24 h).
+         */
+        function appendClosedNotice(motivo) {
+            var expirado = String(motivo || '').toUpperCase() === 'EXPIRADO';
+            var row = document.createElement('div');
+            row.className = 'fa-closed-row fa-enter';
+            var box = document.createElement('div');
+            box.className = 'fa-closed';
+
+            var ico = document.createElement('span');
+            ico.className = 'fa-closed-ico';
+            ico.appendChild(svgIcon(ICONS.lock, 20));
+            box.appendChild(ico);
+
+            var title = document.createElement('p');
+            title.className = 'fa-closed-title';
+            title.textContent = 'Este chat está cerrado';
+            box.appendChild(title);
+
+            var desc = document.createElement('p');
+            desc.className = 'fa-closed-desc';
+            desc.textContent = expirado
+                ? 'El chat se cerró automáticamente al cumplir 24 horas. Ya no puedes escribir aquí; '
+                    + 'queda solo como historial.'
+                : 'Un administrador cerró este chat. Ya no puedes escribir aquí; '
+                    + 'queda solo como historial.';
+            box.appendChild(desc);
+
+            var actions = document.createElement('div');
+            actions.className = 'fa-closed-actions';
+            actions.appendChild(button('Empezar un chat nuevo', 'fa-btn-primary', newChat, ICONS.sparkles));
+            box.appendChild(actions);
+
+            row.appendChild(box);
+            els.messages.appendChild(row);
+            scrollDown();
+        }
+
+        /** Pone el compositor en solo lectura y muestra el aviso de chat cerrado. */
+        function setChatClosed(motivo) {
+            if (state.closed) {
+                return;
+            }
+            state.closed = true;
+            if (els.input) {
+                els.input.value = '';
+                els.input.style.height = 'auto';
+                els.input.disabled = true;
+                els.input.placeholder = 'Este chat está cerrado';
+            }
+            if (els.send) {
+                els.send.disabled = true;
+            }
+            if (els.plus) {
+                els.plus.disabled = true;
+            }
+            collapseSuggestions();
+            collapseQuick();
+            var card = els.panel.querySelector('.fa-composer-card');
+            if (card) {
+                card.classList.add('is-closed');
+            }
+            appendClosedNotice(motivo);
+        }
+
+        /** Restaura el compositor para un chat nuevo o activo. */
+        function clearChatClosed() {
+            state.closed = false;
+            if (els.input) {
+                els.input.disabled = false;
+                els.input.placeholder = 'Escribe tu duda o lo que necesitas...';
+            }
+            if (els.send) {
+                els.send.disabled = false;
+            }
+            if (els.plus) {
+                els.plus.disabled = false;
+            }
+            var card = els.panel.querySelector('.fa-composer-card');
+            if (card) {
+                card.classList.remove('is-closed');
+            }
         }
 
         // ───────────────────────── Panel ─────────────────────────
@@ -439,7 +528,7 @@
         // ───────────────────────── Envío ─────────────────────────
 
         function submitFromInput() {
-            if (isStreaming) {
+            if (isStreaming || state.closed) {
                 return;
             }
             var text = (els.input.value || '').trim();
@@ -457,7 +546,7 @@
 
         function sendUserMessage(text) {
             text = String(text || '').trim();
-            if (!text || isStreaming) {
+            if (!text || isStreaming || state.closed) {
                 return;
             }
             collapseSuggestions();
@@ -506,6 +595,17 @@
                     showAuthGate();
                     return;
                 }
+                if (error && error.codigo === 'CHAT_CLOSED') {
+                    // El chat se cerró (administrador o 24 h): aviso y compositor bloqueado.
+                    closePendingBubble();
+                    state.closed = true;
+                    if (state.conversationId) {
+                        openConversation(state.conversationId, true);
+                    } else {
+                        setChatClosed(null);
+                    }
+                    return;
+                }
                 failReply(error && error.mensaje
                     ? error.mensaje
                     : 'No pude responder ahora mismo. Puedes intentar de nuevo o escribirnos por WhatsApp.');
@@ -513,7 +613,9 @@
                 offerWhatsApp();
             }).finally(function () {
                 isStreaming = false;
-                els.send.disabled = false;
+                if (!state.closed) {
+                    els.send.disabled = false;
+                }
                 updateDatesUI();
                 finishReply();
                 updateHistoryActive();
@@ -2683,6 +2785,12 @@
                 meta.textContent = total + (total === 1 ? ' mensaje' : ' mensajes')
                     + (conversation.ultimoMensaje ? ' · ' + fmtFecha(conversation.ultimoMensaje.slice(0, 10)) : '');
                 open.appendChild(meta);
+                if (String(conversation.estado || '').toUpperCase() === 'CERRADA') {
+                    var badge = document.createElement('span');
+                    badge.className = 'fa-hist-badge';
+                    badge.textContent = 'Cerrado';
+                    open.appendChild(badge);
+                }
                 open.addEventListener('click', function () {
                     openConversation(conversation.conversationId);
                 });
@@ -2736,6 +2844,7 @@
                 resetDateState();
                 els.messages.textContent = '';
                 currentBubble = null;
+                clearChatClosed();
                 var messages = (data && data.messages) || [];
                 messages.forEach(function (message) {
                     if (message.rol === 'USER' && message.contenido) {
@@ -2746,6 +2855,9 @@
                 });
                 if (messages.length === 0) {
                     renderWelcome();
+                }
+                if (String(data.estado || '').toUpperCase() === 'CERRADA') {
+                    setChatClosed(data.motivoCierre);
                 }
                 closeSidePanel();
                 closeHistory();

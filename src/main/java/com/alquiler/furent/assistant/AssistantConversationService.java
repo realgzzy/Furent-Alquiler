@@ -48,9 +48,8 @@ public class AssistantConversationService {
                 if (context.authenticated() && conversation.getUserId() == null) {
                     conversation.setUserId(context.userId());
                 }
-                if (conversation.getExpireAt() == null) {
-                    conversation.setExpireAt(expireAt());
-                }
+                normalizeTimeline(conversation);
+                markExpiredIfNeeded(conversation);
                 if (pageContext != null && !pageContext.isBlank()) {
                     conversation.setPageContext(pageContext);
                 }
@@ -62,7 +61,7 @@ public class AssistantConversationService {
         conversation.setUserId(context.authenticated() ? context.userId() : null);
         conversation.setPageContext(pageContext);
         conversation.setTenantId(TenantContext.getCurrentTenant());
-        conversation.setExpireAt(expireAt());
+        normalizeTimeline(conversation);
         return conversationRepository.save(conversation);
     }
 
@@ -79,12 +78,15 @@ public class AssistantConversationService {
 
     /**
      * Busca una conversación por id. No valida propiedad; quien la use debe comprobarla.
+     * Si el chat ya superó su vigencia, lo marca como cerrado antes de devolverlo.
      */
     public Optional<AssistantConversation> find(String conversationId) {
         if (conversationId == null || conversationId.isBlank()) {
             return Optional.empty();
         }
-        return conversationRepository.findById(conversationId);
+        Optional<AssistantConversation> found = conversationRepository.findById(conversationId);
+        found.ifPresent(this::markExpiredIfNeeded);
+        return found;
     }
 
     public List<AssistantMessage> history(String conversationId) {
@@ -104,6 +106,7 @@ public class AssistantConversationService {
         List<AssistantConversation> encontradas = context.authenticated()
                 ? conversationRepository.findByUserIdOrderByUltimoMensajeDesc(context.userId())
                 : conversationRepository.findBySessionIdOrderByUltimoMensajeDesc(context.sessionId());
+        encontradas.forEach(this::markExpiredIfNeeded);
         return encontradas.stream().limit(tope).toList();
     }
 
@@ -175,15 +178,83 @@ public class AssistantConversationService {
         conversationRepository.save(conversation);
     }
 
-    public void close(AssistantConversation conversation) {
+    /**
+     * Cierra la conversación para que deje de admitir escritura. {@code motivo} queda guardado
+     * (ADMIN, EXPIRADO o USUARIO) para que el usuario sepa por qué se cerró.
+     */
+    public void close(AssistantConversation conversation, String motivo) {
+        if (conversation == null) {
+            return;
+        }
         conversation.setEstado(AssistantConversation.ESTADO_CERRADA);
-        conversation.setExpireAt(expireAt());
+        conversation.setMotivoCierre(motivo);
+        if (conversation.getExpireAt() == null || conversation.getExpireAt().isBefore(purgeAtNow())) {
+            conversation.setExpireAt(purgeAtNow());
+        }
         conversationRepository.save(conversation);
     }
 
-    /** Momento en que el chat (y sus mensajes) dejan de conservarse. */
-    private Instant expireAt() {
-        return Instant.now().plus(properties.getSessionHours(), ChronoUnit.HOURS);
+    /**
+     * Marca como cerrada una conversación que ya superó su vigencia (o que lo está por hacer),
+     * siempre que no se haya cerrado antes por otro motivo. Así el chat sigue visible en el
+     * historial con su aviso en vez de desaparecer sin explicación.
+     */
+    public void markExpiredIfNeeded(AssistantConversation conversation) {
+        if (conversation == null || AssistantConversation.ESTADO_CERRADA.equals(conversation.getEstado())) {
+            return;
+        }
+        Instant limite = closedAt(conversation);
+        if (limite == null || Instant.now().isBefore(limite)) {
+            return;
+        }
+        conversation.setEstado(AssistantConversation.ESTADO_CERRADA);
+        if (conversation.getMotivoCierre() == null) {
+            conversation.setMotivoCierre(AssistantConversation.MOTIVO_CIERRE_EXPIRADO);
+        }
+        if (conversation.getExpireAt() == null || conversation.getExpireAt().isBefore(purgeAtNow())) {
+            conversation.setExpireAt(purgeAtNow());
+        }
+        conversationRepository.save(conversation);
+    }
+
+    /** ¿El chat ya no admite escritura (cerrado explícitamente o por vigencia cumplida)? */
+    public boolean isClosed(AssistantConversation conversation) {
+        if (conversation == null) {
+            return false;
+        }
+        if (AssistantConversation.ESTADO_CERRADA.equals(conversation.getEstado())) {
+            return true;
+        }
+        Instant limite = closedAt(conversation);
+        return limite != null && !Instant.now().isBefore(limite);
+    }
+
+    /**
+     * Asegura los hitos temporales de una conversación: cuándo cierra ({@code cierraEn}) y
+     * cuándo se borra ({@code expireAt}). Cubre conversaciones creadas antes de este cambio.
+     */
+    private void normalizeTimeline(AssistantConversation conversation) {
+        Instant inicio = conversation.getInicio() != null ? conversation.getInicio() : Instant.now();
+        if (conversation.getCierraEn() == null) {
+            conversation.setCierraEn(inicio.plus(properties.getSessionHours(), ChronoUnit.HOURS));
+        }
+        if (conversation.getExpireAt() == null) {
+            conversation.setExpireAt(purgeAfter(conversation.getCierraEn()));
+        }
+    }
+
+    /** Momento en que el chat deja de admitir escritura. */
+    private Instant closedAt(AssistantConversation conversation) {
+        return conversation.getCierraEn() != null ? conversation.getCierraEn() : conversation.getExpireAt();
+    }
+
+    /** Borrado del chat: un tiempo de gracia por detrás del cierre. */
+    private Instant purgeAfter(Instant cierre) {
+        return cierre.plus(Math.max(1, properties.getClosedRetentionHours()), ChronoUnit.HOURS);
+    }
+
+    private Instant purgeAtNow() {
+        return Instant.now().plus(Math.max(1, properties.getClosedRetentionHours()), ChronoUnit.HOURS);
     }
 
     /** Título legible para el historial a partir del primer mensaje del usuario. */
@@ -205,7 +276,7 @@ public class AssistantConversationService {
         message.setArgumentosResumen(argumentosResumen);
         message.setTokens(tokens);
         message.setModelo(modelo);
-        message.setExpireAt(conversation.getExpireAt() != null ? conversation.getExpireAt() : expireAt());
+        message.setExpireAt(conversation.getExpireAt() != null ? conversation.getExpireAt() : purgeAtNow());
         messageRepository.save(message);
 
         conversation.setUltimoMensaje(Instant.now());

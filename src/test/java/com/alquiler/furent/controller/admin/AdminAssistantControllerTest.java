@@ -173,7 +173,7 @@ class AdminAssistantControllerTest {
                 .andExpect(redirectedUrl("/admin/asistente/conv-9"))
                 .andExpect(flash().attributeExists("success"));
 
-        verify(conversationService).close(c);
+        verify(conversationService).close(c, AssistantConversation.MOTIVO_CIERRE_ADMIN);
         verify(auditLogService).log(eq("admin@furent.com"), eq("CERRAR_CONVERSACION_ASISTENTE"),
                 eq("ASISTENTE"), eq("conv-9"), anyString());
     }

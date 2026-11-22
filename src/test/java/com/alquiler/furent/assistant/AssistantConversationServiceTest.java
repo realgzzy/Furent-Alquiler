@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -146,5 +147,61 @@ class AssistantConversationServiceTest {
         service.saveUserMessage(conv, "segundo mensaje");
 
         assertEquals("Primer tema", conv.getTitulo());
+    }
+
+    @Test
+    void isClosedDetectaCierreExplicitoYPorVigencia() {
+        AssistantConversation cerrada = new AssistantConversation();
+        cerrada.setEstado(AssistantConversation.ESTADO_CERRADA);
+        assertTrue(service.isClosed(cerrada));
+
+        AssistantConversation vigente = new AssistantConversation();
+        vigente.setCierraEn(Instant.now().plusSeconds(3600));
+        assertFalse(service.isClosed(vigente));
+
+        AssistantConversation vencida = new AssistantConversation();
+        vencida.setCierraEn(Instant.now().minusSeconds(60));
+        assertTrue(service.isClosed(vencida));
+    }
+
+    @Test
+    void markExpiredIfNeededCierraElChatVencido() {
+        AssistantConversation conv = new AssistantConversation();
+        conv.setId("conv-1");
+        conv.setCierraEn(Instant.now().minusSeconds(60));
+        conv.setExpireAt(Instant.now().minusSeconds(30));
+
+        service.markExpiredIfNeeded(conv);
+
+        assertEquals(AssistantConversation.ESTADO_CERRADA, conv.getEstado());
+        assertEquals(AssistantConversation.MOTIVO_CIERRE_EXPIRADO, conv.getMotivoCierre());
+        assertTrue(conv.getExpireAt().isAfter(Instant.now()));
+        verify(conversationRepository).save(conv);
+    }
+
+    @Test
+    void markExpiredIfNeededNoTocaChatsVigentes() {
+        AssistantConversation conv = new AssistantConversation();
+        conv.setCierraEn(Instant.now().plusSeconds(3600));
+
+        service.markExpiredIfNeeded(conv);
+
+        assertEquals(AssistantConversation.ESTADO_ACTIVA, conv.getEstado());
+        assertNull(conv.getMotivoCierre());
+        verify(conversationRepository, times(0)).save(conv);
+    }
+
+    @Test
+    void closeGuardaElMotivoYAmpliaLaVigencia() {
+        AssistantConversation conv = new AssistantConversation();
+        conv.setId("conv-1");
+        conv.setExpireAt(Instant.now().minusSeconds(30));
+
+        service.close(conv, AssistantConversation.MOTIVO_CIERRE_ADMIN);
+
+        assertEquals(AssistantConversation.ESTADO_CERRADA, conv.getEstado());
+        assertEquals(AssistantConversation.MOTIVO_CIERRE_ADMIN, conv.getMotivoCierre());
+        assertTrue(conv.getExpireAt().isAfter(Instant.now()));
+        verify(conversationRepository).save(conv);
     }
 }

@@ -35,6 +35,11 @@ public class AssistantProperties {
     private String knowledgeFile = "classpath:assistant/knowledge.yml";
     /** Horas que se conservan las conversaciones y sus mensajes (chat temporal). */
     private int sessionHours = 24;
+    /**
+     * Horas que se conserva un chat ya cerrado antes de borrarlo. Da margen para que el
+     * usuario vuelva y vea el aviso de "chat cerrado" en lugar de encontrárselo desaparecido.
+     */
+    private int closedRetentionHours = 168;
     private long emitterTimeoutMillis = 60_000L;
 
     /**
@@ -170,6 +175,14 @@ public class AssistantProperties {
 
     public void setSessionHours(int sessionHours) {
         this.sessionHours = sessionHours;
+    }
+
+    public int getClosedRetentionHours() {
+        return closedRetentionHours;
+    }
+
+    public void setClosedRetentionHours(int closedRetentionHours) {
+        this.closedRetentionHours = closedRetentionHours;
     }
 
     public long getEmitterTimeoutMillis() {
