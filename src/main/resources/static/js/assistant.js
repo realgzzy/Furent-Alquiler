@@ -2052,18 +2052,30 @@
                         onReady: function (d, s, instance) {
                             instance.calendarContainer.classList.add('fa-fp');
                         },
-                        onChange: function (dates) {
-                            hiddenStart.value = dates[0] ? toIso(dates[0]) : '';
-                            if (hiddenEnd) {
-                                hiddenEnd.value = dates.length > 1 ? toIso(dates[dates.length - 1]) : '';
+                        onChange: function (dates, str, instance) {
+                            var start = (dates && dates[0]) ? toIso(dates[0]) : '';
+                            var end = (dates && dates.length > 1) ? toIso(dates[dates.length - 1]) : '';
+                            // El alquiler es de máximo 7 días: recorta el rango si se supera.
+                            if (start && end && second && diasEntre(start, end) > DETALLES_MAX_DIAS) {
+                                end = addDaysIso(start, DETALLES_MAX_DIAS - 1);
+                                if (instance && typeof instance.setDate === 'function') {
+                                    instance.setDate([start, end], false);
+                                }
                             }
-                            control.classList.toggle('has-value', dates.length > 0);
+                            hiddenStart.value = start;
+                            if (hiddenEnd) {
+                                hiddenEnd.value = end;
+                            }
+                            control.classList.toggle('has-value', !!start);
                             // Los campos ocultos no emiten 'input' al asignarles valor: lo avisamos a mano
                             // para que la vista (p. ej. el checklist) reaccione al rango elegido.
                             hiddenStart.dispatchEvent(new Event('input'));
                             if (hiddenEnd) {
                                 hiddenEnd.dispatchEvent(new Event('input'));
                             }
+                        },
+                        onDayCreate: function (dObj, dStr, instance, dayElem) {
+                            limitRangeDay(dayElem, instance);
                         }
                     });
                 } catch (e) {
@@ -2789,6 +2801,7 @@
                         onChange: onDatesChange,
                         onDayCreate: function (dObj, dStr, instance, dayElem) {
                             markReserved(dayElem);
+                            limitRangeDay(dayElem, instance);
                         }
                     });
                 } catch (e) {
@@ -2822,8 +2835,8 @@
             function sync() {
                 var start = startField.input.value;
                 var end = endField.input.value;
-                if (start && end && diasEntre(start, end) > 7) {
-                    end = addDaysIso(start, 6);
+                if (start && end && diasEntre(start, end) > DETALLES_MAX_DIAS) {
+                    end = addDaysIso(start, DETALLES_MAX_DIAS - 1);
                     endField.input.value = end;
                 }
                 pendingStart = start || null;
@@ -2857,13 +2870,36 @@
             pendingStart = toIso(selectedDates[0]);
             pendingEnd = selectedDates.length > 1 ? toIso(selectedDates[selectedDates.length - 1]) : null;
 
-            if (pendingStart && pendingEnd && diasEntre(pendingStart, pendingEnd) > 7) {
-                pendingEnd = addDaysIso(pendingStart, 6);
+            if (pendingStart && pendingEnd && diasEntre(pendingStart, pendingEnd) > DETALLES_MAX_DIAS) {
+                pendingEnd = addDaysIso(pendingStart, DETALLES_MAX_DIAS - 1);
                 if (fp && typeof fp.setDate === 'function') {
                     fp.setDate([pendingStart, pendingEnd], false);
                 }
             }
             updateDatesUI();
+        }
+
+        /**
+         * Limita el rango de fechas a DETALLES_MAX_DIAS (7 días) dentro del propio
+         * calendario: tras elegir la fecha inicial, marca como no disponibles los días
+         * que superen esa ventana para que no se pueda pintar un rango mayor.
+         * flatpickr respeta la clase `flatpickr-disabled` en el hover y en el clic.
+         */
+        function limitRangeDay(dayElem, instance) {
+            if (!dayElem || !dayElem.dateObj || !instance || instance.selectedDates.length !== 1) {
+                return;
+            }
+            var start = instance.selectedDates[0];
+            if (!start) {
+                return;
+            }
+            var max = addDays(start, DETALLES_MAX_DIAS - 1);
+            max.setHours(23, 59, 59, 999);
+            if (dayElem.dateObj.getTime() > max.getTime()) {
+                dayElem.classList.add('flatpickr-disabled');
+                dayElem.setAttribute('aria-disabled', 'true');
+                dayElem.tabIndex = -1;
+            }
         }
 
         function updateDatesUI() {
