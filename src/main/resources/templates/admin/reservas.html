@@ -12,7 +12,8 @@
          (tabla densa) + un inspector de expediente y finanzas.
          ============================================================ -->
     <div class="rv-scope px-5 sm:px-8 lg:px-10 py-8 pb-20 max-w-[92rem] mx-auto"
-         x-data="reservasPage()" x-init="init()" x-cloak>
+         x-data="reservasPage()" x-init="init()" x-cloak
+         @pointerdown.window="cerrarPopovers($event)" @keydown.escape.window="cerrarPopovers()" @resize.window="onResize()">
 
         <style>
             .rv-scope {
@@ -129,6 +130,88 @@
             .rv-field[type=number]::-webkit-outer-spin-button,
             .rv-field[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
             .rv-field[type=number] { -moz-appearance: textfield; appearance: textfield; }
+            .rv-field--open { border-color: #FDBA74; background: var(--rv-card); box-shadow: 0 0 0 4px var(--rv-ring); }
+
+            /* Disparadores con campo (DateRangePicker / Dropdown) */
+            .rv-dp, .rv-dd { display: flex; align-items: center; gap: .5rem; width: 100%;
+                             padding-left: .8rem; padding-right: .8rem; cursor: pointer; text-align: left; }
+            .rv-dp__icon, .rv-dd__lead { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--rv-faint); }
+            .rv-dd__lead { color: var(--rv-ink-2); }
+            .rv-dp__val, .rv-dd__val { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35; }
+            .rv-dp__ph { color: var(--rv-faint); font-weight: 500; }
+            .rv-dd__val { font-weight: 700; color: var(--rv-ink); }
+            .rv-dp__caret, .rv-dd__caret { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--rv-faint); transition: transform .16s ease; }
+            .rv-dp__caret--open, .rv-dd__caret--open { transform: rotate(180deg); }
+            .rv-field-clear { position: absolute; right: 2.05rem; top: 50%; transform: translateY(-50%); display: inline-flex;
+                              align-items: center; justify-content: center; width: 1.4rem; height: 1.4rem; border-radius: .5rem;
+                              color: var(--rv-faint); transition: color .14s ease, background-color .14s ease; }
+            .rv-field-clear:hover { color: var(--rv-ink); background: var(--rv-hover); }
+            .rv-fld-wrap { min-width: 11rem; }
+
+            /* Popovers (HeroUI-style) */
+            .rv-pop { position: absolute; top: calc(100% + .5rem); z-index: 60; background: var(--rv-card);
+                      border: 1px solid var(--rv-line-2); border-radius: 1rem;
+                      box-shadow: 0 18px 44px -14px rgba(24, 24, 27, .24), 0 4px 12px -6px rgba(24, 24, 27, .12);
+                      animation: rvPop .16s cubic-bezier(.16, 1, .3, 1) both; }
+            html.dark .rv-pop { box-shadow: 0 18px 44px -14px rgba(0, 0, 0, .72); }
+            .rv-pop--cal { right: 0; width: 34rem; padding: .85rem .9rem .7rem; }
+            .rv-pop--menu { right: 0; left: auto; width: max-content; min-width: 14.5rem; max-width: 21rem; padding: .35rem; }
+            @media (max-width: 639px) {
+                .rv-pop--cal { left: 0; right: 0; width: auto; }
+                .rv-pop--menu { left: 0; right: 0; width: auto; max-width: none; }
+            }
+
+            /* Calendario */
+            .rv-calbar { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .45rem; }
+            .rv-calbar__title { font-size: .78rem; font-weight: 800; color: var(--rv-ink); letter-spacing: -.01em; }
+            .rv-calbar__nav { display: inline-flex; align-items: center; justify-content: center; width: 1.85rem; height: 1.85rem;
+                              border-radius: .6rem; color: var(--rv-ink-2); transition: background-color .14s ease, color .14s ease; }
+            .rv-calbar__nav:hover { background: var(--rv-hover); color: var(--rv-ink); }
+            .rv-calbar__nav:focus-visible { outline: 2px solid var(--rv-accent); outline-offset: 1px; }
+            .rv-calwrap { display: flex; gap: 1rem; }
+            .rv-cal { flex: 1 1 0; min-width: 0; }
+            .rv-cal__dow { display: grid; grid-template-columns: repeat(7, 1fr); }
+            .rv-cal__dow span { text-align: center; font-size: .6rem; font-weight: 800; text-transform: uppercase; color: var(--rv-faint); padding: .2rem 0; }
+            .rv-cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+            .rv-day { position: relative; display: flex; align-items: center; justify-content: center; height: 2rem; width: 100%;
+                      border-radius: 9999px; font-size: .76rem; font-weight: 700; color: var(--rv-ink);
+                      font-variant-numeric: tabular-nums; transition: background-color .1s ease, color .1s ease; }
+            .rv-day:hover { background: var(--rv-hover); }
+            .rv-day:focus-visible { outline: 2px solid var(--rv-accent); outline-offset: -2px; }
+            .rv-day--out { color: var(--rv-faint); opacity: .5; }
+            .rv-day--today { color: var(--rv-accent-strong); }
+            .rv-day--today::after { content: ''; position: absolute; bottom: .22rem; width: .27rem; height: .27rem; border-radius: 9999px; background: currentColor; }
+            .rv-day--between { background: var(--rv-accent-soft); color: var(--rv-accent-strong); border-radius: .55rem; }
+            .rv-day--between:hover { background: var(--rv-accent-line); }
+            .rv-day--start, .rv-day--end { background: var(--rv-accent); color: #fff; }
+            .rv-day--start:hover, .rv-day--end:hover { background: var(--rv-accent-strong); }
+            .rv-day--start::after, .rv-day--end::after { display: none; }
+            html.dark .rv-day--between { color: #FDBA74; }
+            html.dark .rv-day--between:hover { background: rgba(224, 122, 58, .3); }
+            .rv-calfoot { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .55rem;
+                          padding-top: .55rem; border-top: 1px solid var(--rv-line); }
+            .rv-calfoot__hint { font-size: .68rem; font-weight: 600; color: var(--rv-mute); }
+            .rv-calfoot__clear { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+                                 color: var(--rv-accent-strong); padding: .25rem .45rem; border-radius: .5rem; }
+            .rv-calfoot__clear:hover { background: var(--rv-accent-soft); }
+            html.dark .rv-calfoot__clear { color: #FDBA74; }
+
+            /* Opciones del dropdown */
+            .rv-opt { display: flex; align-items: center; gap: .65rem; width: 100%; text-align: left; padding: .5rem .55rem;
+                      border-radius: .7rem; transition: background-color .12s ease; }
+            .rv-opt--active { background: var(--rv-hover); }
+            .rv-opt__ic { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem;
+                          border-radius: .6rem; background: var(--rv-tint); color: var(--rv-ink-2); flex-shrink: 0; }
+            .rv-opt--sel .rv-opt__ic { background: var(--rv-accent-soft); color: var(--rv-accent); }
+            .rv-opt__body { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+            .rv-opt__label { font-size: .8rem; font-weight: 700; color: var(--rv-ink); }
+            .rv-opt__desc { font-size: .66rem; font-weight: 500; color: var(--rv-mute); }
+            .rv-opt__check { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--rv-accent); }
+            .rv-opt[aria-selected="true"] { background: var(--rv-accent-soft); }
+            html.dark .rv-opt[aria-selected="true"] { background: rgba(224, 122, 58, .12); }
+
+            /* Pie de la tarjeta (esquinas al quitar overflow-hidden) */
+            .rv-card-foot { border-bottom-left-radius: 1rem; border-bottom-right-radius: 1rem; }
 
             /* Tabla */
             .rv-th { font-size: .64rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--rv-faint);
@@ -167,7 +250,8 @@
             @media (prefers-reduced-motion: reduce) {
                 .rv-rise { animation: none !important; opacity: 1 !important; transform: none !important; }
                 .rv-modal[open] .rv-modal__card { animation: none !important; }
-                .rv-row, .rv-seg__btn, .rv-progress__fill { transition: none !important; }
+                .rv-pop { animation: none !important; }
+                .rv-row, .rv-seg__btn, .rv-progress__fill, .rv-day, .rv-opt, .rv-dp__caret, .rv-dd__caret { transition: none !important; }
             }
         </style>
 
@@ -236,7 +320,7 @@
         </section>
 
         <!-- ============================ Mesa de trabajo ============================ -->
-        <section class="rv-rise rv-d2 rv-card mt-5 overflow-hidden">
+        <section class="rv-rise rv-d2 rv-card mt-5">
             <!-- Cabecera de la tarjeta -->
             <div class="flex flex-col gap-4 p-5 sm:px-6 border-b border-[color:var(--rv-line)]">
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -257,25 +341,86 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                             </button>
                         </div>
-                        <!-- Fecha -->
-                        <div class="relative lg:w-56">
-                            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
-                            <input x-ref="fecha" type="text" readonly class="rv-field rv-field-pl rv-field-pr cursor-pointer"
-                                   placeholder="Filtrar por fechas" aria-label="Filtrar por rango de fechas">
-                            <button type="button" x-show="desde || hasta" x-cloak @click="limpiarFechas()"
-                                    class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-surface-400 hover:text-surface-900 dark:hover:text-white transition-colors" aria-label="Limpiar fechas">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <!-- Fecha · DateRangePicker (estilo HeroUI) -->
+                        <div class="relative rv-fld-wrap">
+                            <button type="button" x-ref="dpBtn" data-rvpop="fecha"
+                                    class="rv-field rv-dp" :class="{ 'rv-field--open': fechaOpen }"
+                                    @click="toggleFecha()" :aria-expanded="fechaOpen ? 'true' : 'false'"
+                                    aria-haspopup="dialog" aria-label="Filtrar por rango de fechas">
+                                <svg class="rv-dp__icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                                <span class="rv-dp__val" :class="{ 'rv-dp__ph': !desde && !hasta }" x-text="rangoTexto || 'Filtrar por fechas'"></span>
+                                <svg class="rv-dp__caret" :class="{ 'rv-dp__caret--open': fechaOpen }" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
                             </button>
+                            <button type="button" x-show="desde || hasta" x-cloak @click.stop="limpiarFechas()"
+                                    class="rv-field-clear" aria-label="Limpiar fechas">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+
+                            <!-- Popover · calendario de rango -->
+                            <div x-show="fechaOpen" x-cloak class="rv-pop rv-pop--cal" role="dialog" aria-label="Elegir rango de fechas">
+                                <div class="rv-calbar">
+                                    <button type="button" class="rv-calbar__nav" @click="moverMes(-1)" aria-label="Mes anterior">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                                    </button>
+                                    <span class="rv-calbar__title" x-text="calTitulo"></span>
+                                    <button type="button" class="rv-calbar__nav" @click="moverMes(1)" aria-label="Mes siguiente">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                    </button>
+                                </div>
+                                <div class="rv-calwrap">
+                                    <template x-for="m in calMeses" :key="m.key">
+                                        <div class="rv-cal">
+                                            <div class="rv-cal__dow">
+                                                <template x-for="dw in dows" :key="dw"><span x-text="dw"></span></template>
+                                            </div>
+                                            <div class="rv-cal__grid">
+                                                <template x-for="c in m.dias" :key="c.key">
+                                                    <button type="button" class="rv-day" :class="c.cls"
+                                                            :aria-current="c.today ? 'date' : null"
+                                                            @click="elegirDia(c.iso)" @mouseenter="hoverISO = c.iso"
+                                                            x-text="c.d"></button>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="rv-calfoot">
+                                    <span class="rv-calfoot__hint" x-text="calHint"></span>
+                                    <button type="button" class="rv-calfoot__clear" x-show="desde || hasta" x-cloak @click="limpiarFechas()">Limpiar</button>
+                                </div>
+                            </div>
                         </div>
-                        <!-- Orden -->
-                        <div class="relative lg:w-48">
-                            <select x-model="orden" @change="onFilterChange()" class="rv-field appearance-none pr-9 cursor-pointer" aria-label="Ordenar reservas">
-                                <option value="recientes">Más recientes</option>
-                                <option value="evento">Fecha del evento</option>
-                                <option value="monto">Mayor monto</option>
-                                <option value="cliente">Cliente (A-Z)</option>
-                            </select>
-                            <svg class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                        <!-- Orden · Dropdown con iconos (estilo HeroUI) -->
+                        <div class="relative rv-fld-wrap">
+                            <button type="button" x-ref="ddBtn" data-rvpop="orden"
+                                    class="rv-field rv-dd" :class="{ 'rv-field--open': ordenOpen }"
+                                    @click="toggleOrden()" @keydown.down.prevent="abrirOrden()" @keydown.up.prevent="abrirOrden(true)"
+                                    :aria-expanded="ordenOpen ? 'true' : 'false'" aria-haspopup="listbox" aria-label="Ordenar reservas">
+                                <svg class="rv-dd__lead" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="ordenActual.icon"/></svg>
+                                <span class="rv-dd__val" x-text="ordenActual.label"></span>
+                                <svg class="rv-dd__caret" :class="{ 'rv-dd__caret--open': ordenOpen }" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                            </button>
+
+                            <!-- Popover · opciones -->
+                            <div x-show="ordenOpen" x-cloak x-ref="ddMenu" class="rv-pop rv-pop--menu" role="listbox" tabindex="-1"
+                                 aria-label="Ordenar reservas"
+                                 @keydown.down.prevent="moverOrden(1)" @keydown.up.prevent="moverOrden(-1)"
+                                 @keydown.enter.prevent="elegirOrden(ordenIdx)" @keydown.escape.prevent="cerrarOrden()"
+                                 @focusout="if (!$event.currentTarget.contains($event.relatedTarget)) cerrarOrden()">
+                                <template x-for="(o, i) in ordenes" :key="o.key">
+                                    <button type="button" role="option" class="rv-opt"
+                                            :class="{ 'rv-opt--sel': orden === o.key, 'rv-opt--active': ordenIdx === i }"
+                                            :aria-selected="orden === o.key ? 'true' : 'false'"
+                                            @click="elegirOrden(i)" @mouseenter="ordenIdx = i">
+                                        <span class="rv-opt__ic"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="o.icon"/></svg></span>
+                                        <span class="rv-opt__body">
+                                            <span class="rv-opt__label" x-text="o.label"></span>
+                                            <span class="rv-opt__desc" x-text="o.desc"></span>
+                                        </span>
+                                        <svg class="rv-opt__check" x-show="orden === o.key" x-cloak fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                    </button>
+                                </template>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -394,7 +539,7 @@
             </div>
 
             <!-- Pie: paginación -->
-            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 sm:px-6 py-4 border-t border-[color:var(--rv-line)] bg-[color:var(--rv-tint)]">
+            <div class="rv-card-foot flex flex-col sm:flex-row items-center justify-between gap-3 px-5 sm:px-6 py-4 border-t border-[color:var(--rv-line)] bg-[color:var(--rv-tint)]">
                 <div class="flex items-center gap-3">
                     <span class="rv-label">Filas</span>
                     <select x-model.number="perPage" @change="page = 1; syncUrl()" class="rv-field !py-1.5 !px-2.5 !w-auto text-xs" aria-label="Filas por página">
@@ -801,6 +946,12 @@
             'SALDO_FINAL': 'Saldo final'
         };
         var RV_MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+        var RV_MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        var RV_DOWS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+        var RV_HOY = (function () {
+            var d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        })();
         var RV_WHATSAPP = '573105782442';
         var RV_PER_PAGE_DEFAULT = 10;
 
@@ -831,6 +982,24 @@
                     { key: 'CANCELADA', label: 'Canceladas' }
                 ],
 
+                // DateRangePicker (HeroUI-style)
+                fechaOpen: false,
+                calY: 0,
+                calM: 0,
+                calNM: 2,
+                hoverISO: '',
+                dows: RV_DOWS,
+
+                // Dropdown de orden (HeroUI-style)
+                ordenOpen: false,
+                ordenIdx: 0,
+                ordenes: [
+                    { key: 'recientes', label: 'Más recientes', desc: 'Como se crearon', icon: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z' },
+                    { key: 'evento', label: 'Fecha del evento', desc: 'Eventos más próximos', icon: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5' },
+                    { key: 'monto', label: 'Mayor monto', desc: 'Total de la reserva', icon: 'M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+                    { key: 'cliente', label: 'Cliente (A–Z)', desc: 'Orden alfabético', icon: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z' }
+                ],
+
                 init() {
                     var raw = {};
                     try { raw = JSON.parse(document.getElementById('rv-data').textContent || '{}'); } catch (e) { raw = {}; }
@@ -846,19 +1015,8 @@
                     if (qs.get('orden')) this.orden = qs.get('orden');
                     if (qs.get('page')) this.page = parseInt(qs.get('page'), 10) || 1;
 
-                    // Selector de fechas.
-                    if (window.flatpickr && this.$refs.fecha) {
-                        var self = this;
-                        window.flatpickr(this.$refs.fecha, {
-                            locale: 'es', mode: 'range', dateFormat: 'Y-m-d',
-                            defaultDate: [this.desde, this.hasta].filter(Boolean),
-                            onChange: function (dates) {
-                                self.desde = dates[0] ? self.fmtISO(dates[0]) : '';
-                                self.hasta = dates[1] ? self.fmtISO(dates[1]) : (dates[0] ? self.fmtISO(dates[0]) : '');
-                                self.onFilterChange();
-                            }
-                        });
-                    }
+                    // Selector de rango: cuántos meses mostrar según el ancho.
+                    this.calNM = this.mesesVisibles();
 
                     // El layout ya muestra los avisos de éxito/error (showToast global).
                 },
@@ -866,13 +1024,140 @@
                 // ── Filtro / orden / paginación ──
                 setFiltro(key) { this.filtro = key; this.onFilterChange(); },
                 onFilterChange() { this.page = 1; this.syncUrl(); },
-                limpiarFechas() { this.desde = ''; this.hasta = ''; if (this.$refs.fecha) this.$refs.fecha.value = ''; this.onFilterChange(); },
+                limpiarFechas() { this.desde = ''; this.hasta = ''; this.hoverISO = ''; this.onFilterChange(); },
                 limpiarFiltros() {
                     this.filtro = 'todas'; this.busqueda = ''; this.desde = ''; this.hasta = ''; this.orden = 'recientes';
-                    if (this.$refs.fecha) this.$refs.fecha.value = '';
+                    this.fechaOpen = false; this.ordenOpen = false; this.hoverISO = '';
                     this.page = 1; this.syncUrl();
                 },
                 get hayFiltros() { return this.filtro !== 'todas' || !!this.busqueda || !!this.desde || !!this.hasta; },
+
+                // ── DateRangePicker ──
+                mesesVisibles() { return (window.matchMedia && window.matchMedia('(min-width: 640px)').matches) ? 2 : 1; },
+                onResize() { if (this.fechaOpen) this.calNM = this.mesesVisibles(); },
+                toggleFecha() { this.fechaOpen ? this.cerrarFecha() : this.abrirFecha(); },
+                abrirFecha() {
+                    this.ordenOpen = false;
+                    var base = this.desde || this.hasta;
+                    var d = base ? new Date(base + 'T00:00:00') : new Date();
+                    this.calY = d.getFullYear(); this.calM = d.getMonth();
+                    this.calNM = this.mesesVisibles();
+                    this.hoverISO = '';
+                    this.fechaOpen = true;
+                },
+                cerrarFecha() { this.fechaOpen = false; this.hoverISO = ''; },
+                moverMes(n) {
+                    var m = this.calM + n;
+                    this.calY += Math.floor(m / 12);
+                    this.calM = ((m % 12) + 12) % 12;
+                },
+                elegirDia(iso) {
+                    if (!iso) return;
+                    if (!this.desde || (this.desde && this.hasta)) {
+                        this.desde = iso; this.hasta = '';
+                    } else if (iso < this.desde) {
+                        this.hasta = this.desde; this.desde = iso;
+                        this.fechaOpen = false;
+                    } else {
+                        this.hasta = iso;
+                        this.fechaOpen = false;
+                    }
+                    this.hoverISO = '';
+                    this.onFilterChange();
+                },
+                get rangoTexto() {
+                    if (this.desde && this.hasta) return this.fechaCorta(this.desde) + ' – ' + this.fechaCorta(this.hasta);
+                    if (this.desde) return 'Desde ' + this.fechaCorta(this.desde);
+                    if (this.hasta) return 'Hasta ' + this.fechaCorta(this.hasta);
+                    return '';
+                },
+                get calHint() {
+                    if (this.desde && !this.hasta) return 'Elige la fecha de fin';
+                    if (this.desde && this.hasta) return 'Rango aplicado';
+                    return 'Elige la fecha de inicio';
+                },
+                get calTitulo() {
+                    var a = RV_MESES_LARGOS[this.calM];
+                    if (this.calNM < 2) return capitaliza(a) + ' ' + this.calY;
+                    var m2 = this.calM + 1;
+                    var y2 = this.calY + Math.floor(m2 / 12);
+                    var idx2 = ((m2 % 12) + 12) % 12;
+                    if (y2 !== this.calY) return capitaliza(a) + ' ' + this.calY + ' – ' + capitaliza(RV_MESES_LARGOS[idx2]) + ' ' + y2;
+                    return capitaliza(a) + ' – ' + capitaliza(RV_MESES_LARGOS[idx2]) + ' ' + this.calY;
+                },
+                get calMeses() {
+                    var out = [];
+                    for (var i = 0; i < this.calNM; i++) {
+                        var m = this.calM + i;
+                        var y = this.calY + Math.floor(m / 12);
+                        var mm = ((m % 12) + 12) % 12;
+                        out.push(this.construirMes(y, mm));
+                    }
+                    return out;
+                },
+                construirMes(y, m) {
+                    var firstDow = (new Date(y, m, 1).getDay() + 6) % 7; // lunes = 0
+                    var diasMes = new Date(y, m + 1, 0).getDate();
+                    var diasPrev = new Date(y, m, 0).getDate();
+                    var dias = [];
+                    for (var i = firstDow - 1; i >= 0; i--) dias.push(this.celda(y, m, diasPrev - i, false));
+                    for (var d = 1; d <= diasMes; d++) dias.push(this.celda(y, m, d, true));
+                    var restantes = 42 - dias.length;
+                    for (var j = 1; j <= restantes; j++) dias.push(this.celda(y, m + 1, j, false));
+                    return { key: y + '-' + m, dias: dias };
+                },
+                celda(y, m, d, inMonth) {
+                    var nd = new Date(y, m, d);
+                    var iso = this.fmtISO(nd);
+                    var cls = [];
+                    if (!inMonth) cls.push('rv-day--out');
+                    var a = this.desde, b = this.hasta;
+                    if (a && !b && this.hoverISO) b = this.hoverISO;
+                    if (a && b) {
+                        var lo = a < b ? a : b, hi = a < b ? b : a;
+                        if (iso === lo) cls.push('rv-day--start');
+                        if (iso === hi) cls.push('rv-day--end');
+                        if (iso > lo && iso < hi) cls.push('rv-day--between');
+                    } else if (a && iso === a) {
+                        cls.push('rv-day--start');
+                    }
+                    if (iso === RV_HOY) cls.push('rv-day--today');
+                    return { key: iso, d: nd.getDate(), iso: iso, today: iso === RV_HOY, cls: cls.join(' ') };
+                },
+
+                // ── Dropdown de orden ──
+                toggleOrden() { this.ordenOpen ? this.cerrarOrden() : this.abrirOrden(); },
+                abrirOrden(desdeFin) {
+                    this.fechaOpen = false;
+                    this.ordenOpen = true;
+                    var i = this.ordenes.map(function (o) { return o.key; }).indexOf(this.orden);
+                    this.ordenIdx = desdeFin ? this.ordenes.length - 1 : (i < 0 ? 0 : i);
+                    var self = this;
+                    this.$nextTick(function () { if (self.$refs.ddMenu) self.$refs.ddMenu.focus(); });
+                },
+                cerrarOrden() { this.ordenOpen = false; },
+                moverOrden(dir) {
+                    var n = this.ordenes.length;
+                    this.ordenIdx = (this.ordenIdx + dir + n) % n;
+                },
+                elegirOrden(i) {
+                    var o = this.ordenes[i];
+                    if (!o) return;
+                    this.orden = o.key;
+                    this.ordenOpen = false;
+                    this.onFilterChange();
+                },
+                get ordenActual() {
+                    var k = this.orden;
+                    var found = this.ordenes.filter(function (o) { return o.key === k; });
+                    return found.length ? found[0] : this.ordenes[0];
+                },
+                cerrarPopovers(ev) {
+                    if (ev && ev.target && ev.target.closest && (ev.target.closest('.rv-pop') || ev.target.closest('[data-rvpop]'))) return;
+                    this.fechaOpen = false;
+                    this.ordenOpen = false;
+                    this.hoverISO = '';
+                },
 
                 get filtradas() {
                     var self = this;
@@ -991,7 +1276,7 @@
                     if (this.orden !== 'recientes') p.set('orden', this.orden);
                     if (this.page > 1) p.set('page', this.page);
                     var s = p.toString();
-                    history.replaceState(null, '', location.pathname + (s ? '?' + s : ''));
+                    try { history.replaceState(null, '', location.pathname + (s ? '?' + s : '')); } catch (e) { /* contextos sin origin (p. ej. file://) */ }
                 },
 
                 // ── Formato ──
@@ -1040,6 +1325,8 @@
                 if (!b) return -1;
                 return String(a).localeCompare(String(b));
             }
+
+            function capitaliza(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
         }
     </script>
 </main>
