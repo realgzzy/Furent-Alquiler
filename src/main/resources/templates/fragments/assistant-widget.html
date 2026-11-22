@@ -374,21 +374,51 @@
         .fa-chip:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
         .fa-chip svg { color: var(--fa-accent); flex: 0 0 auto; }
 
-        /* Menú de opciones del compositor (botón +) */
-        .fa-quick { display: flex; align-items: center; flex-wrap: wrap; gap: var(--fa-s2); padding: 0 0 var(--fa-s2); }
-        .fa-quick[hidden] { display: none; }
-        .fa-quick:not([hidden]) { animation: fa-rise var(--fa-dur) var(--fa-ease-out); }
-        .fa-tool {
-            display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-            border: 1px solid var(--fa-line-2); background: var(--fa-surface); color: var(--fa-ink-2);
-            border-radius: var(--fa-r-pill); padding: 6px 12px; font-size: var(--fa-sm); font-weight: 700; font-family: inherit;
-            transition: background var(--fa-dur) var(--fa-ease), border-color var(--fa-dur) var(--fa-ease), color var(--fa-dur) var(--fa-ease);
+        /* ───────── Menú del compositor (botón +): "Dropdown with Sections" ─────────
+           Flota anclado por encima del compositor, alineado a la izquierda. Cada sección
+           lleva un título y un separador; los ítems muestran icono, título y descripción. */
+        .fa-quick {
+            position: absolute; left: var(--fa-s4); bottom: calc(100% - var(--fa-s1)); z-index: 30;
+            width: min(284px, calc(100% - var(--fa-s4) * 2));
+            display: flex; flex-direction: column; gap: 1px; padding: 6px;
+            background: var(--fa-surface); border: 1px solid var(--fa-line-2);
+            border-radius: var(--fa-r-lg); box-shadow: var(--fa-shadow-2);
+            transform-origin: bottom left;
         }
-        .fa-tool:hover { background: var(--fa-surface-3); }
-        .fa-tool:active { transform: scale(.98); }
-        .fa-tool:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
-        .fa-tool svg { flex: 0 0 auto; }
-        .fa-tool[aria-expanded="true"] { border-color: var(--fa-accent); background: var(--fa-accent-soft); color: var(--fa-accent-strong); }
+        .fa-quick[hidden] { display: none; }
+        .fa-quick:not([hidden]) { animation: fa-menu-in var(--fa-dur) var(--fa-ease-out); }
+        @keyframes fa-menu-in {
+            from { opacity: 0; transform: translateY(6px) scale(.98); }
+            to { opacity: 1; transform: none; }
+        }
+        .fa-menu-section { display: flex; flex-direction: column; gap: 1px; }
+        .fa-menu-label {
+            padding: 7px 10px 5px; color: var(--fa-ink-3);
+            font-size: var(--fa-2xs); font-weight: 800; text-transform: uppercase; letter-spacing: .09em;
+        }
+        .fa-tool {
+            display: flex; align-items: center; gap: 10px; width: 100%; cursor: pointer; text-align: left;
+            border: none; background: transparent; color: var(--fa-ink);
+            border-radius: var(--fa-r-sm); padding: 7px 10px; font-family: inherit;
+            transition: background var(--fa-dur) var(--fa-ease), color var(--fa-dur) var(--fa-ease);
+        }
+        .fa-tool:hover { background: var(--fa-surface-2); }
+        .fa-tool:active { transform: scale(.99); }
+        .fa-tool:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: -2px; }
+        .fa-tool[aria-expanded="true"] { background: var(--fa-accent-soft); }
+        .fa-menu-ico {
+            flex: 0 0 auto; width: 30px; height: 30px; border-radius: var(--fa-r-xs);
+            background: var(--fa-surface-2); color: var(--fa-ink-2);
+            display: flex; align-items: center; justify-content: center;
+            transition: background var(--fa-dur) var(--fa-ease), color var(--fa-dur) var(--fa-ease);
+        }
+        .fa-tool:hover .fa-menu-ico { color: var(--fa-accent-strong); }
+        .fa-tool[aria-expanded="true"] .fa-menu-ico { background: var(--fa-accent-soft); color: var(--fa-accent-strong); }
+        .fa-menu-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+        .fa-menu-title { font-size: var(--fa-sm); font-weight: 700; color: var(--fa-ink); line-height: 1.25; }
+        .fa-tool[aria-expanded="true"] .fa-menu-title { color: var(--fa-accent-strong); }
+        .fa-menu-desc { font-size: var(--fa-2xs); font-weight: 500; color: var(--fa-ink-3); line-height: 1.3; }
+        .fa-menu-sep { height: 1px; margin: 5px 6px; background: var(--fa-line); }
 
         /* ───────── Compositor ─────────
            El campo de texto vive en su propia tarjeta, visualmente separada del historial
@@ -799,9 +829,18 @@
         .dark #furent-assistant-panel .fa-btn-ghost:hover { background: #3f342a; }
         .dark #furent-assistant-panel .fa-chip { background: #2a231d; border-color: #54371d; color: #f0b483; }
         .dark #furent-assistant-panel .fa-chip:hover { background: #3a2a1c; }
-        .dark #furent-assistant-panel .fa-tool { background: #2a231d; border-color: #453a30; color: #cbbdaf; }
+        .dark #furent-assistant-panel .fa-quick { background: #2a231d; border-color: #453a30; }
+        .dark #furent-assistant-panel .fa-menu-label { color: #9a8e82; }
+        .dark #furent-assistant-panel .fa-menu-sep { background: #3a3129; }
+        .dark #furent-assistant-panel .fa-menu-ico { background: #352c24; color: #cbbdaf; }
+        .dark #furent-assistant-panel .fa-tool { background: transparent; color: #e7ddd2; }
         .dark #furent-assistant-panel .fa-tool:hover { background: #352c24; }
-        .dark #furent-assistant-panel .fa-tool[aria-expanded="true"] { background: #3a2a1c; border-color: var(--fa-accent); color: #f0b483; }
+        .dark #furent-assistant-panel .fa-tool:hover .fa-menu-ico { color: #f0b483; }
+        .dark #furent-assistant-panel .fa-tool[aria-expanded="true"] { background: #3a2a1c; }
+        .dark #furent-assistant-panel .fa-tool[aria-expanded="true"] .fa-menu-ico { background: #3a2a1c; color: #f0b483; }
+        .dark #furent-assistant-panel .fa-menu-title { color: #f5efe7; }
+        .dark #furent-assistant-panel .fa-tool[aria-expanded="true"] .fa-menu-title { color: #f0b483; }
+        .dark #furent-assistant-panel .fa-menu-desc { color: #9a8e82; }
         .dark #furent-assistant-panel .fa-plus { background: #2a231d; border-color: #453a30; color: #cbbdaf; }
         .dark #furent-assistant-panel .fa-control input,
         .dark #furent-assistant-panel .fa-control select,
@@ -842,7 +881,7 @@
             #furent-assistant-panel, #furent-assistant-history, .fa-enter, .fa-quick:not([hidden]),
             #furent-assistant-launcher::after, .fa-typing span, .fa-field, .fa-select-menu, .fa-fp.flatpickr-calendar.animate.open { animation: none !important; }
             #furent-assistant-launcher, .fa-btn, .fa-chip, .fa-send, .fa-plus, .fa-close, .fa-tool, .fa-select,
-            .fa-control input, .fa-control select, .fa-control textarea, .fa-icon-btn { transition: none !important; }
+            .fa-menu-ico, .fa-control input, .fa-control select, .fa-control textarea, .fa-icon-btn { transition: none !important; }
             .fa-messages { scroll-behavior: auto; }
         }
     </style>
@@ -941,37 +980,71 @@
 
                 <div class="fa-composer">
                     <div class="fa-quick" id="furent-assistant-quick" hidden>
-                        <button type="button" class="fa-tool" id="furent-assistant-quick-dates">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
-                            </svg>
-                            <span>Elegir fechas</span>
-                        </button>
-                        <button type="button" class="fa-tool" id="furent-assistant-quick-event">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/>
-                            </svg>
-                            <span>Datos de mi evento</span>
-                        </button>
-                        <button type="button" class="fa-tool" id="furent-assistant-quick-bag">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.3 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.2L20.5 7H6"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 20.5a1 1 0 1 0 0-.01M17.5 20.5a1 1 0 1 0 0-.01"/>
-                            </svg>
-                            <span>Mi bolsa</span>
-                        </button>
-                        <button type="button" class="fa-tool" id="furent-assistant-quick-chats" aria-expanded="false" aria-controls="furent-assistant-history">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 12c0 4.14-3.7 7.5-8.25 7.5a9.6 9.6 0 0 1-2.6-.36L4.5 20.25l1.2-3.6A7.1 7.1 0 0 1 3.75 12C3.75 7.86 7.45 4.5 12 4.5s8.25 3.36 8.25 7.5Z"/>
-                            </svg>
-                            <span>Mis chats</span>
-                        </button>
-                        <button type="button" class="fa-tool" id="furent-assistant-quick-suggest" aria-expanded="false" aria-controls="furent-assistant-chips">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/>
-                            </svg>
-                            <span>Sugerencias</span>
-                        </button>
+                        <div class="fa-menu-section" role="group" aria-labelledby="furent-assistant-quick-tools">
+                            <span class="fa-menu-label" id="furent-assistant-quick-tools">Herramientas</span>
+                            <button type="button" class="fa-tool" id="furent-assistant-quick-dates">
+                                <span class="fa-menu-ico" aria-hidden="true">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
+                                    </svg>
+                                </span>
+                                <span class="fa-menu-text">
+                                    <span class="fa-menu-title">Elegir fechas</span>
+                                    <span class="fa-menu-desc">Disponibilidad y cotización</span>
+                                </span>
+                            </button>
+                            <button type="button" class="fa-tool" id="furent-assistant-quick-event">
+                                <span class="fa-menu-ico" aria-hidden="true">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                                        <rect x="9" y="3" width="6" height="4" rx="1.5"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6M9 16h4"/>
+                                    </svg>
+                                </span>
+                                <span class="fa-menu-text">
+                                    <span class="fa-menu-title">Datos de mi evento</span>
+                                    <span class="fa-menu-desc">Personas, lugar y hora</span>
+                                </span>
+                            </button>
+                            <button type="button" class="fa-tool" id="furent-assistant-quick-bag">
+                                <span class="fa-menu-ico" aria-hidden="true">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.3 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.2L20.5 7H6"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 20.5a1 1 0 1 0 0-.01M17.5 20.5a1 1 0 1 0 0-.01"/>
+                                    </svg>
+                                </span>
+                                <span class="fa-menu-text">
+                                    <span class="fa-menu-title">Mi bolsa</span>
+                                    <span class="fa-menu-desc">Lo que llevas seleccionado</span>
+                                </span>
+                            </button>
+                        </div>
+                        <div class="fa-menu-sep" role="separator"></div>
+                        <div class="fa-menu-section" role="group" aria-labelledby="furent-assistant-quick-conv">
+                            <span class="fa-menu-label" id="furent-assistant-quick-conv">Conversación</span>
+                            <button type="button" class="fa-tool" id="furent-assistant-quick-chats" aria-expanded="false" aria-controls="furent-assistant-history">
+                                <span class="fa-menu-ico" aria-hidden="true">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 12c0 4.14-3.7 7.5-8.25 7.5a9.6 9.6 0 0 1-2.6-.36L4.5 20.25l1.2-3.6A7.1 7.1 0 0 1 3.75 12C3.75 7.86 7.45 4.5 12 4.5s8.25 3.36 8.25 7.5Z"/>
+                                    </svg>
+                                </span>
+                                <span class="fa-menu-text">
+                                    <span class="fa-menu-title">Mis chats</span>
+                                    <span class="fa-menu-desc">Historial de conversaciones</span>
+                                </span>
+                            </button>
+                            <button type="button" class="fa-tool" id="furent-assistant-quick-suggest" aria-expanded="false" aria-controls="furent-assistant-chips">
+                                <span class="fa-menu-ico" aria-hidden="true">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5l1.7 4.55L18.25 9.75l-4.55 1.7L12 16l-1.7-4.55L5.75 9.75l4.55-1.7L12 3.5Z"/>
+                                    </svg>
+                                </span>
+                                <span class="fa-menu-text">
+                                    <span class="fa-menu-title">Sugerencias</span>
+                                    <span class="fa-menu-desc">Ideas para empezar</span>
+                                </span>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="fa-suggestions" id="furent-assistant-chips" hidden>
