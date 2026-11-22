@@ -5,415 +5,890 @@
     <title>Pagos a Trabajadores — Furent Admin</title>
 </head>
 <body>
-<main class="w-full flex-grow bg-surface-50 dark:bg-surface-900 transition-colors duration-300">
-    <!-- Header Section -->
-    <header class="bg-white dark:bg-surface-800 border-b border-surface-200 dark:border-surface-700 pt-8 pb-6 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <h1 class="text-3xl font-extrabold tracking-tight text-surface-900 dark:text-white">
-                    Pagos a Trabajadores
-                </h1>
-                <p class="mt-2 text-sm text-surface-500 dark:text-surface-400">
-                    Gestiona comprobantes de pago (mensuales o quincenales) y envíalos por correo.
+<main>
+    <div class="awp-scope px-6 sm:px-10 py-8 pb-16 max-w-[88rem] mx-auto"
+         x-data="pagosPage()" x-init="init()" x-cloak>
+
+        <style>
+            /* ============================================================
+               Pagos a trabajadores · nómina
+               Misma familia visual que el resto del panel: base zinc,
+               una sola tinta de acento (#E07A3A). Verde/ámbar solo estado.
+               ============================================================ */
+            [x-cloak] { display: none !important; }
+
+            /* ---- Tokens de la pantalla ---- */
+            .awp-scope {
+                --awp-accent: #E07A3A;
+                --awp-accent-strong: #C2630F;
+                --awp-accent-soft: #FFF7F0;
+                --awp-accent-line: #FED7AA;
+                --awp-ink: #18181b;
+                --awp-ink-2: #52525b;
+                --awp-mute: #a1a1aa;
+                --awp-line: #f4f4f5;
+                --awp-line-2: #e4e4e7;
+                --awp-card: #ffffff;
+                --awp-hover: #fafafa;
+            }
+            html.dark .awp-scope {
+                --awp-accent-soft: rgba(224,122,58,.14);
+                --awp-accent-line: rgba(224,122,58,.32);
+                --awp-ink: #fafafa;
+                --awp-ink-2: #a1a1aa;
+                --awp-mute: #71717a;
+                --awp-line: #1f1f23;
+                --awp-line-2: #27272a;
+                --awp-card: #131316;
+                --awp-hover: #1a1a1e;
+            }
+
+            .awp-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--awp-mute); }
+            .awp-tabular { font-variant-numeric: tabular-nums; }
+
+            /* Entrada escalonada */
+            .awp-rise { animation: awpRise .5s cubic-bezier(.16,1,.3,1) both; }
+            .awp-d1 { animation-delay: .05s; } .awp-d2 { animation-delay: .1s; }
+            .awp-d3 { animation-delay: .15s; } .awp-d4 { animation-delay: .2s; }
+            @keyframes awpRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+            /* Tarjetas */
+            .awp-card { background: var(--awp-card); border: 1px solid var(--awp-line); }
+
+            /* Botones */
+            .awp-btn-primary { background: #18181b; color: #fff; transition: background-color .16s ease, transform .16s ease; }
+            .awp-btn-primary:hover { background: #27272a; }
+            .awp-btn-primary:active { transform: scale(.98); }
+            .awp-btn-accent { background: var(--awp-accent); color: #fff; transition: background-color .16s ease, transform .16s ease; }
+            .awp-btn-accent:hover { background: var(--awp-accent-strong); }
+            .awp-btn-accent:active { transform: scale(.98); }
+            .awp-btn-ghost { background: var(--awp-card); border: 1px solid var(--awp-line-2); color: #3f3f46; transition: all .16s ease; }
+            .awp-btn-ghost:hover { border-color: #d4d4d8; color: #18181b; }
+            .awp-btn-danger { background: #dc2626; color: #fff; transition: background-color .16s ease, transform .16s ease; }
+            .awp-btn-danger:hover { background: #b91c1c; }
+            .awp-btn-danger:active { transform: scale(.98); }
+            html.dark .awp-btn-primary { background: var(--awp-accent); }
+            html.dark .awp-btn-primary:hover { background: var(--awp-accent-strong); }
+            html.dark .awp-btn-ghost { background: #18181b; border-color: #27272a; color: #d4d4d8; }
+            html.dark .awp-btn-ghost:hover { border-color: #3f3f46; color: #fff; }
+
+            /* Botones de icono */
+            .awp-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem;
+                            border-radius: .6rem; color: #71717a; transition: all .14s ease; }
+            .awp-icon-btn:hover { background: #f4f4f5; color: #18181b; }
+            .awp-icon-btn.is-accent:hover { background: var(--awp-accent-soft); color: var(--awp-accent-strong); }
+            .awp-icon-btn.is-danger:hover { background: #fef2f2; color: #dc2626; }
+            .awp-icon-btn:disabled { opacity: .4; cursor: not-allowed; }
+            html.dark .awp-icon-btn { color: #a1a1aa; }
+            html.dark .awp-icon-btn:hover { background: #27272a; color: #fff; }
+            html.dark .awp-icon-btn.is-accent:hover { background: rgba(224,122,58,.16); color: #FDBA74; }
+            html.dark .awp-icon-btn.is-danger:hover { background: rgba(220,38,38,.16); color: #f87171; }
+
+            /* Píldoras de estado */
+            .awp-pill { display: inline-flex; align-items: center; gap: .35rem; padding: .2rem .55rem; border-radius: .5rem;
+                        font-size: .62rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+                        border: 1px solid transparent; white-space: nowrap; }
+            .awp-pill .awp-dot { width: .36rem; height: .36rem; border-radius: 9999px; background: currentColor; }
+            .awp-pill-ok { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+            .awp-pill-warn { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+            .awp-pill-stop { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+            .awp-pill-mute { background: #f4f4f5; color: #52525b; border-color: #e4e4e7; }
+            .awp-pill-accent { background: var(--awp-accent-soft); color: var(--awp-accent-strong); border-color: var(--awp-accent-line); }
+            html.dark .awp-pill-ok { background: rgba(22,163,74,.14); color: #4ade80; border-color: rgba(22,163,74,.32); }
+            html.dark .awp-pill-warn { background: rgba(217,119,6,.16); color: #fbbf24; border-color: rgba(217,119,6,.34); }
+            html.dark .awp-pill-stop { background: rgba(220,38,38,.16); color: #f87171; border-color: rgba(220,38,38,.34); }
+            html.dark .awp-pill-mute { background: rgba(113,113,122,.14); color: #a1a1aa; border-color: rgba(113,113,122,.3); }
+            html.dark .awp-pill-accent { color: #FDBA74; }
+
+            /* Avatar de iniciales */
+            .awp-avatar { display: inline-flex; align-items: center; justify-content: center; width: 2.4rem; height: 2.4rem; flex-shrink: 0;
+                          border-radius: .85rem; font-size: .78rem; font-weight: 800; letter-spacing: .02em;
+                          background: var(--awp-accent-soft); color: var(--awp-accent-strong); border: 1px solid var(--awp-accent-line); }
+
+            /* Barra de progreso (enviados vs. pendientes) */
+            .awp-bar { height: .45rem; border-radius: 9999px; background: #f4f4f5; overflow: hidden; }
+            html.dark .awp-bar { background: #27272a; }
+            .awp-bar__fill { height: 100%; border-radius: 9999px; background: #16a34a; transition: width .5s cubic-bezier(.16,1,.3,1); }
+
+            /* Segmentado */
+            .awp-seg { display: inline-flex; flex-wrap: wrap; padding: .2rem; border-radius: .8rem; background: #f4f4f5; gap: .2rem; }
+            .awp-seg__btn { padding: .42rem .75rem; border-radius: .6rem; font-size: .68rem; font-weight: 800;
+                            letter-spacing: .05em; text-transform: uppercase; color: #52525b; transition: all .14s ease; white-space: nowrap; }
+            .awp-seg__btn:hover { color: #18181b; }
+            .awp-seg__btn[aria-pressed="true"] { background: #fff; color: #18181b; box-shadow: 0 1px 2px rgba(0,0,0,.07); }
+            html.dark .awp-seg { background: #1c1c20; }
+            html.dark .awp-seg__btn { color: #a1a1aa; }
+            html.dark .awp-seg__btn:hover { color: #fff; }
+            html.dark .awp-seg__btn[aria-pressed="true"] { background: #27272a; color: #fff; box-shadow: none; }
+
+            /* Campos */
+            .awp-field { width: 100%; border-radius: .8rem; border: 1px solid var(--awp-line-2); background: #fafafa;
+                         padding: .7rem .85rem; font-size: .83rem; font-weight: 600; color: #27272a;
+                         transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+            .awp-field::placeholder { color: #a1a1aa; font-weight: 500; }
+            .awp-field:focus { outline: none; border-color: #FDBA74; background: #fff; box-shadow: 0 0 0 4px rgba(224,122,58,.1); }
+            .awp-field.is-bad { border-color: #fca5a5; background: #fef2f2; }
+            .awp-field-pl { padding-left: 2.35rem; }
+            .awp-field-pr { padding-right: 2.6rem; }
+            html.dark .awp-field { background: #111113; border-color: #27272a; color: #e4e4e7; }
+            html.dark .awp-field:focus { border-color: rgba(224,122,58,.5); background: #111113; box-shadow: 0 0 0 4px rgba(224,122,58,.12); }
+            html.dark .awp-field.is-bad { border-color: rgba(248,113,113,.6); background: rgba(220,38,38,.08); }
+            .awp-err { font-size: .7rem; font-weight: 700; color: #dc2626; margin-top: .3rem; }
+            html.dark .awp-err { color: #f87171; }
+
+            /* Filas */
+            .awp-row { transition: background-color .16s ease; }
+            .awp-row:hover { background: #fafafa; }
+            html.dark .awp-row:hover { background: #1a1a1e; }
+
+            /* Tabla: padding cómodo pero compacto */
+            .awp-table th, .awp-table td { padding-inline: 1rem; }
+            .awp-table .awp-actions { gap: .15rem; }
+
+            /* Bloque destacado del monto */
+            .awp-money {
+                font-variant-numeric: tabular-nums; font-weight: 800;
+                color: var(--awp-accent-strong);
+            }
+            html.dark .awp-money { color: #FDBA74; }
+
+            /* Vista previa del comprobante */
+            .awp-preview { border: 1px dashed var(--awp-line-2); background: var(--awp-hover); border-radius: 1rem; padding: .85rem 1rem; }
+
+            /* Modal nativo */
+            .awp-modal { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; overflow: visible; }
+            .awp-modal::backdrop { background: rgba(24,24,27,.5); backdrop-filter: blur(3px); }
+            html.dark .awp-modal::backdrop { background: rgba(0,0,0,.66); }
+            .awp-modal[open] .awp-modal__card { animation: awpPop .22s cubic-bezier(.16,1,.3,1) both; }
+            @keyframes awpPop { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+
+            /* Foco visible para teclado */
+            .awp-btn-primary:focus-visible, .awp-btn-accent:focus-visible, .awp-btn-ghost:focus-visible,
+            .awp-btn-danger:focus-visible, .awp-icon-btn:focus-visible, .awp-seg__btn:focus-visible {
+                outline: 2px solid var(--awp-accent); outline-offset: 2px;
+            }
+
+            /* Spinner */
+            .awp-spin { animation: awpSpin .8s linear infinite; }
+            @keyframes awpSpin { to { transform: rotate(360deg); } }
+
+            @media (prefers-reduced-motion: reduce) {
+                .awp-rise { animation: none !important; opacity: 1 !important; transform: none !important; }
+                .awp-bar__fill { transition: none !important; }
+                .awp-modal[open] .awp-modal__card { animation: none !important; }
+                .awp-spin { animation-duration: 2.4s; }
+            }
+        </style>
+
+        <!-- ============================ Cabecera ============================ -->
+        <header class="awp-rise flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between mb-6">
+            <div class="min-w-0">
+                <div class="flex items-center gap-2.5 mb-3">
+                    <span class="awp-label">Nómina</span>
+                    <span class="block size-1 rounded-full bg-surface-300"></span>
+                    <span class="awp-pill awp-pill-mute awp-tabular"
+                          x-text="pagos.length + (pagos.length === 1 ? ' comprobante' : ' comprobantes')">0 comprobantes</span>
+                </div>
+                <h1 class="text-[2rem] leading-none font-black tracking-tight text-surface-900 dark:text-white">Pagos a trabajadores</h1>
+                <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-2.5 max-w-2xl">
+                    Registra los comprobantes de nómina, descárgalos en PDF y envíalos por correo al trabajador.
                 </p>
             </div>
-            <div class="flex items-center gap-3">
-                <button type="button" onclick="openNuevoPagoModal()"
-                        class="px-5 py-2.5 bg-furent-600 hover:bg-furent-700 text-white font-semibold rounded-xl text-sm shadow-sm transition-all focus:ring-4 focus:ring-furent-500/30 flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-                    </svg>
+            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button type="button" @click="abrirNuevo()"
+                        class="awp-btn-accent inline-flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest">
+                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                     Nuevo pago
                 </button>
             </div>
-        </div>
-    </header>
+        </header>
 
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
-        <!-- Background decorative elements -->
-        <div class="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-furent-500/10 blur-3xl rounded-full pointer-events-none dark:hidden"></div>
-        <div class="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-surface-500/10 blur-3xl rounded-full pointer-events-none dark:hidden"></div>
-
-        <!-- Flowbite Tailwind Table -->
-        <div class="bg-white dark:bg-surface-800 rounded-2xl shadow-sm border border-surface-200 dark:border-surface-700 overflow-hidden relative z-10 transition-colors">
-            <!-- Table Controls -->
-            <div class="p-5 border-b border-surface-200 dark:border-surface-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-surface-50/50 dark:bg-surface-800/50">
-                <p class="text-sm text-surface-500 dark:text-surface-400 font-medium">
-                    Después de crear un pago, usa los botones <strong class="text-furent-600 dark:text-furent-400">PDF</strong> y <strong class="text-furent-600 dark:text-furent-400">Enviar</strong> para generar el comprobante.
-                </p>
-                <div class="relative w-full sm:w-auto">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg class="w-5 h-5 text-surface-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                        </svg>
+        <!-- ============================ KPIs ============================ -->
+        <section class="awp-rise awp-d1 awp-card rounded-3xl shadow-glass overflow-hidden mb-6">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-surface-100 dark:divide-surface-800">
+                <div class="px-5 py-4">
+                    <span class="awp-label">Registros</span>
+                    <p class="text-xl font-black text-surface-900 dark:text-white awp-tabular mt-1.5" x-text="kpi.total">0</p>
+                    <p class="text-[11px] font-semibold text-surface-400 mt-0.5">comprobantes de nómina</p>
+                </div>
+                <div class="px-5 py-4">
+                    <span class="awp-label">Sin enviar</span>
+                    <p class="text-xl font-black text-surface-900 dark:text-white awp-tabular mt-1.5" x-text="kpi.pendientes">0</p>
+                    <p class="text-[11px] font-semibold text-surface-400 mt-0.5">pendientes de correo</p>
+                </div>
+                <div class="px-5 py-4">
+                    <span class="awp-label">Enviados</span>
+                    <p class="text-xl font-black text-surface-900 dark:text-white awp-tabular mt-1.5" x-text="kpi.enviados">0</p>
+                    <div class="awp-bar mt-2 max-w-[8rem]">
+                        <div class="awp-bar__fill" :style="'width:' + kpi.pctEnviados + '%'"></div>
                     </div>
-                    <input type="text" id="pagosSearchInput"
-                           class="block w-full sm:w-80 pl-10 pr-4 py-2.5 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl text-sm focus:ring-2 focus:ring-furent-500/50 focus:border-furent-500 placeholder-surface-400 dark:placeholder-surface-500 text-surface-900 dark:text-white transition-shadow"
-                           placeholder="Buscar trabajador o referencia...">
+                </div>
+                <div class="px-5 py-4">
+                    <span class="awp-label">Total pagado</span>
+                    <p class="text-xl font-black awp-tabular mt-1.5 awp-money" x-text="money(kpi.totalPagado)">$ 0</p>
+                    <p class="text-[11px] font-semibold text-surface-400 mt-0.5">en todos los comprobantes</p>
+                </div>
+                <div class="px-5 py-4">
+                    <span class="awp-label">Este mes</span>
+                    <p class="text-xl font-black text-surface-900 dark:text-white awp-tabular mt-1.5" x-text="money(kpi.mesPagado)">$ 0</p>
+                    <p class="text-[11px] font-semibold text-surface-400 mt-0.5">registrado este mes</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================ Estado vacío real ============================ -->
+        <section x-show="pagos.length === 0" class="awp-rise awp-d2 awp-card rounded-3xl shadow-glass px-8 py-20 text-center">
+            <span class="mx-auto flex size-16 items-center justify-center rounded-2xl" style="background:#FFF7F0;color:#E07A3A">
+                <svg class="size-8" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/></svg>
+            </span>
+            <h2 class="text-lg font-black text-surface-900 dark:text-white mt-5">Aún no hay pagos registrados</h2>
+            <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-2 max-w-sm mx-auto">
+                Crea el primer comprobante de nómina de un trabajador para generar su PDF y enviarlo por correo.
+            </p>
+            <button type="button" @click="abrirNuevo()"
+                    class="awp-btn-accent inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest mt-7">
+                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                Registrar el primero
+            </button>
+        </section>
+
+        <!-- ============================ Tabla ============================ -->
+        <section x-show="pagos.length > 0" class="awp-rise awp-d2 awp-card rounded-3xl shadow-glass overflow-hidden">
+
+            <!-- Barra de herramientas -->
+            <div class="flex flex-col gap-4 px-6 py-5 border-b border-surface-100 dark:border-surface-800">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                    <label class="relative lg:min-w-[18rem]">
+                        <span class="sr-only">Buscar por trabajador, correo o rol</span>
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                        <input type="text" x-model="filtroTexto" @input="pagina = 1" class="awp-field awp-field-pl" placeholder="Buscar trabajador, correo o rol...">
+                    </label>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <label class="relative">
+                            <span class="sr-only">Ordenar comprobantes</span>
+                            <select x-model="orden" @change="pagina = 1"
+                                    class="awp-field awp-field-pr appearance-none cursor-pointer">
+                                <option value="recientes">Más recientes</option>
+                                <option value="antiguos">Más antiguos</option>
+                                <option value="monto">Mayor monto</option>
+                                <option value="nombre">Trabajador (A–Z)</option>
+                                <option value="periodo">Período (reciente)</option>
+                            </select>
+                            <svg class="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-surface-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <span class="awp-label">Estado</span>
+                    <div class="awp-seg" role="group" aria-label="Filtrar por estado">
+                        <button type="button" class="awp-seg__btn" :aria-pressed="filtroEstado === 'todos'" @click="setFiltro('filtroEstado','todos')">Todos</button>
+                        <button type="button" class="awp-seg__btn" :aria-pressed="filtroEstado === 'GENERADO'" @click="setFiltro('filtroEstado','GENERADO')">Sin enviar</button>
+                        <button type="button" class="awp-seg__btn" :aria-pressed="filtroEstado === 'ENVIADO'" @click="setFiltro('filtroEstado','ENVIADO')">Enviados</button>
+                    </div>
+                    <span class="awp-label ml-2">Período</span>
+                    <div class="awp-seg" role="group" aria-label="Filtrar por tipo de período">
+                        <button type="button" class="awp-seg__btn" :aria-pressed="filtroTipo === 'todos'" @click="setFiltro('filtroTipo','todos')">Todos</button>
+                        <button type="button" class="awp-seg__btn" :aria-pressed="filtroTipo === 'MENSUAL'" @click="setFiltro('filtroTipo','MENSUAL')">Mensual</button>
+                        <button type="button" class="awp-seg__btn" :aria-pressed="filtroTipo === 'QUINCENAL'" @click="setFiltro('filtroTipo','QUINCENAL')">Quincenal</button>
+                    </div>
+                    <button type="button" x-show="tieneFiltros" @click="limpiarFiltros()" x-cloak
+                            class="text-[11px] font-black uppercase tracking-widest text-surface-400 hover:text-surface-700 dark:hover:text-white transition-colors ml-1">
+                        Limpiar
+                    </button>
+                    <span class="ml-auto text-[11px] font-bold text-surface-400 awp-tabular"
+                          x-text="filtrados.length === pagos.length ? (pagos.length + ' en total') : (filtrados.length + ' de ' + pagos.length)"></span>
                 </div>
             </div>
 
-            <!-- Table -->
+            <!-- Tabla -->
             <div class="overflow-x-auto">
-                <table id="tablaPagosTrabajadores" class="w-full text-left text-sm text-surface-500 dark:text-surface-400">
-                    <thead class="text-[11px] font-bold text-surface-500 dark:text-surface-400 uppercase tracking-widest bg-surface-50 dark:bg-surface-800/80 border-b border-surface-200 dark:border-surface-700">
-                    <tr>
-                        <th class="px-6 py-4">Trabajador</th>
-                        <th class="px-6 py-4">Período</th>
-                        <th class="px-6 py-4 hidden md:table-cell">Actividad</th>
-                        <th class="px-6 py-4">Monto</th>
-                        <th class="px-6 py-4">Estado</th>
-                        <th class="px-6 py-4 hidden lg:table-cell">Creado</th>
-                        <th class="px-6 py-4 text-right">Acciones</th>
-                    </tr>
+                <table class="awp-table w-full text-left border-collapse whitespace-nowrap">
+                    <caption class="sr-only">Listado de comprobantes de pago a trabajadores</caption>
+                    <thead class="bg-surface-50/60 dark:bg-surface-800/40 border-b border-surface-100 dark:border-surface-800">
+                        <tr>
+                            <th class="px-6 py-4 awp-label">Trabajador</th>
+                            <th class="px-6 py-4 awp-label">Período</th>
+                            <th class="px-6 py-4 awp-label hidden md:table-cell">Actividad</th>
+                            <th class="px-6 py-4 awp-label text-right">Monto</th>
+                            <th class="px-6 py-4 awp-label">Estado</th>
+                            <th class="px-6 py-4 awp-label hidden 2xl:table-cell">Registrado</th>
+                            <th class="px-6 py-4 awp-label text-right">Acciones</th>
+                        </tr>
                     </thead>
-                    <tbody class="divide-y divide-surface-100 dark:divide-surface-800">
-                    <tr th:each="p : ${pagos}" th:if="${p != null}" class="bg-white dark:bg-surface-900 hover:bg-surface-50 dark:hover:bg-surface-800/80 transition-colors">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center gap-3">
-                                <div>
-                                    <span class="block font-bold text-surface-900 dark:text-white" th:text="${p.trabajadorNombre}">Nombre</span>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap hidden md:table-cell">
-                            <div class="flex flex-col">
-                                <span class="text-sm font-semibold text-surface-900 dark:text-white"
-                                      th:text="${p.periodoInicio} + ' a ' + ${p.periodoFin}">Periodo</span>
-                                <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest"
-                                      th:text="${p.periodoTipo}">MENSUAL</span>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="block text-xs text-surface-700 dark:text-surface-300" th:if="${p.horasTrabajadas != null}">
-                                <strong class="text-surface-900 dark:text-white" th:text="${p.horasTrabajadas}">0</strong> h trabajadas
-                            </span>
-                            <span class="block text-xs text-surface-500 dark:text-surface-400 mt-1" th:if="${p.eventosAtendidos != null}">
-                                <strong class="text-surface-700 dark:text-surface-300" th:text="${p.eventosAtendidos}">0</strong> eventos
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="text-sm font-bold text-surface-900 dark:text-white" th:text="'$' + ${#numbers.formatInteger(p.monto, 1, 'POINT')}">$0</span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span th:if="${p.estado == 'ENVIADO'}" class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200/50 dark:border-green-800/50 shadow-sm">
-                                Enviado
-                            </span>
-                            <span th:unless="${p.estado == 'ENVIADO'}" class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/50 shadow-sm">
-                                Generado
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-xs text-surface-500 dark:text-surface-400 font-medium hidden lg:table-cell"
-                            th:text="${#temporals.format(p.fechaCreacion, 'dd/MM/yyyy HH:mm')}">
-                            Fecha
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right">
-                            <div class="flex items-center justify-end gap-2">
-                                <a th:href="@{'/admin/pagos-trabajadores/' + ${p.id} + '/pdf'}"
-                                   class="font-semibold text-xs text-surface-700 bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700 px-4 py-2 rounded-xl transition-colors focus:outline-none">
-                                    PDF
-                                </a>
-                                <button type="button"
-                                        th:attr="data-id=${p.id}"
-                                        onclick="enviarPagoTrabajador(this)"
-                                        class="font-semibold text-xs text-furent-600 bg-furent-50 hover:bg-furent-100 dark:bg-furent-900/30 dark:text-furent-400 dark:hover:bg-furent-900/50 px-4 py-2 rounded-xl border border-transparent dark:border-furent-800/50 transition-colors focus:outline-none">
-                                    Enviar
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
+                    <tbody class="divide-y divide-surface-100/70 dark:divide-surface-800/60">
+                        <template x-for="p in paginaActual" :key="p.id">
+                            <tr class="awp-row">
+                                <!-- Trabajador -->
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <span class="awp-avatar" x-text="iniciales(p.trabajadorNombre)"></span>
+                                        <div class="min-w-0 max-w-[15rem]">
+                                            <span class="block text-sm font-black text-surface-900 dark:text-white truncate"
+                                                  :title="p.trabajadorNombre" x-text="p.trabajadorNombre"></span>
+                                            <span class="block text-[11px] font-semibold text-surface-400 mt-0.5 truncate"
+                                                  :title="[p.trabajadorRol, p.trabajadorEmail].filter(Boolean).join(' · ')"
+                                                  x-text="[p.trabajadorRol, p.trabajadorEmail].filter(Boolean).join(' · ') || 'Sin rol'"></span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <!-- Período -->
+                                <td class="px-6 py-4">
+                                    <span class="block text-sm font-bold text-surface-900 dark:text-white awp-tabular"
+                                          x-text="fecha(p.periodoInicio) + ' → ' + fecha(p.periodoFin)"></span>
+                                    <span class="awp-pill awp-pill-mute mt-1.5" x-text="p.periodoTipo === 'QUINCENAL' ? 'Quincenal' : 'Mensual'"></span>
+                                </td>
+                                <!-- Actividad -->
+                                <td class="px-6 py-4 hidden md:table-cell">
+                                    <template x-if="p.horasTrabajadas == null && p.eventosAtendidos == null">
+                                        <span class="text-xs font-semibold text-surface-400">—</span>
+                                    </template>
+                                    <div class="text-xs font-semibold text-surface-500 dark:text-surface-400">
+                                        <span class="block" x-show="p.horasTrabajadas != null" x-cloak>
+                                            <strong class="awp-tabular text-surface-900 dark:text-white" x-text="p.horasTrabajadas"></strong> h trabajadas
+                                        </span>
+                                        <span class="block mt-0.5" x-show="p.eventosAtendidos != null" x-cloak>
+                                            <strong class="awp-tabular text-surface-700 dark:text-surface-300" x-text="p.eventosAtendidos"></strong> eventos
+                                        </span>
+                                    </div>
+                                </td>
+                                <!-- Monto -->
+                                <td class="px-6 py-4 text-right">
+                                    <span class="text-sm font-black text-surface-900 dark:text-white awp-tabular" x-text="money(p.monto)"></span>
+                                </td>
+                                <!-- Estado -->
+                                <td class="px-6 py-4">
+                                    <span class="awp-pill" :class="p.estado === 'ENVIADO' ? 'awp-pill-ok' : 'awp-pill-warn'">
+                                        <span class="awp-dot"></span><span x-text="p.estado === 'ENVIADO' ? 'Enviado' : 'Sin enviar'"></span>
+                                    </span>
+                                </td>
+                                <!-- Registrado -->
+                                <td class="px-6 py-4 hidden 2xl:table-cell">
+                                    <span class="text-xs font-semibold text-surface-500 dark:text-surface-400 awp-tabular" x-text="fechaHora(p.fechaCreacion)"></span>
+                                </td>
+                                <!-- Acciones -->
+                                <td class="px-6 py-4">
+                                    <div class="awp-actions flex items-center justify-end gap-1">
+                                        <a class="awp-icon-btn" :href="base + '/' + p.id + '/pdf'"
+                                           :aria-label="'Descargar PDF de ' + p.trabajadorNombre" title="Descargar PDF">
+                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+                                        </a>
+                                        <button type="button" class="awp-icon-btn is-accent" @click="enviar(p)"
+                                                :disabled="enviando[p.id] || !p.trabajadorEmail"
+                                                :title="enviando[p.id] ? 'Enviando…' : 'Enviar por correo'"
+                                                :aria-label="'Enviar por correo a ' + (p.trabajadorEmail || 'trabajador')">
+                                            <svg x-show="!enviando[p.id]" class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
+                                            <svg x-show="enviando[p.id]" x-cloak class="size-4 awp-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+                                        </button>
+                                        <button type="button" class="awp-icon-btn" @click="abrirEditar(p)" :aria-label="'Editar pago de ' + p.trabajadorNombre" title="Editar">
+                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+                                        </button>
+                                        <button type="button" class="awp-icon-btn" @click="abrirDuplicar(p)" :aria-label="'Duplicar pago de ' + p.trabajadorNombre" title="Duplicar">
+                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75V18a1.5 1.5 0 01-1.5 1.5H6A1.5 1.5 0 014.5 18v-8.25a1.5 1.5 0 011.5-1.5h2.25m3.75-3.75h5.25a1.5 1.5 0 011.5 1.5v5.25a1.5 1.5 0 01-1.5 1.5h-5.25a1.5 1.5 0 01-1.5-1.5V7.5a1.5 1.5 0 011.5-1.5zm3.75 3.75h.008v.008h-.008V11.25z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 8.25v-.75a1.5 1.5 0 00-1.5-1.5H8.25a1.5 1.5 0 00-1.5 1.5v6a1.5 1.5 0 001.5 1.5h.75"/></svg>
+                                        </button>
+                                        <button type="button" class="awp-icon-btn is-danger" @click="abrirEliminar(p)" :aria-label="'Eliminar pago de ' + p.trabajadorNombre" title="Eliminar">
+                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
                     </tbody>
                 </table>
             </div>
-        </div>
 
-        <!-- TailwindPlus Modal Nuevo Pago -->
-        <div id="nuevoPagoModal" tabindex="-1" aria-hidden="true" class="fixed inset-0 bg-surface-900/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 transition-opacity fade-in">
-            <div class="relative w-full max-w-2xl bg-white dark:bg-surface-800 rounded-[28px] shadow-2xl overflow-hidden transform transition-all fade-in-up flex flex-col max-h-[90vh]">
-                <!-- Modal header -->
-                <div class="px-6 py-5 border-b border-surface-100 dark:border-surface-700 flex items-center justify-between shrink-0">
-                    <h3 class="text-xl font-bold text-surface-900 dark:text-white flex items-center gap-3">
-                        <div class="p-2 bg-furent-50 dark:bg-surface-700 rounded-xl">
-                            <svg class="w-5 h-5 text-furent-600 dark:text-furent-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                        </div>
-                        Nuevo pago a trabajador
-                    </h3>
-                    <button type="button" onclick="closeNuevoPagoModal()" class="text-surface-400 bg-transparent hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-surface-900 dark:hover:text-white rounded-xl text-sm w-10 h-10 inline-flex justify-center items-center transition-colors outline-none shrink-0">
-                        <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-                        </svg>
+            <!-- Sin resultados de filtro -->
+            <div x-show="filtrados.length === 0" class="px-8 py-16 text-center border-t border-surface-100 dark:border-surface-800">
+                <span class="mx-auto flex size-12 items-center justify-center rounded-xl bg-surface-100 dark:bg-surface-800 text-surface-400">
+                    <svg class="size-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                </span>
+                <h3 class="text-sm font-black text-surface-900 dark:text-white mt-4">Ningún comprobante coincide</h3>
+                <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-1.5">Prueba con otro texto o quita los filtros de estado y período.</p>
+                <button type="button" @click="limpiarFiltros()"
+                        class="awp-btn-ghost inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest mt-5">
+                    Limpiar filtros
+                </button>
+            </div>
+
+            <!-- Paginación -->
+            <div x-show="filtrados.length > 0" class="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-surface-100 dark:border-surface-800">
+                <p class="text-[11px] font-bold text-surface-400 awp-tabular"
+                   x-text="'Mostrando ' + rangoInicio + '–' + rangoFin + ' de ' + filtrados.length"></p>
+                <div class="flex items-center gap-1">
+                    <button type="button" class="awp-icon-btn" :disabled="pagina <= 1" @click="irA(pagina - 1)" aria-label="Página anterior">
+                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
+                    </button>
+                    <template x-for="(pg, idx) in paginasVisibles" :key="'pg' + idx">
+                        <button type="button" :disabled="pg.gap" @click="irA(pg.v)"
+                                class="min-w-8 h-8 px-2 rounded-lg text-xs font-black awp-tabular transition-colors"
+                                :class="pg.gap ? 'text-surface-400 cursor-default' : (pagina === pg.v ? 'bg-furent-500 text-white' : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800')"
+                                :aria-current="pagina === pg.v ? 'page' : false" x-text="pg.v"></button>
+                    </template>
+                    <button type="button" class="awp-icon-btn" :disabled="pagina >= totalPaginas" @click="irA(pagina + 1)" aria-label="Página siguiente">
+                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
                     </button>
                 </div>
+            </div>
+        </section>
 
-                <!-- Modal body -->
-                <div class="p-6 overflow-y-auto custom-scrollbar flex-1">
-                    <form th:action="@{/admin/pagos-trabajadores}" method="post" id="nuevoPagoForm" class="space-y-5">
+        <!-- ============================ Modal: crear / editar ============================ -->
+        <dialog id="awp-form" class="awp-modal" x-ref="formDialog" @click="cerrarSiFondo($event)" aria-labelledby="awp-form-title">
+            <div class="awp-modal__card w-[min(40rem,calc(100vw-1.5rem))] bg-white dark:bg-[#131316] rounded-3xl border border-surface-100 dark:border-surface-700 shadow-glass overflow-hidden">
+                <form th:action="@{/admin/pagos-trabajadores/guardar}" method="post" @submit="validar($event)">
+                    <input type="hidden" name="id" :value="form.id">
+                    <input type="hidden" name="periodoTipo" :value="form.periodoTipo">
+
+                    <header class="flex items-start justify-between gap-4 px-6 pt-6 pb-5 border-b border-surface-100 dark:border-surface-800">
+                        <div>
+                            <h2 id="awp-form-title" class="text-base font-black text-surface-900 dark:text-white leading-none" x-text="tituloForm"></h2>
+                            <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-1.5">Un trabajador, un período y el monto pagado.</p>
+                        </div>
+                        <button type="button" @click="cerrarForm()" aria-label="Cerrar"
+                                class="awp-icon-btn shrink-0">
+                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                        </button>
+                    </header>
+
+                    <div class="px-6 py-5 space-y-5 max-h-[68vh] overflow-y-auto">
+                        <!-- Nombre + correo -->
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label class="block text-sm font-bold text-surface-700 dark:text-surface-300 mb-2">Nombre completo</label>
-                                <input type="text" name="trabajadorNombre" required
-                                       class="block w-full px-4 py-3 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 font-medium transition-colors shadow-sm outline-none">
+                                <label for="awp-nombre" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Nombre completo</label>
+                                <input id="awp-nombre" name="trabajadorNombre" type="text" x-model="form.trabajadorNombre"
+                                       class="awp-field" :class="{'is-bad': errores.nombre}" placeholder="Ej. Laura Gómez" autocomplete="off">
+                                <p class="awp-err" x-show="errores.nombre" x-text="errores.nombre"></p>
                             </div>
                             <div>
-                                <label class="block text-sm font-bold text-surface-700 dark:text-surface-300 mb-2">Correo</label>
-                                <input type="email" name="trabajadorEmail" required
-                                       class="block w-full px-4 py-3 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 font-medium transition-colors shadow-sm outline-none">
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                            <div>
-                                <label class="block text-sm font-bold text-surface-700 dark:text-surface-300 mb-2">Tipo de período</label>
-                                <select name="periodoTipo" class="block w-full px-4 py-3 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 font-medium transition-colors shadow-sm outline-none">
-                                    <option value="MENSUAL">Mensual</option>
-                                    <option value="QUINCENAL">Quincenal</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-surface-700 dark:text-surface-300 mb-2">Desde</label>
-                                <input type="date" name="periodoInicio" required
-                                       class="block w-full px-4 py-3 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 font-medium transition-colors shadow-sm outline-none">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-surface-700 dark:text-surface-300 mb-2">Hasta</label>
-                                <input type="date" name="periodoFin" required
-                                       class="block w-full px-4 py-3 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 font-medium transition-colors shadow-sm outline-none">
+                                <label for="awp-email" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Correo electrónico</label>
+                                <input id="awp-email" name="trabajadorEmail" type="email" inputmode="email" autocomplete="email" x-model="form.trabajadorEmail"
+                                       class="awp-field" :class="{'is-bad': errores.email}" placeholder="trabajador@correo.com">
+                                <p class="awp-err" x-show="errores.email" x-text="errores.email"></p>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                        <!-- Rol + tipo -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label class="block text-sm font-bold text-surface-700 dark:text-surface-300 mb-2">Rol / cargo</label>
-                                <input type="text" name="trabajadorRol"
-                                       class="block w-full px-4 py-3 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 font-medium transition-colors shadow-sm outline-none">
+                                <label for="awp-rol" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Rol / cargo <span class="font-semibold normal-case tracking-normal text-surface-400">(opcional)</span></label>
+                                <input id="awp-rol" name="trabajadorRol" type="text" x-model="form.trabajadorRol"
+                                       class="awp-field" placeholder="Ej. Montajista">
                             </div>
                             <div>
-                                <label class="block text-sm font-bold text-surface-700 dark:text-surface-300 mb-2">Horas trabajadas</label>
-                                <input type="number" name="horasTrabajadas" min="0" value="0"
-                                       class="block w-full px-4 py-3 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 font-medium transition-colors shadow-sm outline-none">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-surface-700 dark:text-surface-300 mb-2">Eventos atendidos</label>
-                                <input type="number" name="eventosAtendidos" min="0" value="0"
-                                       class="block w-full px-4 py-3 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 font-medium transition-colors shadow-sm outline-none">
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2 bg-surface-50 dark:bg-surface-900/50 p-4 rounded-[20px] border border-surface-100 dark:border-surface-800">
-                            <div>
-                                <label class="block text-sm font-bold text-surface-700 dark:text-surface-300 mb-2">Tarifa por hora</label>
-                                <div class="relative">
-                                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <span class="text-surface-500 font-bold">$</span>
-                                    </div>
-                                    <input type="number" name="tarifaHora" step="0.01" min="0" value="0"
-                                           class="block w-full pl-8 pr-4 py-3 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 font-medium transition-colors shadow-sm outline-none">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-surface-700 dark:text-surface-300 mb-2">Monto total pagado</label>
-                                <div class="relative">
-                                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <span class="text-surface-500 font-bold">$</span>
-                                    </div>
-                                    <input type="number" name="monto" step="0.01" min="0" required
-                                           class="block w-full pl-8 pr-4 py-3 bg-white dark:bg-surface-800 border border-furent-300 dark:border-furent-600/50 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 font-extrabold transition-colors shadow-[0_0_15px_rgba(235,87,87,0.1)] outline-none text-furent-600 dark:text-furent-400">
+                                <span class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Tipo de período</span>
+                                <div class="awp-seg w-full" role="group" aria-label="Tipo de período">
+                                    <button type="button" class="awp-seg__btn flex-1" :aria-pressed="form.periodoTipo === 'MENSUAL'" @click="form.periodoTipo = 'MENSUAL'">Mensual</button>
+                                    <button type="button" class="awp-seg__btn flex-1" :aria-pressed="form.periodoTipo === 'QUINCENAL'" @click="form.periodoTipo = 'QUINCENAL'">Quincenal</button>
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Fechas -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div>
+                                <label for="awp-desde" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Período desde</label>
+                                <input id="awp-desde" name="periodoInicio" type="date" x-model="form.periodoInicio"
+                                       class="awp-field awp-tabular [color-scheme:light] dark:[color-scheme:dark]" :class="{'is-bad': errores.desde}">
+                                <p class="awp-err" x-show="errores.desde" x-text="errores.desde"></p>
+                            </div>
+                            <div>
+                                <label for="awp-hasta" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Período hasta</label>
+                                <input id="awp-hasta" name="periodoFin" type="date" x-model="form.periodoFin"
+                                       class="awp-field awp-tabular [color-scheme:light] dark:[color-scheme:dark]" :class="{'is-bad': errores.hasta}">
+                                <p class="awp-err" x-show="errores.hasta" x-text="errores.hasta"></p>
+                            </div>
+                        </div>
+
+                        <!-- Actividad -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div>
+                                <label for="awp-horas" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Horas trabajadas</label>
+                                <input id="awp-horas" name="horasTrabajadas" type="number" min="0" step="1" inputmode="numeric" x-model.number="form.horasTrabajadas"
+                                       class="awp-field awp-tabular" :class="{'is-bad': errores.horas}">
+                                <p class="awp-err" x-show="errores.horas" x-text="errores.horas"></p>
+                            </div>
+                            <div>
+                                <label for="awp-eventos" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Eventos atendidos</label>
+                                <input id="awp-eventos" name="eventosAtendidos" type="number" min="0" step="1" inputmode="numeric" x-model.number="form.eventosAtendidos"
+                                       class="awp-field awp-tabular" :class="{'is-bad': errores.eventos}">
+                                <p class="awp-err" x-show="errores.eventos" x-text="errores.eventos"></p>
+                            </div>
+                        </div>
+
+                        <!-- Tarifa + monto -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 bg-surface-50 dark:bg-surface-900/40 p-4 rounded-[20px] border border-surface-100 dark:border-surface-800">
+                            <div>
+                                <label for="awp-tarifa" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Tarifa por hora</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-surface-400">$</span>
+                                    <input id="awp-tarifa" name="tarifaHora" type="number" step="0.01" min="0" inputmode="decimal" x-model.number="form.tarifaHora"
+                                           class="awp-field awp-field-pl awp-tabular" :class="{'is-bad': errores.tarifa}">
+                                </div>
+                                <p class="awp-err" x-show="errores.tarifa" x-text="errores.tarifa"></p>
+                            </div>
+                            <div>
+                                <label for="awp-monto" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Monto total pagado</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-surface-400">$</span>
+                                    <input id="awp-monto" name="monto" type="number" step="0.01" min="0" inputmode="decimal" x-model.number="form.monto"
+                                           class="awp-field awp-field-pl awp-tabular font-extrabold" :class="{'is-bad': errores.monto}">
+                                </div>
+                                <p class="awp-err" x-show="errores.monto" x-text="errores.monto"></p>
+                            </div>
+                        </div>
+
+                        <!-- Notas -->
                         <div>
-                            <label class="block text-sm font-bold text-surface-700 dark:text-surface-300 mb-2">Notas (opcional)</label>
-                            <textarea name="notas" rows="3"
-                                      class="block w-full px-4 py-3 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 font-medium transition-colors shadow-sm outline-none resize-none"></textarea>
+                            <label for="awp-notas" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Notas <span class="font-semibold normal-case tracking-normal text-surface-400">(opcional)</span></label>
+                            <textarea id="awp-notas" name="notas" rows="3" x-model="form.notas"
+                                      class="awp-field resize-none" placeholder="Detalle del trabajo, horas extra, observaciones…"></textarea>
                         </div>
-                    </form>
-                </div>
 
-                <!-- Modal footer -->
-                <div class="p-6 border-t border-surface-100 dark:border-surface-700 flex items-center gap-3 bg-surface-50/50 dark:bg-surface-800/80 shrink-0">
-                    <button type="button" onclick="closeNuevoPagoModal()" class="flex-1 px-5 py-3.5 bg-white dark:bg-surface-700 hover:bg-surface-100 dark:hover:bg-surface-600 border border-surface-200 dark:border-surface-600 text-surface-800 dark:text-white font-semibold rounded-xl text-[15px] transition-colors focus:ring-4 focus:ring-surface-200 dark:focus:ring-surface-600 outline-none">
-                        Cancelar
-                    </button>
-                    <button type="button" onclick="document.getElementById('nuevoPagoForm').submit()" class="flex-1 px-5 py-3.5 bg-furent-500 hover:bg-furent-600 text-white font-semibold rounded-xl text-[15px] shadow-lg shadow-furent-500/30 transition-all focus:ring-4 focus:ring-furent-500/50 outline-none flex justify-center items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        Guardar y generar PDF
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Flowbite Success/Error Popup Modal -->
-        <div id="popup-modal" tabindex="-1" class="fixed inset-0 bg-surface-900/60 backdrop-blur-sm z-[110] hidden items-center justify-center p-4 transition-opacity fade-in">
-            <div class="relative w-full max-w-sm max-h-full">
-                <div class="relative bg-white dark:bg-surface-800 rounded-[24px] shadow-2xl p-6 transform transition-all fade-in-up text-center border border-surface-200 dark:border-surface-700">
-                    <button type="button" onclick="closePopupModal()" class="absolute top-4 right-4 text-surface-400 bg-transparent hover:bg-surface-100 dark:hover:bg-surface-700 hover:text-surface-900 dark:hover:text-white rounded-xl text-sm w-8 h-8 inline-flex justify-center items-center transition-colors outline-none shrink-0">
-                        <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-                        </svg>
-                        <span class="sr-only">Cerrar modal</span>
-                    </button>
-                    
-                    <div class="p-4 md:p-5 text-center">
-                        <!-- Icono Dinámico (Éxito o Error) -->
-                        <div id="popup-icon-container" class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/40 mb-5">
-                            <svg id="popup-icon-success" class="h-8 w-8 text-green-600 dark:text-green-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <svg id="popup-icon-error" class="h-8 w-8 text-red-600 dark:text-red-400 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                        </div>
-                        
-                        <h3 id="popup-title" class="text-xl font-bold text-surface-900 dark:text-white mb-2">Comprobante Enviado</h3>
-                        <p id="popup-message" class="text-[14px] text-surface-500 dark:text-surface-400 mb-6">
-                            El correo ha sido enviado exitosamente al trabajador.
-                        </p>
-                        <div class="flex items-center space-x-4 justify-center">
-                            <button onclick="closePopupModal()" type="button" id="popup-btn-ok" class="text-white bg-furent-600 hover:bg-furent-700 w-full focus:ring-4 focus:ring-furent-300 font-semibold rounded-xl text-sm px-5 py-3.5 focus:outline-none dark:focus:ring-furent-800 transition-colors shadow-lg shadow-furent-500/30">
-                                Entendido
-                            </button>
+                        <!-- Vista previa -->
+                        <div class="awp-preview" x-show="form.trabajadorNombre || form.monto">
+                            <div class="flex items-center gap-2">
+                                <span class="awp-pill awp-pill-accent">Vista previa</span>
+                                <span class="text-sm font-black awp-money" x-text="money(form.monto)"></span>
+                            </div>
+                            <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-2.5" x-text="resumenForm"></p>
                         </div>
                     </div>
+
+                    <footer class="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-surface-100 dark:border-surface-800">
+                        <button type="button" @click="cerrarForm()"
+                                class="awp-btn-ghost px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest">Cancelar</button>
+                        <button type="submit" :disabled="guardando"
+                                class="awp-btn-accent px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-60">
+                            <span x-text="guardando ? 'Guardando…' : (form.id ? 'Guardar cambios' : 'Registrar pago')"></span>
+                        </button>
+                    </footer>
+                </form>
+            </div>
+        </dialog>
+
+        <!-- ============================ Modal: eliminar ============================ -->
+        <dialog id="awp-del" class="awp-modal" x-ref="delDialog" @click="cerrarSiFondo($event)" aria-labelledby="awp-del-title">
+            <div class="awp-modal__card w-[min(26rem,calc(100vw-1.5rem))] bg-white dark:bg-[#131316] rounded-3xl border border-surface-100 dark:border-surface-700 shadow-glass overflow-hidden">
+                <div class="px-7 pt-8 pb-5 text-center">
+                    <span class="mx-auto flex size-14 items-center justify-center rounded-2xl" style="background:#fef2f2;color:#dc2626">
+                        <svg class="size-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </span>
+                    <h2 id="awp-del-title" class="text-lg font-black text-surface-900 dark:text-white mt-4">Eliminar comprobante</h2>
+                    <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-2">
+                        ¿Seguro que quieres eliminar el pago de
+                        <strong class="font-black text-surface-800 dark:text-surface-200" x-text="del.nombre"></strong>
+                        por <strong class="font-black text-surface-800 dark:text-surface-200" x-text="money(del.monto)"></strong>?
+                        Esta acción no se puede deshacer.
+                    </p>
+                </div>
+                <div class="flex items-center gap-3 px-7 pb-7">
+                    <button type="button" @click="cerrarEliminar()"
+                            class="awp-btn-ghost flex-1 px-5 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest">Cancelar</button>
+                    <form :action="urlEliminar" method="post" class="flex-1">
+                        <button type="submit" class="awp-btn-danger w-full px-5 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest">Eliminar</button>
+                    </form>
                 </div>
             </div>
-        </div>
+        </dialog>
 
-        <script th:inline="none">
-            // Datatables y configuracion Inicial
-            $(document).ready(function () {
-                var table = $('#tablaPagosTrabajadores').DataTable({
-                    order: [[5, 'desc']], // ordenar por fecha de creacion descendente
-                    language: {
-                        "sProcessing":     "Procesando...",
-                        "sLengthMenu":     "Mostrar _MENU_ registros",
-                        "sZeroRecords":    "No se encontraron resultados",
-                        "sEmptyTable":     "Ningún pago registrado",
-                        "sInfo":           "Mostrando del _START_ al _END_ de _TOTAL_ pagos",
-                        "sInfoEmpty":      "Mostrando del 0 al 0 de 0 pagos",
-                        "sInfoFiltered":   "(filtrado de _MAX_ pagos totales)",
-                        "sSearch":         "Buscar:",
-                        "sLoadingRecords": "Cargando...",
-                        "oPaginate": {
-                            "sFirst":    "Primero",
-                            "sLast":     "Último",
-                            "sNext":     "Siguiente",
-                            "sPrevious": "Anterior"
-                        }
-                    },
-                    pageLength: 10,
-                    dom: '<"overflow-x-auto"t><"p-4 border-t border-surface-200 dark:border-surface-700 flex flex-col md:flex-row shadow-inner items-center justify-between"p>',
-                    ordering: true,
-                    info: false
-                });
-
-                // Custom Search Input binding
-                $('#pagosSearchInput').on('keyup', function() {
-                    table.search(this.value).draw();
-                });
-            });
-
-            // Modales Nuevo Pago
-            function openNuevoPagoModal() {
-                document.getElementById('nuevoPagoModal').classList.remove('hidden');
-                document.getElementById('nuevoPagoModal').classList.add('flex');
-            }
-
-            function closeNuevoPagoModal() {
-                document.getElementById('nuevoPagoModal').classList.add('hidden');
-                document.getElementById('nuevoPagoModal').classList.remove('flex');
-            }
-
-            document.getElementById('nuevoPagoModal').addEventListener('click', function(e) {
-                if (e.target === this) closeNuevoPagoModal();
-            });
-
-            // Modales Flowbite Popup (Éxito/Error)
-            function showPopupModal(isSuccess, title, message) {
-                const modal = document.getElementById('popup-modal');
-                const titleEl = document.getElementById('popup-title');
-                const messageEl = document.getElementById('popup-message');
-                const iconContainer = document.getElementById('popup-icon-container');
-                const iconSuccess = document.getElementById('popup-icon-success');
-                const iconError = document.getElementById('popup-icon-error');
-                const btnOk = document.getElementById('popup-btn-ok');
-
-                titleEl.textContent = title;
-                messageEl.textContent = message;
-
-                if (isSuccess) {
-                    iconContainer.className = 'mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/40 mb-5';
-                    iconSuccess.classList.remove('hidden');
-                    iconError.classList.add('hidden');
-                    btnOk.className = 'text-white bg-green-600 hover:bg-green-700 w-full focus:ring-4 focus:ring-green-300 font-semibold rounded-xl text-sm px-5 py-3.5 focus:outline-none dark:focus:ring-green-800 transition-colors shadow-lg shadow-green-500/30';
-                } else {
-                    iconContainer.className = 'mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 dark:bg-red-900/40 mb-5';
-                    iconSuccess.classList.add('hidden');
-                    iconError.classList.remove('hidden');
-                    btnOk.className = 'text-white bg-red-600 hover:bg-red-700 w-full focus:ring-4 focus:ring-red-300 font-semibold rounded-xl text-sm px-5 py-3.5 focus:outline-none dark:focus:ring-red-800 transition-colors shadow-lg shadow-red-500/30';
-                }
-
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            }
-
-            function closePopupModal(reload = false) {
-                const modal = document.getElementById('popup-modal');
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                if(reload) location.reload();
-            }
-
-            document.getElementById('popup-modal').addEventListener('click', function(e) {
-                if (e.target === this) closePopupModal();
-            });
-
-            // AJAX Enviar Correo
-            function enviarPagoTrabajador(btn) {
-                var id = btn.getAttribute('data-id');
-                if (!id) return;
-
-                // Cambiar estado visual del botón
-                var originalHtml = btn.innerHTML;
-                btn.innerHTML = '<svg class="animate-spin h-4 w-4 mr-2 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Enviando...';
-                btn.disabled = true;
-
-                var csrfHeader = $('meta[name="_csrf_header"]').attr('content');
-                var csrfToken = $('meta[name="_csrf"]').attr('content');
-
-                $.ajax({
-                    url: '/admin/pagos-trabajadores/' + id + '/enviar',
-                    method: 'POST',
-                    beforeSend: function (xhr) {
-                        if (csrfHeader && csrfToken) {
-                            xhr.setRequestHeader(csrfHeader, csrfToken);
-                        }
-                    },
-                    success: function (resp) {
-                        btn.innerHTML = originalHtml;
-                        btn.disabled = false;
-                        
-                        showPopupModal(resp.success, resp.success ? '¡Enviado exitosamente!' : 'Hubo un problema', resp.message);
-                        
-                        if (resp.success) {
-                            // Cambia close event to reload
-                            $('#popup-btn-ok').attr('onclick', 'closePopupModal(true)');
-                        }
-                    },
-                    error: function () {
-                        btn.innerHTML = originalHtml;
-                        btn.disabled = false;
-                        showPopupModal(false, 'Error del servidor', 'No se pudo conectar con el servidor para enviar el correo.');
-                    }
-                });
-            }
-        </script>
+        <!-- ============================ Datos serializados ============================ -->
+        <script type="application/json" id="awp-data" th:utext="${pagosJson}">{"pagos":[]}</script>
     </div>
+
+    <script th:inline="none">
+        function pagosPage() {
+            return {
+                base: '',
+                pagos: [],
+                filtroTexto: '',
+                filtroEstado: 'todos',
+                filtroTipo: 'todos',
+                orden: 'recientes',
+                pagina: 1,
+                porPagina: 8,
+                guardando: false,
+                enviando: {},
+                errores: {},
+                del: { id: '', nombre: '', monto: 0 },
+                form: {
+                    id: '', trabajadorNombre: '', trabajadorEmail: '', trabajadorRol: '',
+                    periodoTipo: 'MENSUAL', periodoInicio: '', periodoFin: '',
+                    horasTrabajadas: 0, eventosAtendidos: 0, tarifaHora: 0, monto: 0, notas: ''
+                },
+
+                init() {
+                    this.base = location.pathname.replace(/\/+$/, '');
+                    var raw = {};
+                    try {
+                        raw = JSON.parse(document.getElementById('awp-data').textContent || '{}');
+                    } catch (e) {
+                        raw = {};
+                    }
+                    this.pagos = raw.pagos || [];
+                },
+
+                // ── Fechas ──
+                hoy() {
+                    var d = new Date();
+                    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                },
+                fecha(iso) {
+                    if (!iso) return '—';
+                    var p = String(iso).substring(0, 10).split('-');
+                    return p[2] + '/' + p[1] + '/' + p[0];
+                },
+                fechaHora(iso) {
+                    if (!iso) return '—';
+                    var s = String(iso).substring(0, 16).replace('T', ' ');
+                    var dp = String(iso).substring(0, 10).split('-');
+                    return dp[2] + '/' + dp[1] + '/' + dp[0] + ' ' + s.substring(11, 16);
+                },
+                mesActual() {
+                    var d = new Date();
+                    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                },
+
+                // ── Formato ──
+                money(v) {
+                    var n = Number(v);
+                    if (v == null || isNaN(n)) n = 0;
+                    return '$ ' + new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(n);
+                },
+                iniciales(nombre) {
+                    if (!nombre) return '?';
+                    var partes = String(nombre).trim().split(/\s+/);
+                    var a = partes[0] ? partes[0][0] : '';
+                    var b = partes.length > 1 ? partes[partes.length - 1][0] : '';
+                    return (a + b).toUpperCase();
+                },
+
+                // ── KPIs ──
+                get kpi() {
+                    var total = this.pagos.length, pendientes = 0, enviados = 0, totalPagado = 0, mesPagado = 0;
+                    var mes = this.mesActual();
+                    this.pagos.forEach(function (p) {
+                        if (p.estado === 'ENVIADO') enviados++; else pendientes++;
+                        var m = Number(p.monto) || 0;
+                        totalPagado += m;
+                        if (p.fechaCreacion && String(p.fechaCreacion).substring(0, 7) === mes) mesPagado += m;
+                    });
+                    return {
+                        total: total, pendientes: pendientes, enviados: enviados,
+                        totalPagado: totalPagado, mesPagado: mesPagado,
+                        pctEnviados: total > 0 ? Math.round((enviados * 100) / total) : 0
+                    };
+                },
+
+                // ── Filtrado y orden ──
+                get tieneFiltros() {
+                    return !!this.filtroTexto || this.filtroEstado !== 'todos' || this.filtroTipo !== 'todos';
+                },
+                setFiltro(campo, valor) {
+                    this[campo] = valor;
+                    this.pagina = 1;
+                },
+                limpiarFiltros() {
+                    this.filtroTexto = '';
+                    this.filtroEstado = 'todos';
+                    this.filtroTipo = 'todos';
+                    this.pagina = 1;
+                },
+                get filtrados() {
+                    var q = (this.filtroTexto || '').trim().toLowerCase();
+                    var fe = this.filtroEstado, ft = this.filtroTipo;
+                    var arr = this.pagos.filter(function (p) {
+                        if (q) {
+                            var hay = (p.trabajadorNombre || '').toLowerCase().indexOf(q) >= 0
+                                || (p.trabajadorEmail || '').toLowerCase().indexOf(q) >= 0
+                                || (p.trabajadorRol || '').toLowerCase().indexOf(q) >= 0;
+                            if (!hay) return false;
+                        }
+                        if (fe !== 'todos' && p.estado !== fe) return false;
+                        if (ft !== 'todos' && p.periodoTipo !== ft) return false;
+                        return true;
+                    }, this);
+
+                    var o = this.orden;
+                    arr.sort(function (a, b) {
+                        if (o === 'monto') return (Number(b.monto) || 0) - (Number(a.monto) || 0);
+                        if (o === 'nombre') return (a.trabajadorNombre || '').localeCompare(b.trabajadorNombre || '');
+                        if (o === 'periodo') return (b.periodoFin || '').localeCompare(a.periodoFin || '');
+                        if (o === 'antiguos') return (a.fechaCreacion || '').localeCompare(b.fechaCreacion || '');
+                        return (b.fechaCreacion || '').localeCompare(a.fechaCreacion || '');
+                    });
+                    return arr;
+                },
+
+                // ── Paginación ──
+                get totalPaginas() {
+                    return Math.max(1, Math.ceil(this.filtrados.length / this.porPagina));
+                },
+                get paginaActual() {
+                    var p = Math.min(this.pagina, this.totalPaginas);
+                    var start = (p - 1) * this.porPagina;
+                    return this.filtrados.slice(start, start + this.porPagina);
+                },
+                get rangoInicio() {
+                    if (this.filtrados.length === 0) return 0;
+                    return (Math.min(this.pagina, this.totalPaginas) - 1) * this.porPagina + 1;
+                },
+                get rangoFin() {
+                    return Math.min(this.filtrados.length, Math.min(this.pagina, this.totalPaginas) * this.porPagina);
+                },
+                get paginasVisibles() {
+                    var t = this.totalPaginas, p = Math.min(this.pagina, t), out = [], i;
+                    var push = function (v, gap) { out.push({ v: v, gap: !!gap }); };
+                    if (t <= 7) {
+                        for (i = 1; i <= t; i++) push(i, false);
+                        return out;
+                    }
+                    var start = Math.max(2, p - 1), end = Math.min(t - 1, p + 1);
+                    push(1, false);
+                    if (start > 2) push('…', true);
+                    for (i = start; i <= end; i++) push(i, false);
+                    if (end < t - 1) push('…', true);
+                    push(t, false);
+                    return out;
+                },
+                irA(n) {
+                    if (typeof n !== 'number') return;
+                    if (n < 1 || n > this.totalPaginas) return;
+                    this.pagina = n;
+                },
+
+                // ── Alta / edición / duplicado ──
+                get tituloForm() {
+                    if (this.form._copia) return 'Duplicar pago';
+                    return this.form.id ? 'Editar pago' : 'Nuevo pago';
+                },
+                get resumenForm() {
+                    var f = this.form, partes = [];
+                    partes.push('para ' + (f.trabajadorNombre || 'el trabajador'));
+                    if (f.periodoInicio && f.periodoFin) partes.push('por el período ' + this.fecha(f.periodoInicio) + ' → ' + this.fecha(f.periodoFin));
+                    partes.push(f.periodoTipo === 'QUINCENAL' ? 'quincenal' : 'mensual');
+                    return partes.join(' · ');
+                },
+                nuevoForm() {
+                    var h = this.hoy();
+                    var fin = new Date(); fin.setDate(fin.getDate() + 29);
+                    var finIso = fin.getFullYear() + '-' + String(fin.getMonth() + 1).padStart(2, '0') + '-' + String(fin.getDate()).padStart(2, '0');
+                    return {
+                        id: '', trabajadorNombre: '', trabajadorEmail: '', trabajadorRol: '',
+                        periodoTipo: 'MENSUAL', periodoInicio: h, periodoFin: finIso,
+                        horasTrabajadas: 0, eventosAtendidos: 0, tarifaHora: 0, monto: 0, notas: '', _copia: false
+                    };
+                },
+                abrirNuevo() {
+                    this.form = this.nuevoForm();
+                    this.errores = {};
+                    this.guardando = false;
+                    this.$refs.formDialog.showModal();
+                },
+                abrirEditar(p) {
+                    this.form = {
+                        id: p.id,
+                        trabajadorNombre: p.trabajadorNombre || '',
+                        trabajadorEmail: p.trabajadorEmail || '',
+                        trabajadorRol: p.trabajadorRol || '',
+                        periodoTipo: p.periodoTipo || 'MENSUAL',
+                        periodoInicio: p.periodoInicio || '',
+                        periodoFin: p.periodoFin || '',
+                        horasTrabajadas: p.horasTrabajadas == null ? 0 : p.horasTrabajadas,
+                        eventosAtendidos: p.eventosAtendidos == null ? 0 : p.eventosAtendidos,
+                        tarifaHora: p.tarifaHora == null ? 0 : Number(p.tarifaHora),
+                        monto: Number(p.monto) || 0,
+                        notas: p.notas || '',
+                        _copia: false
+                    };
+                    this.errores = {};
+                    this.guardando = false;
+                    this.$refs.formDialog.showModal();
+                },
+                abrirDuplicar(p) {
+                    this.form = {
+                        id: '',
+                        trabajadorNombre: p.trabajadorNombre || '',
+                        trabajadorEmail: p.trabajadorEmail || '',
+                        trabajadorRol: p.trabajadorRol || '',
+                        periodoTipo: p.periodoTipo || 'MENSUAL',
+                        periodoInicio: p.periodoInicio || this.hoy(),
+                        periodoFin: p.periodoFin || '',
+                        horasTrabajadas: p.horasTrabajadas == null ? 0 : p.horasTrabajadas,
+                        eventosAtendidos: p.eventosAtendidos == null ? 0 : p.eventosAtendidos,
+                        tarifaHora: p.tarifaHora == null ? 0 : Number(p.tarifaHora),
+                        monto: Number(p.monto) || 0,
+                        notas: p.notas || '',
+                        _copia: true
+                    };
+                    this.errores = {};
+                    this.guardando = false;
+                    this.$refs.formDialog.showModal();
+                },
+                cerrarForm() { this.$refs.formDialog.close(); },
+
+                validar(e) {
+                    var er = {}, f = this.form;
+                    if (!(f.trabajadorNombre || '').trim()) er.nombre = 'Escribe el nombre del trabajador.';
+                    var email = (f.trabajadorEmail || '').trim();
+                    if (!email) er.email = 'Indica un correo de destino.';
+                    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) er.email = 'Ese correo no parece válido.';
+                    if (!f.periodoInicio) er.desde = 'Indica la fecha de inicio.';
+                    if (!f.periodoFin) er.hasta = 'Indica la fecha de fin.';
+                    else if (f.periodoInicio && f.periodoFin < f.periodoInicio) er.hasta = 'No puede ser anterior al inicio.';
+                    if (!(Number(f.monto) > 0)) er.monto = 'Debe ser mayor que cero.';
+                    if (Number(f.tarifaHora) < 0) er.tarifa = 'No puede ser negativa.';
+                    if (Number(f.horasTrabajadas) < 0) er.horas = 'No puede ser negativo.';
+                    if (Number(f.eventosAtendidos) < 0) er.eventos = 'No puede ser negativo.';
+                    this.errores = er;
+                    if (Object.keys(er).length) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    this.guardando = true;
+                    return true;
+                },
+
+                // ── Eliminar ──
+                abrirEliminar(p) {
+                    this.del = { id: p.id, nombre: p.trabajadorNombre, monto: p.monto };
+                    this.$refs.delDialog.showModal();
+                },
+                cerrarEliminar() { this.$refs.delDialog.close(); },
+                get urlEliminar() { return this.base + '/eliminar/' + this.del.id; },
+
+                // ── Enviar por correo ──
+                async enviar(p) {
+                    if (this.enviando[p.id]) return;
+                    if (!p.trabajadorEmail) {
+                        if (typeof showToast === 'function') showToast('Este pago no tiene correo de destino.', 'error');
+                        return;
+                    }
+                    this.enviando[p.id] = true;
+                    try {
+                        var headers = {};
+                        var t = document.querySelector('meta[name="_csrf"]');
+                        var h = document.querySelector('meta[name="_csrf_header"]');
+                        if (t && h && t.content && h.content) headers[h.content] = t.content;
+                        var res = await fetch(this.base + '/' + p.id + '/enviar', { method: 'POST', headers: headers });
+                        var data = await res.json();
+                        if (res.ok && data.success) {
+                            p.estado = 'ENVIADO';
+                            if (typeof showToast === 'function') showToast(data.message || 'Comprobante enviado.', 'success');
+                        } else if (typeof showToast === 'function') {
+                            showToast(data.message || 'No se pudo enviar el comprobante.', 'error');
+                        }
+                    } catch (err) {
+                        if (typeof showToast === 'function') showToast('No se pudo conectar para enviar el correo.', 'error');
+                    } finally {
+                        this.enviando[p.id] = false;
+                    }
+                },
+
+                cerrarSiFondo(e) {
+                    if (e.target === e.currentTarget) e.currentTarget.close();
+                }
+            };
+        }
+    </script>
 </main>
 </body>
 </html>

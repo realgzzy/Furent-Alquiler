@@ -30,6 +30,10 @@ public class WorkerPaymentService {
         return workerPaymentRepository.save(payment);
     }
 
+    public void delete(String id) {
+        workerPaymentRepository.deleteById(id);
+    }
+
     /**
      * Sends a payment email with the PDF receipt attached.
      */
