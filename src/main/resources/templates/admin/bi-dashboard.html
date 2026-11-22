@@ -2,291 +2,608 @@
 <html xmlns:th="http://www.thymeleaf.org"
       th:replace="~{fragments/admin-layout :: layout(~{::title}, ~{::main}, 'bi')}">
 <head>
-    <title>Dashboard Ejecutivo Power BI — Furent Admin</title>
+    <title>Panel Ejecutivo — Furent Admin</title>
 </head>
 <body>
 <main>
-    <div class="px-6 py-8 max-w-[95rem] mx-auto space-y-8">
-        
-        <!-- Header -->
-        <div class="flex flex-col md:flex-row md:items-start justify-between gap-6">
-            <div>
-                <div class="flex items-center gap-3">
-                    <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-xs font-bold tracking-wider uppercase">
-                        Visualización de Datos II
-                    </span>
-                    <span class="px-3 py-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-full text-xs font-bold tracking-wider uppercase">
-                        Modelo Estrella Activo
-                    </span>
+    <div class="bi-scope px-6 sm:px-10 py-8 pb-16 max-w-[88rem] mx-auto">
+        <style>
+            /* ============================================================
+               Panel ejecutivo BI
+               Identidad Furent: base zinc + un único acento (#E07A3A).
+               Verde/rojo solo para variaciones; categorías con una paleta
+               cálida armónica (naranja · teal · arena · gris).
+               ============================================================ */
+            .bi-scope { --bi-accent: #E07A3A; --bi-accent-2: #C2630F; }
+            .bi-scope canvas { max-width: 100%; }
+            .bi-range:focus-visible { outline: 2px solid rgba(224, 122, 58, 0.6); outline-offset: 1px; border-radius: 10px; }
+            .bi-acc-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .28s cubic-bezier(0.2, 0, 0, 1); }
+            .bi-acc-body.is-open { grid-template-rows: 1fr; }
+            .bi-acc-body > div { overflow: hidden; }
+            @media (prefers-reduced-motion: reduce) { .bi-acc-body { transition: none; } }
+        </style>
+
+        <!-- ===== Encabezado ===== -->
+        <header class="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
+            <div class="max-w-2xl">
+                <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-furent-500"></span>
+                    <span class="text-[11px] font-bold uppercase tracking-[0.18em] text-surface-500 dark:text-surface-400">Inteligencia de negocio</span>
                 </div>
-                <h1 class="text-3xl font-extrabold tracking-tight text-surface-900 dark:text-white mt-2">
-                    Dashboard Ejecutivo de Inteligencia de Negocios
+                <h1 class="mt-2 text-[28px] sm:text-[32px] font-black tracking-tight text-surface-900 dark:text-white leading-tight">
+                    Panel ejecutivo Furent
                 </h1>
-                <p class="text-sm text-surface-500 dark:text-surface-400 mt-1 max-w-3xl">
-                    Plataforma analítica y visualización de datos sincronizada con Power BI Desktop. Integra el modelo dimensional en estrella, almacén de datos (Data Warehouse), catálogo de KPIs en DAX y maquetación asistida por IA.
+                <p class="mt-2 text-sm text-surface-500 dark:text-surface-400 leading-relaxed">
+                    Cómo van las ventas, las reservas y la satisfacción de los clientes. Toda la información se actualiza desde el reporte de Power BI.
                 </p>
             </div>
-            
-            <!-- Quick Actions -->
-            <div class="flex items-center gap-3">
-                <a th:href="@{/admin/reservas}" class="px-4 py-2.5 bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 text-surface-700 dark:text-surface-300 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border border-surface-200 dark:border-surface-700 shadow-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
-                    Gestión de Reservas
-                </a>
-                <a th:href="@{/admin/predicciones}" class="px-4 py-2.5 bg-furent-500 hover:bg-furent-600 text-white rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-furent-500/25">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 17.25l6.75-6.75 4.5 4.5L21 8.25"/></svg>
-                    Predicciones IA (J48)
-                </a>
+            <div class="flex flex-col items-start lg:items-end gap-2 shrink-0">
+                <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-surface-900 border border-surface-200/70 dark:border-surface-800 text-xs font-semibold text-surface-600 dark:text-surface-300 shadow-sm">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Sincronizado con Power BI
+                </span>
+                <span class="text-[11px] text-surface-500 dark:text-surface-400">Actualizado hace 2 horas</span>
             </div>
-        </div>
+        </header>
 
-        <!-- 5 Pillars Badges Summary -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div class="p-4 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm">
-                <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest block">Pilar 1: Orígenes</span>
-                <p class="text-sm font-bold text-surface-900 dark:text-white mt-1">MongoDB & Excel DW</p>
-                <p class="text-xs text-surface-500 mt-0.5">11 Entidades relacionales</p>
-            </div>
-            <div class="p-4 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm">
-                <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest block">Pilar 2: Arquitectura</span>
-                <p class="text-sm font-bold text-surface-900 dark:text-white mt-1">Modelo Estrella (1:N)</p>
-                <p class="text-xs text-surface-500 mt-0.5">Kimball Star Schema</p>
-            </div>
-            <div class="p-4 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm">
-                <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest block">Pilar 3: Integración</span>
-                <p class="text-sm font-bold text-surface-900 dark:text-white mt-1">ETL & Dim_Fecha</p>
-                <p class="text-xs text-surface-500 mt-0.5">Power Query + VertiPaq</p>
-            </div>
-            <div class="p-4 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm">
-                <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest block">Pilar 4: Visualización</span>
-                <p class="text-sm font-bold text-surface-900 dark:text-white mt-1">Power BI Interactivo</p>
-                <p class="text-xs text-surface-500 mt-0.5">13 Visuales + Tema JSON</p>
-            </div>
-            <div class="p-4 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm">
-                <span class="text-[10px] font-bold text-surface-400 uppercase tracking-widest block">Pilar 5: Integración Web</span>
-                <p class="text-sm font-bold text-surface-900 dark:text-white mt-1">Spring Boot + Admin</p>
-                <p class="text-xs text-surface-500 mt-0.5">Ruta nativa /admin/bi</p>
-            </div>
-        </div>
-
-        <!-- KPI Metric Cards Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-            <!-- KPI 1 -->
-            <div class="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm hover:shadow-md transition-all">
-                <div class="flex items-center justify-between text-surface-500 text-xs font-semibold">
-                    <span>Ingresos Totales</span>
-                    <span class="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-full text-[10px] font-bold">+12.4% MoM</span>
-                </div>
-                <div class="text-2xl font-black text-surface-900 dark:text-white mt-2">$ 452.8M COP</div>
-                <div class="text-[11px] text-surface-400 mt-1">Facturación acumulada neta</div>
-            </div>
-
-            <!-- KPI 2 -->
-            <div class="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm hover:shadow-md transition-all">
-                <div class="flex items-center justify-between text-surface-500 text-xs font-semibold">
-                    <span>Total Reservas</span>
-                    <span class="text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-2 py-0.5 rounded-full text-[10px] font-bold">640 Contratos</span>
-                </div>
-                <div class="text-2xl font-black text-surface-900 dark:text-white mt-2">640 Órdenes</div>
-                <div class="text-[11px] text-surface-400 mt-1">584 reservas efectivas</div>
-            </div>
-
-            <!-- KPI 3 -->
-            <div class="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm hover:shadow-md transition-all">
-                <div class="flex items-center justify-between text-surface-500 text-xs font-semibold">
-                    <span>Ticket Promedio (AOV)</span>
-                    <span class="text-furent-600 bg-furent-50 dark:bg-furent-950/30 px-2 py-0.5 rounded-full text-[10px] font-bold">Por Evento</span>
-                </div>
-                <div class="text-2xl font-black text-surface-900 dark:text-white mt-2">$ 707,500 COP</div>
-                <div class="text-[11px] text-surface-400 mt-1">Promedio por reservación</div>
-            </div>
-
-            <!-- KPI 4 -->
-            <div class="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm hover:shadow-md transition-all">
-                <div class="flex items-center justify-between text-surface-500 text-xs font-semibold">
-                    <span>Tasa de Éxito</span>
-                    <span class="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-full text-[10px] font-bold">Conversión</span>
-                </div>
-                <div class="text-2xl font-black text-surface-900 dark:text-white mt-2">91.2 %</div>
-                <div class="text-[11px] text-surface-400 mt-1">56 canceladas / desistidas</div>
-            </div>
-
-            <!-- KPI 5 -->
-            <div class="p-5 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200/60 dark:border-surface-800 shadow-sm hover:shadow-md transition-all">
-                <div class="flex items-center justify-between text-surface-500 text-xs font-semibold">
-                    <span>Satisfacción CSAT</span>
-                    <span class="text-amber-500 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded-full text-[10px] font-bold">331 Reviews</span>
-                </div>
-                <div class="text-2xl font-black text-surface-900 dark:text-white mt-2">4.5 ★ / 5.0</div>
-                <div class="text-[11px] text-surface-400 mt-1">Promedio post-servicio</div>
-            </div>
-        </div>
-
-        <!-- Power BI Interactive Canvas Container -->
-        <div class="bg-white dark:bg-surface-900 rounded-3xl border border-surface-200/60 dark:border-surface-800 p-6 shadow-soft space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-surface-100 dark:border-surface-800">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-furent-500/10 flex items-center justify-center text-furent-500">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V5h2v11z"/></svg>
-                    </div>
-                    <div>
-                        <h2 class="text-lg font-bold text-surface-900 dark:text-white">Lienzo Interactivo — FURENT_Modelo_Estrella.pbix</h2>
-                        <p class="text-xs text-surface-400">Archivo oficial de Power BI configurado con Modelo Estrella, 13 elementos visuales y tema visual corporativo.</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 text-xs font-semibold">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Sincronizado
+        <!-- ===== KPIs ===== -->
+        <section class="mt-7 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4" aria-label="Indicadores principales">
+            <!-- Ingresos -->
+            <article class="rounded-2xl border border-surface-200/60 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 shadow-sm">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">Ingresos</span>
+                    <span class="inline-flex items-center gap-0.5 text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5"/></svg>12.4%
                     </span>
                 </div>
-            </div>
+                <p class="mt-3 text-[27px] font-black tracking-tight text-surface-900 dark:text-white leading-none">$452.8M</p>
+                <p class="mt-1.5 text-[11px] text-surface-500 dark:text-surface-400">Facturado este año (COP)</p>
+            </article>
 
-            <!-- Simulated Responsive Power BI Embed Workspace -->
-            <div class="relative w-full rounded-2xl overflow-hidden bg-slate-900 border border-surface-200 dark:border-surface-800 shadow-inner" style="min-height: 600px;">
-                <!-- Power BI Web Header Mockup -->
-                <div class="bg-slate-950 px-6 py-4 flex items-center justify-between text-white border-b border-slate-800">
-                    <div class="flex items-center gap-3">
-                        <span class="font-bold text-sm text-furent-400">Power BI Desktop</span>
-                        <span class="text-slate-600">|</span>
-                        <span class="text-xs text-slate-300 font-medium">FURENT_Modelo_Estrella.pbix — Dashboard Ejecutivo</span>
+            <!-- Reservas -->
+            <article class="rounded-2xl border border-surface-200/60 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 shadow-sm">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">Reservas</span>
+                    <span class="inline-flex items-center gap-0.5 text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5"/></svg>8.1%
+                    </span>
+                </div>
+                <p class="mt-3 text-[27px] font-black tracking-tight text-surface-900 dark:text-white leading-none">640</p>
+                <p class="mt-1.5 text-[11px] text-surface-500 dark:text-surface-400">Reservas confirmadas y completadas</p>
+            </article>
+
+            <!-- Ticket promedio -->
+            <article class="rounded-2xl border border-surface-200/60 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 shadow-sm">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">Ticket</span>
+                    <span class="inline-flex items-center gap-0.5 text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5"/></svg>3.2%
+                    </span>
+                </div>
+                <p class="mt-3 text-[27px] font-black tracking-tight text-surface-900 dark:text-white leading-none">$707.500</p>
+                <p class="mt-1.5 text-[11px] text-surface-500 dark:text-surface-400">Valor medio por reserva (COP)</p>
+            </article>
+
+            <!-- Conversión -->
+            <article class="rounded-2xl border border-surface-200/60 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 shadow-sm">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">Conversión</span>
+                    <span class="inline-flex items-center gap-0.5 text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>0.6%
+                    </span>
+                </div>
+                <p class="mt-3 text-[27px] font-black tracking-tight text-surface-900 dark:text-white leading-none">91.2%</p>
+                <p class="mt-1.5 text-[11px] text-surface-500 dark:text-surface-400">Reservas que llegan a buen término</p>
+            </article>
+
+            <!-- Satisfacción -->
+            <article class="rounded-2xl border border-surface-200/60 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 shadow-sm">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">Satisfacción</span>
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400">331 reseñas</span>
+                </div>
+                <p class="mt-3 text-[27px] font-black tracking-tight text-surface-900 dark:text-white leading-none">4.5<span class="text-base font-bold text-surface-400"> / 5</span></p>
+                <p class="mt-1.5 text-[11px] text-surface-500 dark:text-surface-400">Calificación tras el servicio</p>
+            </article>
+        </section>
+
+        <!-- ===== Gráficos ===== -->
+        <section class="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+            <!-- Ingresos en el tiempo (área) -->
+            <article class="lg:col-span-8 rounded-2xl border border-surface-200/60 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 sm:p-6 shadow-sm">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-surface-900 dark:text-white">Ingresos en el tiempo</h2>
+                        <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Facturación neta mensual (COP · millones)</p>
                     </div>
-                    <div class="flex items-center gap-3 text-xs text-slate-400">
-                        <span>Filtros Globales: [Todas las Ciudades] [Todos los Estados]</span>
+                    <div role="group" aria-label="Rango de tiempo" class="inline-flex p-0.5 rounded-xl bg-surface-100 dark:bg-surface-800/70">
+                        <button type="button" data-range="12" class="bi-range px-3 py-1.5 rounded-[10px] text-xs font-semibold transition-colors">12 meses</button>
+                        <button type="button" data-range="6" class="bi-range px-3 py-1.5 rounded-[10px] text-xs font-semibold transition-colors">6 meses</button>
+                        <button type="button" data-range="3" class="bi-range px-3 py-1.5 rounded-[10px] text-xs font-semibold transition-colors">3 meses</button>
                     </div>
                 </div>
+                <div class="mt-4 relative h-[280px]">
+                    <canvas id="bi-revenue" role="img" aria-label="Evolución mensual de los ingresos netos en millones de pesos"></canvas>
+                </div>
+            </article>
 
-                <!-- Inner Visual Canvas Preview -->
-                <div class="p-6 bg-[#f8fafc] text-slate-900 space-y-6">
-                    <!-- Top Canvas Row: Title & Slicers -->
-                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+            <!-- Tipos de evento (dona) -->
+            <article class="lg:col-span-4 rounded-2xl border border-surface-200/60 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 sm:p-6 shadow-sm">
+                <h2 class="text-base font-bold text-surface-900 dark:text-white">Ingresos por tipo de evento</h2>
+                <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Participación sobre el total</p>
+                <div class="mt-4 relative h-[190px]">
+                    <canvas id="bi-types" role="img" aria-label="Distribución porcentual de ingresos por tipo de evento"></canvas>
+                </div>
+                <ul id="bi-types-legend" class="mt-5 space-y-2.5"></ul>
+            </article>
+
+            <!-- Ingresos por ciudad (barras) -->
+            <article class="lg:col-span-7 rounded-2xl border border-surface-200/60 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 sm:p-6 shadow-sm">
+                <h2 class="text-base font-bold text-surface-900 dark:text-white">Ingresos por ciudad</h2>
+                <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Dónde se concentra la facturación (COP · millones)</p>
+                <div class="mt-4 relative h-[260px]">
+                    <canvas id="bi-cities" role="img" aria-label="Ingresos por ciudad en millones de pesos"></canvas>
+                </div>
+            </article>
+
+            <!-- Satisfacción (radar) -->
+            <article class="lg:col-span-5 rounded-2xl border border-surface-200/60 dark:border-surface-800 bg-white dark:bg-surface-900 p-5 sm:p-6 shadow-sm">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-surface-900 dark:text-white">Satisfacción por criterio</h2>
+                        <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Promedio de 331 reseñas (escala 1–5)</p>
+                    </div>
+                    <span class="text-2xl font-black text-surface-900 dark:text-white">4.5</span>
+                </div>
+                <div class="mt-2 relative h-[250px]">
+                    <canvas id="bi-satisfaction" role="img" aria-label="Calificación promedio por criterio de servicio"></canvas>
+                </div>
+            </article>
+        </section>
+
+        <!-- ===== Reservas recientes ===== -->
+        <section class="mt-6 rounded-2xl border border-surface-200/60 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-sm overflow-hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3 p-5 sm:px-6 border-b border-surface-100 dark:border-surface-800/70">
+                <div>
+                    <h2 class="text-base font-bold text-surface-900 dark:text-white">Reservas recientes</h2>
+                    <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Últimos movimientos registrados</p>
+                </div>
+                <a th:href="@{/admin/reservas}" class="inline-flex items-center gap-1.5 text-xs font-bold text-furent-600 dark:text-furent-400 hover:text-furent-700 transition-colors">
+                    Ver todas
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                </a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left min-w-[720px]">
+                    <thead>
+                        <tr class="text-[11px] uppercase tracking-wider text-surface-500 dark:text-surface-400">
+                            <th scope="col" class="font-semibold px-6 py-3">Reserva</th>
+                            <th scope="col" class="font-semibold px-6 py-3">Cliente</th>
+                            <th scope="col" class="font-semibold px-6 py-3">Ciudad</th>
+                            <th scope="col" class="font-semibold px-6 py-3">Tipo de evento</th>
+                            <th scope="col" class="font-semibold px-6 py-3 text-right">Monto</th>
+                            <th scope="col" class="font-semibold px-6 py-3">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-surface-100 dark:divide-surface-800/70">
+                        <tr class="hover:bg-surface-50/70 dark:hover:bg-surface-800/40 transition-colors">
+                            <td class="px-6 py-3.5 font-bold text-furent-600 dark:text-furent-400">R-00003</td>
+                            <td class="px-6 py-3.5 font-semibold text-surface-800 dark:text-surface-100">Valentina Ruiz</td>
+                            <td class="px-6 py-3.5 text-surface-500 dark:text-surface-400">Bogotá</td>
+                            <td class="px-6 py-3.5 text-surface-500 dark:text-surface-400">Boda</td>
+                            <td class="px-6 py-3.5 text-right font-bold text-surface-900 dark:text-white">$1.845.000</td>
+                            <td class="px-6 py-3.5"><span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400">Confirmada</span></td>
+                        </tr>
+                        <tr class="hover:bg-surface-50/70 dark:hover:bg-surface-800/40 transition-colors">
+                            <td class="px-6 py-3.5 font-bold text-furent-600 dark:text-furent-400">R-00001</td>
+                            <td class="px-6 py-3.5 font-semibold text-surface-800 dark:text-surface-100">Andrés Gómez</td>
+                            <td class="px-6 py-3.5 text-surface-500 dark:text-surface-400">Cali</td>
+                            <td class="px-6 py-3.5 text-surface-500 dark:text-surface-400">Evento corporativo</td>
+                            <td class="px-6 py-3.5 text-right font-bold text-surface-900 dark:text-white">$358.000</td>
+                            <td class="px-6 py-3.5"><span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400">Completada</span></td>
+                        </tr>
+                        <tr class="hover:bg-surface-50/70 dark:hover:bg-surface-800/40 transition-colors">
+                            <td class="px-6 py-3.5 font-bold text-furent-600 dark:text-furent-400">R-00007</td>
+                            <td class="px-6 py-3.5 font-semibold text-surface-800 dark:text-surface-100">Camila Torres</td>
+                            <td class="px-6 py-3.5 text-surface-500 dark:text-surface-400">Medellín</td>
+                            <td class="px-6 py-3.5 text-surface-500 dark:text-surface-400">Cumpleaños</td>
+                            <td class="px-6 py-3.5 text-right font-bold text-surface-900 dark:text-white">$612.000</td>
+                            <td class="px-6 py-3.5"><span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-furent-50 dark:bg-furent-500/15 text-furent-700 dark:text-furent-400">Entregada</span></td>
+                        </tr>
+                        <tr class="hover:bg-surface-50/70 dark:hover:bg-surface-800/40 transition-colors">
+                            <td class="px-6 py-3.5 font-bold text-furent-600 dark:text-furent-400">R-00009</td>
+                            <td class="px-6 py-3.5 font-semibold text-surface-800 dark:text-surface-100">Hotel Dann Carlton</td>
+                            <td class="px-6 py-3.5 text-surface-500 dark:text-surface-400">Barranquilla</td>
+                            <td class="px-6 py-3.5 text-surface-500 dark:text-surface-400">Evento corporativo</td>
+                            <td class="px-6 py-3.5 text-right font-bold text-surface-900 dark:text-white">$2.410.000</td>
+                            <td class="px-6 py-3.5"><span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400">Completada</span></td>
+                        </tr>
+                        <tr class="hover:bg-surface-50/70 dark:hover:bg-surface-800/40 transition-colors">
+                            <td class="px-6 py-3.5 font-bold text-furent-600 dark:text-furent-400">R-00012</td>
+                            <td class="px-6 py-3.5 font-semibold text-surface-800 dark:text-surface-100">Laura Restrepo</td>
+                            <td class="px-6 py-3.5 text-surface-500 dark:text-surface-400">Bucaramanga</td>
+                            <td class="px-6 py-3.5 text-surface-500 dark:text-surface-400">Grado</td>
+                            <td class="px-6 py-3.5 text-right font-bold text-surface-900 dark:text-white">$924.000</td>
+                            <td class="px-6 py-3.5"><span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400">Pendiente</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ===== Ficha técnica (secundaria) ===== -->
+        <section class="mt-6 rounded-2xl border border-surface-200/60 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-sm">
+            <button type="button" id="bi-acc-toggle" aria-expanded="false" aria-controls="bi-acc-body"
+                    class="w-full flex items-center justify-between gap-4 p-5 sm:px-6 text-left group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-furent-500/60 rounded-2xl">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-furent-500/10 flex items-center justify-center text-furent-500 shrink-0">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V5h2v11z"/></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold text-surface-900 dark:text-white">Cómo se construye esta información</h2>
+                        <p class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">Detalle del modelo de datos e integración con Power BI</p>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-surface-400 shrink-0 transition-transform duration-200" id="bi-acc-chevron" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="bi-acc-body" class="bi-acc-body" aria-hidden="true">
+                <div>
+                    <dl class="px-5 sm:px-6 pb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5 border-t border-surface-100 dark:border-surface-800/70 pt-5">
                         <div>
-                            <h3 class="text-base font-bold text-slate-900">Furent — Plataforma de Alquiler de Mobiliarios</h3>
-                            <p class="text-xs text-slate-500">Panel Ejecutivo de Operaciones, Reservas y Facturación</p>
+                            <dt class="text-[11px] font-bold uppercase tracking-wider text-surface-500 dark:text-surface-400">Origen de datos</dt>
+                            <dd class="text-sm text-surface-600 dark:text-surface-300 mt-1">Base operativa de Furent y hoja de cálculo del almacén de datos.</dd>
                         </div>
-                        <div class="flex gap-2">
-                            <span class="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-semibold text-slate-700">Ciudad: Bogotá, Medellín, Cali, Barranquilla...</span>
-                            <span class="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-semibold text-slate-700">Estado: Confirmada, Entregada, Completada...</span>
+                        <div>
+                            <dt class="text-[11px] font-bold uppercase tracking-wider text-surface-500 dark:text-surface-400">Modelo</dt>
+                            <dd class="text-sm text-surface-600 dark:text-surface-300 mt-1">Esquema en estrella: tablas de hechos de reservas y facturación con dimensión de fecha.</dd>
                         </div>
-                    </div>
-
-                    <!-- Canvas Grid: 2 Charts -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- Chart 1 -->
-                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                            <h4 class="text-sm font-bold text-slate-800 mb-3">Facturación por Ciudad del Evento (COP)</h4>
-                            <div class="space-y-2">
-                                <div>
-                                    <div class="flex justify-between text-xs font-semibold mb-1"><span>Bogotá</span><span>$ 148,200,000 (32.7%)</span></div>
-                                    <div class="w-full bg-slate-100 rounded-full h-3"><div class="bg-blue-600 h-3 rounded-full" style="width: 75%"></div></div>
-                                </div>
-                                <div>
-                                    <div class="flex justify-between text-xs font-semibold mb-1"><span>Medellín</span><span>$ 112,500,000 (24.8%)</span></div>
-                                    <div class="w-full bg-slate-100 rounded-full h-3"><div class="bg-blue-500 h-3 rounded-full" style="width: 58%"></div></div>
-                                </div>
-                                <div>
-                                    <div class="flex justify-between text-xs font-semibold mb-1"><span>Cali</span><span>$ 86,400,000 (19.1%)</span></div>
-                                    <div class="w-full bg-slate-100 rounded-full h-3"><div class="bg-blue-400 h-3 rounded-full" style="width: 44%"></div></div>
-                                </div>
-                                <div>
-                                    <div class="flex justify-between text-xs font-semibold mb-1"><span>Barranquilla</span><span>$ 61,300,000 (13.5%)</span></div>
-                                    <div class="w-full bg-slate-100 rounded-full h-3"><div class="bg-blue-300 h-3 rounded-full" style="width: 32%"></div></div>
-                                </div>
-                                <div>
-                                    <div class="flex justify-between text-xs font-semibold mb-1"><span>Bucaramanga</span><span>$ 44,400,000 (9.9%)</span></div>
-                                    <div class="w-full bg-slate-100 rounded-full h-3"><div class="bg-blue-200 h-3 rounded-full" style="width: 22%"></div></div>
-                                </div>
-                            </div>
+                        <div>
+                            <dt class="text-[11px] font-bold uppercase tracking-wider text-surface-500 dark:text-surface-400">Transformación</dt>
+                            <dd class="text-sm text-surface-600 dark:text-surface-300 mt-1">Depuración y cruce de datos antes de cargarlos al motor analítico.</dd>
                         </div>
-
-                        <!-- Chart 2 -->
-                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                            <h4 class="text-sm font-bold text-slate-800 mb-3">Distribución de Ingresos por Tipo de Evento</h4>
-                            <div class="space-y-3">
-                                <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 text-xs">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-3 h-3 rounded-full bg-blue-600"></span>
-                                        <span class="font-medium">Bodas & Celebraciones</span>
-                                    </div>
-                                    <span class="font-bold text-slate-900">$ 172.0M (38%)</span>
-                                </div>
-                                <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 text-xs">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
-                                        <span class="font-medium">Cumpleaños & Fiestas</span>
-                                    </div>
-                                    <span class="font-bold text-slate-900">$ 117.7M (26%)</span>
-                                </div>
-                                <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 text-xs">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-3 h-3 rounded-full bg-furent-500"></span>
-                                        <span class="font-medium">Eventos Corporativos</span>
-                                    </div>
-                                    <span class="font-bold text-slate-900">$ 95.1M (21%)</span>
-                                </div>
-                                <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 text-xs">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-3 h-3 rounded-full bg-purple-500"></span>
-                                        <span class="font-medium">Grados & Otros</span>
-                                    </div>
-                                    <span class="font-bold text-slate-900">$ 68.0M (15%)</span>
-                                </div>
-                            </div>
+                        <div>
+                            <dt class="text-[11px] font-bold uppercase tracking-wider text-surface-500 dark:text-surface-400">Indicadores</dt>
+                            <dd class="text-sm text-surface-600 dark:text-surface-300 mt-1">Ingresos, reservas, ticket promedio, conversión y satisfacción.</dd>
                         </div>
-                    </div>
-
-                    <!-- Bottom Canvas Row: Table Sample -->
-                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                        <div class="flex items-center justify-between mb-3">
-                            <h4 class="text-sm font-bold text-slate-800">Detalle Operativo de Reservas (Muestra de Datos Fact_Reservas)</h4>
-                            <span class="text-xs text-slate-500">Mostrando registros normalizados del modelo estrella</span>
+                        <div>
+                            <dt class="text-[11px] font-bold uppercase tracking-wider text-surface-500 dark:text-surface-400">Visualización</dt>
+                            <dd class="text-sm text-surface-600 dark:text-surface-300 mt-1">Reporte de Power BI con más de una docena de visuales y tema corporativo.</dd>
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-xs text-left">
-                                <thead class="bg-slate-50 text-slate-700 uppercase font-bold text-[10px] border-b border-slate-200">
-                                    <tr>
-                                        <th class="p-2.5">ID Reserva</th>
-                                        <th class="p-2.5">Ciudad</th>
-                                        <th class="p-2.5">Tipo Evento</th>
-                                        <th class="p-2.5">Días Renta</th>
-                                        <th class="p-2.5">Monto Total</th>
-                                        <th class="p-2.5">Estado</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100">
-                                    <tr>
-                                        <td class="p-2.5 font-bold text-blue-600">R00001</td>
-                                        <td class="p-2.5">Cali</td>
-                                        <td class="p-2.5">Evento corporativo</td>
-                                        <td class="p-2.5">1 día</td>
-                                        <td class="p-2.5 font-bold">$ 358,000</td>
-                                        <td class="p-2.5"><span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold text-[10px]">Completada</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="p-2.5 font-bold text-blue-600">R00002</td>
-                                        <td class="p-2.5">Cali</td>
-                                        <td class="p-2.5">Cumpleaños</td>
-                                        <td class="p-2.5">1 día</td>
-                                        <td class="p-2.5 font-bold">$ 129,000</td>
-                                        <td class="p-2.5"><span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold text-[10px]">Completada</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="p-2.5 font-bold text-blue-600">R00003</td>
-                                        <td class="p-2.5">Bogotá</td>
-                                        <td class="p-2.5">Boda</td>
-                                        <td class="p-2.5">3 días</td>
-                                        <td class="p-2.5 font-bold">$ 1,845,000</td>
-                                        <td class="p-2.5"><span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold text-[10px]">Confirmada</span></td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <div>
+                            <dt class="text-[11px] font-bold uppercase tracking-wider text-surface-500 dark:text-surface-400">Integración web</dt>
+                            <dd class="text-sm text-surface-600 dark:text-surface-300 mt-1">Este panel presenta la misma información desde la plataforma de administración.</dd>
                         </div>
-                    </div>
+                    </dl>
                 </div>
             </div>
-        </div>
-
+        </section>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof Chart === 'undefined') { return; }
+            var scope = document.querySelector('.bi-scope');
+            if (!scope) { return; }
+
+            var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            var money = function (n) {
+                return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+            };
+            var compact = function (n) {
+                return '$' + n.toLocaleString('es-CO', { maximumFractionDigits: 0 }) + 'M';
+            };
+
+            var MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            var REVENUE = [26.4, 28.9, 34.2, 31.5, 37.8, 42.6, 39.1, 35.7, 40.3, 45.9, 48.2, 42.2];
+            var CITIES = [
+                { l: 'Bogotá', v: 148.2 }, { l: 'Medellín', v: 112.5 }, { l: 'Cali', v: 86.4 },
+                { l: 'Barranquilla', v: 61.3 }, { l: 'Bucaramanga', v: 44.4 }
+            ];
+            var TYPES = [
+                { l: 'Bodas y celebraciones', v: 172.0 }, { l: 'Cumpleaños y fiestas', v: 117.7 },
+                { l: 'Eventos corporativos', v: 95.1 }, { l: 'Grados y otros', v: 68.0 }
+            ];
+            var SATISFACTION = [
+                { l: 'Puntualidad', v: 4.6 }, { l: 'Calidad del mobiliario', v: 4.7 },
+                { l: 'Atención al cliente', v: 4.8 }, { l: 'Precio / valor', v: 4.2 },
+                { l: 'Montaje y logística', v: 4.5 }
+            ];
+            var totalTypes = TYPES.reduce(function (a, b) { return a + b.v; }, 0);
+
+            function palette() {
+                var dark = document.documentElement.classList.contains('dark');
+                return {
+                    dark: dark,
+                    accent: '#E07A3A',
+                    accentAlt: '#C2630F',
+                    cats: ['#E07A3A', '#3E7C74', '#E9B872', '#8A8F98'],
+                    grid: dark ? 'rgba(255,255,255,0.07)' : 'rgba(24,24,27,0.07)',
+                    tick: dark ? '#a1a1aa' : '#71717a',
+                    text: dark ? '#e4e4e7' : '#18181b',
+                    surface: dark ? '#18181b' : '#ffffff',
+                    line: dark ? '#27272a' : '#e4e4e7'
+                };
+            }
+
+            function tooltipStyle(t, extra) {
+                var base = {
+                    backgroundColor: t.surface,
+                    titleColor: t.tick,
+                    bodyColor: t.text,
+                    borderColor: t.line,
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 12,
+                    boxPadding: 6,
+                    usePointStyle: true,
+                    titleFont: { family: "'Outfit', sans-serif", size: 11, weight: '600' },
+                    bodyFont: { family: "'Outfit', sans-serif", size: 12, weight: '700' },
+                    titleMarginBottom: 6
+                };
+                return Object.assign(base, extra || {});
+            }
+
+            var chartText = function (t) { return { family: "'Outfit', sans-serif", size: 11, weight: '500', }; };
+
+            var charts = [];
+
+            function revenueChart(el) {
+                var t = palette();
+                var c = new Chart(el, {
+                    type: 'line',
+                    data: {
+                        labels: MONTHS.slice(),
+                        datasets: [{
+                            label: 'Ingresos',
+                            data: REVENUE.slice(),
+                            borderColor: t.accent,
+                            borderWidth: 2.5,
+                            tension: 0.4,
+                            fill: true,
+                            backgroundColor: function (ctx) {
+                                var area = ctx.chart.chartArea;
+                                if (!area) { return 'rgba(224,122,58,0.14)'; }
+                                var g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                                g.addColorStop(0, 'rgba(224,122,58,0.30)');
+                                g.addColorStop(1, 'rgba(224,122,58,0.01)');
+                                return g;
+                            },
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            pointHoverBackgroundColor: t.accent,
+                            pointHoverBorderColor: t.surface,
+                            pointHoverBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: reduceMotion ? false : { duration: 650, easing: 'easeOutQuart' },
+                        interaction: { intersect: false, mode: 'index' },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: tooltipStyle(t, {
+                                callbacks: { label: function (item) { return ' ' + money(item.parsed.y * 1e6); } }
+                            })
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false },
+                                border: { display: false },
+                                ticks: { color: t.tick, font: chartText(t), maxRotation: 0, autoSkipPadding: 16 }
+                            },
+                            y: {
+                                grid: { color: t.grid, drawTicks: false },
+                                border: { display: false },
+                                beginAtZero: true,
+                                ticks: { color: t.tick, font: chartText(t), padding: 10, precision: 0, stepSize: 25, callback: function (v) { return v + 'M'; } }
+                            }
+                        }
+                    }
+                });
+                return c;
+            }
+
+            function citiesChart(el) {
+                var t = palette();
+                return new Chart(el, {
+                    type: 'bar',
+                    data: {
+                        labels: CITIES.map(function (d) { return d.l; }),
+                        datasets: [{
+                            data: CITIES.map(function (d) { return d.v; }),
+                            backgroundColor: t.accent,
+                            hoverBackgroundColor: t.accentAlt,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            barThickness: 18
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: reduceMotion ? false : { duration: 650, easing: 'easeOutQuart' },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: tooltipStyle(t, {
+                                displayColors: false,
+                                callbacks: {
+                                    label: function (item) {
+                                        var pct = (item.parsed.x / 452.8 * 100).toFixed(1);
+                                        return ' ' + compact(item.parsed.x) + ' · ' + pct + '%';
+                                    }
+                                }
+                            })
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: t.grid, drawTicks: false },
+                                border: { display: false },
+                                beginAtZero: true,
+                                ticks: { color: t.tick, font: chartText(t), padding: 8, stepSize: 50, callback: function (v) { return v + 'M'; } }
+                            },
+                            y: {
+                                grid: { display: false },
+                                border: { display: false },
+                                ticks: { color: t.text, font: { family: "'Outfit', sans-serif", size: 12, weight: '600' }, padding: 6 }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function typesChart(el) {
+                var t = palette();
+                return new Chart(el, {
+                    type: 'doughnut',
+                    data: {
+                        labels: TYPES.map(function (d) { return d.l; }),
+                        datasets: [{
+                            data: TYPES.map(function (d) { return d.v; }),
+                            backgroundColor: t.cats,
+                            borderColor: t.surface,
+                            borderWidth: 3,
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '68%',
+                        animation: reduceMotion ? false : { duration: 650, easing: 'easeOutQuart' },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: tooltipStyle(t, {
+                                callbacks: {
+                                    label: function (item) {
+                                        var pct = (item.parsed / totalTypes * 100).toFixed(0);
+                                        return ' ' + compact(item.parsed) + ' · ' + pct + '%';
+                                    }
+                                }
+                            })
+                        }
+                    }
+                });
+            }
+
+            function satisfactionChart(el) {
+                var t = palette();
+                return new Chart(el, {
+                    type: 'radar',
+                    data: {
+                        labels: SATISFACTION.map(function (d) { return d.l; }),
+                        datasets: [{
+                            data: SATISFACTION.map(function (d) { return d.v; }),
+                            borderColor: t.accent,
+                            backgroundColor: 'rgba(224,122,58,0.18)',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            pointBackgroundColor: t.accent,
+                            pointBorderColor: t.surface,
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: reduceMotion ? false : { duration: 650, easing: 'easeOutQuart' },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: tooltipStyle(t, {
+                                displayColors: false,
+                                callbacks: { label: function (item) { return ' ' + item.parsed.r.toFixed(1) + ' / 5'; } }
+                            })
+                        },
+                        scales: {
+                            r: {
+                                min: 3.5,
+                                max: 5,
+                                ticks: { display: false, stepSize: 0.5 },
+                                grid: { color: t.grid },
+                                angleLines: { color: t.grid },
+                                pointLabels: { color: t.text, font: { family: "'Outfit', sans-serif", size: 11, weight: '600' } }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function buildLegend() {
+                var ul = document.getElementById('bi-types-legend');
+                if (!ul) { return; }
+                var t = palette();
+                ul.innerHTML = TYPES.map(function (d, i) {
+                    var pct = (d.v / totalTypes * 100).toFixed(0);
+                    return '<li class="flex items-center justify-between gap-3">' +
+                        '<span class="flex items-center gap-2 min-w-0">' +
+                        '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + t.cats[i] + '"></span>' +
+                        '<span class="text-[13px] font-medium text-surface-700 dark:text-surface-300 truncate">' + d.l + '</span>' +
+                        '</span>' +
+                        '<span class="text-[13px] font-bold text-surface-900 dark:text-white shrink-0 tabular-nums">' + pct + '%</span>' +
+                        '</li>';
+                }).join('');
+            }
+
+            function build() {
+                charts.forEach(function (c) { c.destroy(); });
+                charts = [
+                    revenueChart(document.getElementById('bi-revenue')),
+                    typesChart(document.getElementById('bi-types')),
+                    citiesChart(document.getElementById('bi-cities')),
+                    satisfactionChart(document.getElementById('bi-satisfaction'))
+                ];
+                buildLegend();
+            }
+
+            build();
+
+            // ---- Range selector (ingresos) ----
+            var rangeBtns = Array.prototype.slice.call(scope.querySelectorAll('.bi-range'));
+            function setRange(n) {
+                var rev = charts[0];
+                rev.data.labels = MONTHS.slice(MONTHS.length - n);
+                rev.data.datasets[0].data = REVENUE.slice(REVENUE.length - n);
+                rev.update();
+                rangeBtns.forEach(function (b) {
+                    var on = Number(b.getAttribute('data-range')) === n;
+                    b.classList.toggle('bg-white', on);
+                    b.classList.toggle('dark:bg-surface-900', on);
+                    b.classList.toggle('shadow-sm', on);
+                    b.classList.toggle('text-surface-900', on);
+                    b.classList.toggle('dark:text-white', on);
+                    b.classList.toggle('text-surface-500', !on);
+                    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                });
+            }
+            rangeBtns.forEach(function (b) {
+                b.addEventListener('click', function () { setRange(Number(b.getAttribute('data-range'))); });
+            });
+            setRange(12);
+
+            // ---- Accordion ----
+            var accBtn = document.getElementById('bi-acc-toggle');
+            var accBody = document.getElementById('bi-acc-body');
+            var accChevron = document.getElementById('bi-acc-chevron');
+            if (accBtn && accBody) {
+                accBtn.addEventListener('click', function () {
+                    var open = accBody.classList.toggle('is-open');
+                    accBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    accBody.setAttribute('aria-hidden', open ? 'false' : 'true');
+                    if (accChevron) { accChevron.classList.toggle('rotate-180', open); }
+                });
+            }
+
+            // ---- Theme changes ----
+            if (window.MutationObserver) {
+                var obs = new MutationObserver(function () { build(); });
+                obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+            }
+        });
+    </script>
 </main>
 </body>
 </html>
