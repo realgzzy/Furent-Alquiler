@@ -48,3 +48,7 @@ logs/
 
 ### Configuración local con secretos ###
 application-local.properties
+
+### Firebase ###
+.firebase/
+
