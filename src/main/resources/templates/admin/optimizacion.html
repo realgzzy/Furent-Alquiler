@@ -75,6 +75,11 @@
             .aox-field:focus { outline: none; border-color: #FDBA74; background: #fff; box-shadow: 0 0 0 4px rgba(224,122,58,.1); }
             html.dark .aox-field { background: #111113; border-color: #27272a; color: #e4e4e7; }
             html.dark .aox-field:focus { background: #111113; border-color: rgba(224,122,58,.5); box-shadow: 0 0 0 4px rgba(224,122,58,.12); }
+            /* Modificadores de relleno: van después de .aox-field para ganar la
+               especificidad frente al shorthand de padding. */
+            .aox-field-pl { padding-left: 2.35rem; }
+            .aox-field-pr-sm { padding-right: 2rem; }
+            .aox-field-pr-lg { padding-right: 4rem; }
 
             /* Chips de selección (estados) */
             .aox-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .45rem .7rem; border-radius: .7rem;
@@ -362,7 +367,7 @@
                             <span class="sr-only">Buscar reserva</span>
                             <svg class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
                             <input type="text" x-model="filtroTexto" placeholder="Buscar cliente o código…"
-                                   class="aox-field pl-9">
+                                   class="aox-field aox-field-pl">
                         </label>
                         <div class="aox-seg" role="group" aria-label="Filtrar por decisión">
                             <button type="button" class="aox-seg__btn" :aria-pressed="filtroDecision === 'todas'" @click="filtroDecision = 'todas'">Todas</button>
@@ -668,7 +673,7 @@
                             <label class="flex flex-col gap-1.5">
                                 <span class="text-[11px] font-bold text-surface-500">Coste de una unidad extra</span>
                                 <div class="relative">
-                                    <input type="number" min="1" max="20" step="0.5" x-model.number="opciones.costeFactor" class="aox-field pr-16 aox-tabular">
+                                    <input type="number" min="1" max="20" step="0.5" x-model.number="opciones.costeFactor" class="aox-field aox-field-pr-lg aox-tabular">
                                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-surface-400">× precio/día</span>
                                 </div>
                                 <span class="text-[11px] font-medium text-surface-400">Cuánto cuesta adquirir una unidad frente a su tarifa diaria.</span>
@@ -676,7 +681,7 @@
                             <label class="flex flex-col gap-1.5">
                                 <span class="text-[11px] font-bold text-surface-500">Tope de compra por producto</span>
                                 <div class="relative">
-                                    <input type="number" min="0" max="200" step="5" x-model.number="opciones.maxExtraPct" class="aox-field pr-8 aox-tabular">
+                                    <input type="number" min="0" max="200" step="5" x-model.number="opciones.maxExtraPct" class="aox-field aox-field-pr-sm aox-tabular">
                                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-surface-400">%</span>
                                 </div>
                                 <span class="text-[11px] font-medium text-surface-400">Máximo sobre el stock actual que se permite comprar.</span>
