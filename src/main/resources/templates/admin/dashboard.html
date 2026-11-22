@@ -111,12 +111,15 @@
             @keyframes dbPulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
             /* Segmentado + campos */
-            .db-seg { display: inline-flex; flex-wrap: wrap; padding: .2rem; border-radius: .8rem; background: var(--db-tint); gap: .2rem; }
-            .db-seg__btn { padding: .42rem .72rem; border-radius: .6rem; font-size: .66rem; font-weight: 800;
-                           letter-spacing: .04em; text-transform: uppercase; color: var(--db-mute); transition: all .14s ease; white-space: nowrap; }
-            .db-seg__btn:hover { color: var(--db-ink); }
-            .db-seg__btn[aria-pressed="true"] { background: var(--db-card); color: var(--db-ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
-            html.dark .db-seg__btn[aria-pressed="true"] { background: #27272a; box-shadow: none; color: #fff; }
+            .db-seg { display: inline-flex; flex-wrap: wrap; padding: .2rem; border-radius: .8rem; background: #f4f4f5; gap: .2rem; }
+            .db-seg__btn { padding: .42rem .75rem; border-radius: .6rem; font-size: .68rem; font-weight: 800;
+                           letter-spacing: .05em; text-transform: uppercase; color: #52525b; transition: all .14s ease; white-space: nowrap; }
+            .db-seg__btn:hover { color: #18181b; }
+            .db-seg__btn[aria-pressed="true"] { background: #fff; color: #18181b; box-shadow: 0 1px 2px rgba(0, 0, 0, .07); }
+            html.dark .db-seg { background: #1c1c20; }
+            html.dark .db-seg__btn { color: #a1a1aa; }
+            html.dark .db-seg__btn:hover { color: #fff; }
+            html.dark .db-seg__btn[aria-pressed="true"] { background: #27272a; color: #fff; box-shadow: none; }
 
             .db-field { width: 100%; border-radius: .75rem; border: 1px solid var(--db-line-2); background: var(--db-tint);
                         padding: .58rem .8rem; font-size: .8rem; font-weight: 600; color: var(--db-ink); transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
@@ -336,8 +339,9 @@
                     </div>
                 </div>
 
-                <div class="px-5 sm:px-6 pt-4">
-                    <div class="db-seg">
+                <div class="px-5 sm:px-6 pt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <span class="db-label">Estado</span>
+                    <div class="db-seg" role="group" aria-label="Filtrar por estado">
                         <template x-for="opt in filtros" :key="opt.key">
                             <button type="button" class="db-seg__btn" :aria-pressed="filtro === opt.key" @click="filtro = opt.key"
                                     x-text="opt.label + ' · ' + num(conteo(opt.key))"></button>
