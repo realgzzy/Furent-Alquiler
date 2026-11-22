@@ -650,6 +650,13 @@
             'COMPLETADA': '#22c55e', 'CANCELADA': '#ef4444'
         };
 
+        // Las instancias de Chart.js viven FUERA del estado reactivo de Alpine.
+        // Si se guardan en `this` (p. ej. this._charts), Alpine las envuelve en un
+        // Proxy y Chart.js termina dibujando sobre objetos proxeados, lo que rompe
+        // con "Maximum call stack size exceeded" y "Cannot read properties of null
+        // (reading 'save')" (los gráficos quedan en blanco).
+        var DB_CHARTS = [];
+
         function dashboardPage() {
             return {
                 stats: window.DB_STATS || {},
@@ -805,7 +812,7 @@
                 },
                 dibujar(labels, values) {
                     var t = dbPalette();
-                    if (this._charts) { this._charts.forEach(function (c) { c.destroy(); }); }
+                    if (DB_CHARTS.length) { DB_CHARTS.forEach(function (c) { c.destroy(); }); DB_CHARTS = []; }
                     var charts = [];
 
                     var accentFill = function (ctx) {
@@ -884,7 +891,7 @@
                             }
                         }));
                     }
-                    this._charts = charts;
+                    DB_CHARTS = charts;
                     this.buildLegend(labels2, data, colors, total, t);
                 },
                 buildLegend(labels, data, colors, total, t) {
