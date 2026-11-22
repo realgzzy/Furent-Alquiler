@@ -484,22 +484,22 @@
                 </div>
             </section>
         </div>
-    </main>
 
-    <script>
-        // Confirmación de eliminar conversación mediante el modal global del layout admin.
-        function asxEliminarConversacion(form) {
-            if (!form) return;
-            var titulo = form.getAttribute('data-asx-titulo') || 'esta conversación';
-            window.showModal({
-                type: 'error',
-                title: 'Eliminar conversación',
-                message: '¿Seguro que quieres eliminar «' + titulo + '»? Se borrarán la conversación y todos sus mensajes. Esta acción no se puede deshacer.',
-                confirmText: 'Sí, eliminar',
-                cancelText: 'Cancelar',
-                onConfirm: function () { form.submit(); }
-            });
-        }
-    </script>
+        <script>
+            // Confirmación de eliminar conversación mediante el modal global del layout admin.
+            function asxEliminarConversacion(form) {
+                if (!form) return;
+                var titulo = form.getAttribute('data-asx-titulo') || 'esta conversación';
+                window.showModal({
+                    type: 'error',
+                    title: 'Eliminar conversación',
+                    message: '¿Seguro que quieres eliminar «' + titulo + '»? Se borrarán la conversación y todos sus mensajes. Esta acción no se puede deshacer.',
+                    confirmText: 'Sí, eliminar',
+                    cancelText: 'Cancelar',
+                    onConfirm: function () { form.submit(); }
+                });
+            }
+        </script>
+    </main>
 </body>
 </html>
