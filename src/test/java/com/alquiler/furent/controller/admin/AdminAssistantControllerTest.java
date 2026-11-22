@@ -208,6 +208,86 @@ class AdminAssistantControllerTest {
     }
 
     @Test
+    void contarDevuelveElTotalComoJson() throws Exception {
+        when(adminService.count(any(), any(), any(), any(), any())).thenReturn(7L);
+
+        mockMvc.perform(get("/admin/asistente/contar")
+                        .param("estado", "ACTIVA")
+                        .param("desde", "2026-11-01"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("{\"count\":7}"));
+
+        verify(adminService).count(eq("ACTIVA"), any(), any(), any(), any());
+    }
+
+    @Test
+    void limpiarTodoExigeEscribirEliminar() throws Exception {
+        mockMvc.perform(post("/admin/asistente/limpiar")
+                        .param("alcance", "TODO")
+                        .param("confirmacion", "borrar")
+                        .principal(new TestingAuthenticationToken("admin@furent.com", "pw", "ROLE_ADMIN")))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/asistente"))
+                .andExpect(flash().attributeExists("error"));
+
+        verify(adminService, org.mockito.Mockito.never()).deleteMatching(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void limpiarTodoBorraYRegistraAuditoria() throws Exception {
+        when(adminService.deleteMatching(null, null, null, null, null)).thenReturn(3L);
+
+        mockMvc.perform(post("/admin/asistente/limpiar")
+                        .param("alcance", "TODO")
+                        .param("confirmacion", "ELIMINAR")
+                        .principal(new TestingAuthenticationToken("admin@furent.com", "pw", "ROLE_ADMIN")))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/asistente"))
+                .andExpect(flash().attributeExists("success"));
+
+        verify(adminService).deleteMatching(null, null, null, null, null);
+        verify(auditLogService).log(eq("admin@furent.com"), eq("LIMPIAR_CONVERSACIONES_ASISTENTE"),
+                eq("ASISTENTE"), any(), anyString());
+    }
+
+    @Test
+    void limpiarRangoExigeAlgunaFecha() throws Exception {
+        mockMvc.perform(post("/admin/asistente/limpiar")
+                        .param("alcance", "RANGO")
+                        .principal(new TestingAuthenticationToken("admin@furent.com", "pw", "ROLE_ADMIN")))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/asistente"))
+                .andExpect(flash().attributeExists("error"));
+
+        verify(adminService, org.mockito.Mockito.never()).deleteMatching(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void limpiarRangoUsaLosFiltrosDelRango() throws Exception {
+        when(adminService.deleteMatching(any(), any(), any(), any(), any())).thenReturn(2L);
+
+        mockMvc.perform(post("/admin/asistente/limpiar")
+                        .param("alcance", "RANGO")
+                        .param("desde", "2026-11-01")
+                        .param("hasta", "2026-11-20")
+                        .param("estado", "ESCALADA")
+                        .principal(new TestingAuthenticationToken("admin@furent.com", "pw", "ROLE_ADMIN")))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/asistente"))
+                .andExpect(flash().attributeExists("success"));
+
+        ArgumentCaptor<String> estado = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Instant> desde = ArgumentCaptor.forClass(Instant.class);
+        ArgumentCaptor<Instant> hasta = ArgumentCaptor.forClass(Instant.class);
+        verify(adminService).deleteMatching(estado.capture(), any(), desde.capture(), hasta.capture(), any());
+
+        assertEquals("ESCALADA", estado.getValue());
+        assertNotNull(desde.getValue());
+        assertNotNull(hasta.getValue());
+        assertTrue(desde.getValue().isBefore(hasta.getValue()));
+    }
+
+    @Test
     void exportacionDevuelveCsv() throws Exception {        AssistantConversation c = conversation("c1");
         c.setSessionId("s1");
         c.setTotalMensajes(3);

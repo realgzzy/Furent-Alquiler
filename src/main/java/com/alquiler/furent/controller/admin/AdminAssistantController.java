@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.nio.charset.StandardCharsets;
@@ -26,6 +27,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -147,6 +149,80 @@ public class AdminAssistantController {
         return "redirect:/admin/asistente";
     }
 
+    /**
+     * Cuenta las conversaciones que coinciden con los filtros. Se usa para la vista previa
+     * de la limpieza en bloque (no pagina, solo devuelve el total).
+     */
+    @GetMapping("/contar")
+    @ResponseBody
+    public Map<String, Long> contar(@RequestParam(required = false) String estado,
+                                    @RequestParam(required = false) String cotizo,
+                                    @RequestParam(required = false) String desde,
+                                    @RequestParam(required = false) String hasta,
+                                    @RequestParam(required = false, name = "q") String query) {
+        long total = adminService.count(estado, parseBoolean(cotizo), startOfDay(desde), endOfDay(hasta), query);
+        return Map.of("count", total);
+    }
+
+    /**
+     * Limpieza en bloque de conversaciones (y sus mensajes).
+     *
+     * <ul>
+     *   <li>{@code alcance=TODO} vacía todo el historial; exige escribir {@code ELIMINAR} en
+     *       {@code confirmacion} como salvaguarda.</li>
+     *   <li>{@code alcance=RANGO} borra las conversaciones cuyo último mensaje cae dentro del
+     *       rango indicado; exige al menos una fecha (desde o hasta) y admite estado/cotización.</li>
+     * </ul>
+     */
+    @PostMapping("/limpiar")
+    public String limpiar(@RequestParam(defaultValue = "RANGO") String alcance,
+                          @RequestParam(required = false) String estado,
+                          @RequestParam(required = false) String cotizo,
+                          @RequestParam(required = false) String desde,
+                          @RequestParam(required = false) String hasta,
+                          @RequestParam(required = false, name = "q") String query,
+                          @RequestParam(required = false) String confirmacion,
+                          Authentication authentication,
+                          RedirectAttributes redirectAttributes) {
+        boolean todo = "TODO".equalsIgnoreCase(alcance);
+        boolean sinDesde = desde == null || desde.isBlank();
+        boolean sinHasta = hasta == null || hasta.isBlank();
+
+        if (todo) {
+            if (confirmacion == null || !"ELIMINAR".equalsIgnoreCase(confirmacion.trim())) {
+                redirectAttributes.addFlashAttribute("error",
+                        "Para borrar todo el historial escribe ELIMINAR como confirmación.");
+                return "redirect:/admin/asistente";
+            }
+        } else if (sinDesde && sinHasta) {
+            redirectAttributes.addFlashAttribute("error",
+                    "Indica al menos una fecha (desde o hasta) para borrar por rango.");
+            return "redirect:/admin/asistente";
+        }
+
+        long eliminadas = adminService.deleteMatching(
+                todo ? null : estado,
+                todo ? null : parseBoolean(cotizo),
+                todo ? null : startOfDay(desde),
+                todo ? null : endOfDay(hasta),
+                todo ? null : query);
+
+        String detalle = todo
+                ? "Limpieza total del historial: " + eliminadas + " conversaciones eliminadas"
+                : "Limpieza por rango (desde=" + texto(desde) + ", hasta=" + texto(hasta)
+                        + ", estado=" + texto(estado) + "): " + eliminadas + " conversaciones eliminadas";
+        auditLogService.log(authentication.getName(), "LIMPIAR_CONVERSACIONES_ASISTENTE",
+                "ASISTENTE", null, detalle);
+
+        if (eliminadas == 0) {
+            redirectAttributes.addFlashAttribute("success", "No había conversaciones que coincidieran con el criterio.");
+        } else {
+            redirectAttributes.addFlashAttribute("success", eliminadas
+                    + (eliminadas == 1 ? " conversación eliminada." : " conversaciones eliminadas."));
+        }
+        return "redirect:/admin/asistente";
+    }
+
     @GetMapping("/export.csv")
     public ResponseEntity<byte[]> export(@RequestParam(required = false) String estado,
                                          @RequestParam(required = false) String cotizo,
@@ -205,6 +281,11 @@ public class AdminAssistantController {
             return null;
         }
         return "true".equalsIgnoreCase(value) || "1".equals(value) || "on".equalsIgnoreCase(value);
+    }
+
+    /** Valor legible para el detalle de auditoría (evita "null" en el texto). */
+    private String texto(String value) {
+        return (value == null || value.isBlank()) ? "-" : value.trim();
     }
 
     private Instant startOfDay(String fecha) {

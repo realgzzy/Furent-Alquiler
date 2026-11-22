@@ -65,6 +65,34 @@ public class AssistantAdminService {
         return messageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId);
     }
 
+    /** Número de conversaciones que coinciden con los filtros indicados (sin paginar). */
+    public long count(String estado, Boolean cotizo, Instant desde, Instant hasta, String q) {
+        return mongoTemplate.count(buildQuery(estado, cotizo, desde, hasta, q), AssistantConversation.class);
+    }
+
+    /**
+     * Elimina en bloque las conversaciones que coinciden con los filtros indicados y todos sus
+     * mensajes. Si no hay ningún filtro, vacía por completo el historial.
+     *
+     * @return cuántas conversaciones se eliminaron.
+     */
+    public long deleteMatching(String estado, Boolean cotizo, Instant desde, Instant hasta, String q) {
+        Query query = buildQuery(estado, cotizo, desde, hasta, q);
+
+        if (query.getQueryObject().isEmpty()) {
+            // Limpieza total: se vacían las dos colecciones sin recolectar identificadores.
+            mongoTemplate.remove(new Query(), AssistantMessage.class);
+            return mongoTemplate.remove(query, AssistantConversation.class).getDeletedCount();
+        }
+
+        List<String> ids = mongoTemplate.findDistinct(query, "_id", AssistantConversation.class, String.class);
+        if (ids.isEmpty()) {
+            return 0L;
+        }
+        mongoTemplate.remove(Query.query(Criteria.where("conversationId").in(ids)), AssistantMessage.class);
+        return mongoTemplate.remove(query, AssistantConversation.class).getDeletedCount();
+    }
+
     public Stats stats() {
         ZoneId zone = ZoneId.systemDefault();
         Instant startOfDay = LocalDate.now(zone).atStartOfDay(zone).toInstant();
