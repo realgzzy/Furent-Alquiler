@@ -172,6 +172,7 @@
 
                 /* Calendario del date picker */
                 .asx-dp__popover { left: auto; right: 0; width: 17.5rem; max-width: calc(100vw - 2rem); padding: .75rem; }
+                .asx-dp--start .asx-dp__popover { left: 0; right: auto; }
                 .asx-dp__nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
                 .asx-dp__navbtn {
                     display: inline-flex; width: 2rem; height: 2rem; align-items: center; justify-content: center;
@@ -279,7 +280,7 @@
                 html.dark .asx-pager-off { background: transparent; border-color: #1e1e22; color: #3f3f46; }
 
                 /* Modal de limpieza en bloque */
-                .asx-cleanup { border: 0; padding: 0; background: transparent; max-width: none; }
+                .asx-cleanup { border: 0; padding: 0; background: transparent; max-width: none; overflow: visible; }
                 .asx-cleanup::backdrop { background: rgba(24, 24, 27, .5); backdrop-filter: blur(3px); }
                 html.dark .asx-cleanup::backdrop { background: rgba(0, 0, 0, .65); }
                 .asx-cleanup[open] .asx-cleanup-card { animation: asxPop .22s cubic-bezier(.16, 1, .3, 1) both; }
@@ -734,8 +735,9 @@
             </section>
 
             <!-- ============================ Limpieza en bloque ============================ -->
-            <dialog id="asx-cleanup" class="asx-cleanup" aria-labelledby="asx-cleanup-title">
-                <div class="asx-cleanup-card w-[min(31rem,calc(100vw-2rem))] bg-white rounded-3xl border border-surface-100 shadow-glass overflow-hidden">
+            <dialog id="asx-cleanup" class="asx-cleanup" aria-labelledby="asx-cleanup-title"
+                    th:attr="data-contar-url=@{/admin/asistente/contar}">
+                <div class="asx-cleanup-card w-[min(31rem,calc(100vw-2rem))] bg-white rounded-3xl border border-surface-100 shadow-glass">
                     <header class="flex items-start justify-between gap-4 px-6 pt-6 pb-4">
                         <div class="flex items-center gap-3">
                             <span class="inline-flex size-10 items-center justify-center rounded-xl bg-red-50 text-red-600 shrink-0">
@@ -767,24 +769,84 @@
                         <form id="asx-panel-rango" method="post" th:action="@{/admin/asistente/limpiar}" class="flex flex-col gap-4">
                             <input type="hidden" name="alcance" value="RANGO">
                             <div class="grid grid-cols-2 gap-3">
-                                <label class="flex flex-col gap-1.5 min-w-0">
+                                <div class="flex flex-col gap-1.5 min-w-0">
                                     <span class="asx-label">Desde</span>
-                                    <input type="date" name="desde" id="asx-desde" class="asx-field">
-                                </label>
-                                <label class="flex flex-col gap-1.5 min-w-0">
+                                    <div class="asx-dp asx-dp--start">
+                                        <input type="hidden" name="desde" id="asx-desde" value="">
+                                        <button type="button" class="asx-dp__trigger" aria-haspopup="dialog" aria-expanded="false" aria-label="Fecha desde">
+                                            <span class="asx-dp__text is-placeholder">dd/mm/aaaa</span>
+                                            <svg class="asx-dp__cal" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
+                                        </button>
+                                        <div class="asx-dp__popover" role="dialog" aria-label="Elegir fecha desde" hidden>
+                                            <div class="asx-dp__nav">
+                                                <button type="button" class="asx-dp__navbtn" data-nav="prev" aria-label="Mes anterior"><svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg></button>
+                                                <span class="asx-dp__heading"></span>
+                                                <button type="button" class="asx-dp__navbtn" data-nav="next" aria-label="Mes siguiente"><svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg></button>
+                                            </div>
+                                            <div class="asx-dp__grid"></div>
+                                            <div class="asx-dp__foot">
+                                                <button type="button" class="asx-dp__link" data-action="clear">Limpiar</button>
+                                                <button type="button" class="asx-dp__link" data-action="today">Hoy</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-1.5 min-w-0">
                                     <span class="asx-label">Hasta</span>
-                                    <input type="date" name="hasta" id="asx-hasta" class="asx-field">
-                                </label>
+                                    <div class="asx-dp">
+                                        <input type="hidden" name="hasta" id="asx-hasta" value="">
+                                        <button type="button" class="asx-dp__trigger" aria-haspopup="dialog" aria-expanded="false" aria-label="Fecha hasta">
+                                            <span class="asx-dp__text is-placeholder">dd/mm/aaaa</span>
+                                            <svg class="asx-dp__cal" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
+                                        </button>
+                                        <div class="asx-dp__popover" role="dialog" aria-label="Elegir fecha hasta" hidden>
+                                            <div class="asx-dp__nav">
+                                                <button type="button" class="asx-dp__navbtn" data-nav="prev" aria-label="Mes anterior"><svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg></button>
+                                                <span class="asx-dp__heading"></span>
+                                                <button type="button" class="asx-dp__navbtn" data-nav="next" aria-label="Mes siguiente"><svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg></button>
+                                            </div>
+                                            <div class="asx-dp__grid"></div>
+                                            <div class="asx-dp__foot">
+                                                <button type="button" class="asx-dp__link" data-action="clear">Limpiar</button>
+                                                <button type="button" class="asx-dp__link" data-action="today">Hoy</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <label class="flex flex-col gap-1.5">
+                            <div class="flex flex-col gap-1.5">
                                 <span class="asx-label">Estado</span>
-                                <select name="estado" id="asx-estado" class="asx-field cursor-pointer">
-                                    <option value="ALL">Todos</option>
-                                    <option value="ACTIVA">Activa</option>
-                                    <option value="ESCALADA">Escalada</option>
-                                    <option value="CERRADA">Cerrada</option>
-                                </select>
-                            </label>
+                                <div class="asx-dd" data-value="ALL">
+                                    <input type="hidden" name="estado" id="asx-estado" value="ALL">
+                                    <button type="button" class="asx-dd__trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="Estado para el rango">
+                                        <span class="asx-dd__lead"></span>
+                                        <span class="asx-dd__text">Todos</span>
+                                        <svg class="asx-dd__chev" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                                    </button>
+                                    <div class="asx-dd__menu" role="listbox" hidden>
+                                        <button type="button" class="asx-dd__item" role="option" data-value="ALL" data-label="Todos" aria-selected="true">
+                                            <span class="asx-dd__icon"><svg fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg></span>
+                                            <span class="asx-dd__label">Todos</span>
+                                            <svg class="asx-dd__check" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                                        </button>
+                                        <button type="button" class="asx-dd__item" role="option" data-value="ACTIVA" data-label="Activa">
+                                            <span class="asx-dd__icon is-green"><svg fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></span>
+                                            <span class="asx-dd__label">Activa</span>
+                                            <svg class="asx-dd__check" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                                        </button>
+                                        <button type="button" class="asx-dd__item" role="option" data-value="ESCALADA" data-label="Escalada">
+                                            <span class="asx-dd__icon is-amber"><svg fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg></span>
+                                            <span class="asx-dd__label">Escalada</span>
+                                            <svg class="asx-dd__check" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                                        </button>
+                                        <button type="button" class="asx-dd__item" role="option" data-value="CERRADA" data-label="Cerrada">
+                                            <span class="asx-dd__icon is-slate"><svg fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg></span>
+                                            <span class="asx-dd__label">Cerrada</span>
+                                            <svg class="asx-dd__check" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
 
                             <p id="asx-preview" class="asx-preview text-xs font-semibold rounded-xl px-3.5 py-3">
                                 Indica al menos una fecha para ver cuántas conversaciones se eliminarán.
@@ -842,6 +904,11 @@
 
             // ─────────────────────── Limpieza en bloque ───────────────────────
             var asxPreviewTimer = null;
+            var asxContarBase = (function () {
+                var d = document.getElementById('asx-cleanup');
+                var url = d && d.getAttribute('data-contar-url');
+                return url || (location.pathname.replace(/\/+$/, '') + '/contar');
+            })();
 
             function asxOpenLimpieza() {
                 var dialog = document.getElementById('asx-cleanup');
@@ -894,7 +961,7 @@
                 if (hasta) params.set('hasta', hasta);
                 if (estado && estado !== 'ALL') params.set('estado', estado);
 
-                fetch('contar?' + params.toString())
+                fetch(asxContarBase + '?' + params.toString())
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
                         var n = data && typeof data.count === 'number' ? data.count : 0;
@@ -911,7 +978,7 @@
 
             function asxLoadTotal() {
                 var span = document.getElementById('asx-total-count');
-                fetch('contar')
+                fetch(asxContarBase)
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
                         span.textContent = data && typeof data.count === 'number' ? data.count : '0';
@@ -966,6 +1033,7 @@
                         var tint = icon ? (icon.className.match(/is-(green|amber|slate)/) || [''])[0] : '';
                         lead.className = 'asx-dd__lead' + (tint ? ' ' + tint : '');
                         lead.innerHTML = icon ? icon.innerHTML : '';
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                     function open() {
                         closeAll(root);
@@ -1033,6 +1101,7 @@
                             text.classList.add('is-placeholder');
                             input.value = '';
                         }
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                     function buildHeading() {
                         heading.textContent = MESES[view.getMonth()] + ' ' + view.getFullYear();
