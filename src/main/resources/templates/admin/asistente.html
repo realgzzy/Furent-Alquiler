@@ -89,6 +89,12 @@
                 .asx-dd, .asx-dp { position: relative; }
                 .asx-search { position: relative; }
 
+                /* La barra de filtros debe quedar por encima de la tabla:
+                   .asx-rise (animation fill-mode: both) crea un stacking context,
+                   así que sin z-index propio la tarjeta de la tabla (posterior en
+                   el DOM) taparía los popovers. z-index real, no utilidad Tailwind. */
+                .asx-filters { position: relative; z-index: 40; }
+
                 /* Grupo / trigger común */
                 .asx-dd__trigger, .asx-dp__trigger, .asx-search {
                     width: 100%; min-height: 2.85rem; cursor: pointer;
@@ -439,7 +445,7 @@
 
             <!-- ============================ Filtros ============================ -->
             <form method="get" th:action="@{/admin/asistente}"
-                  class="asx-rise asx-d2 relative z-30 bg-white rounded-3xl shadow-glass border border-surface-100 p-5 sm:p-6 mb-6">
+                  class="asx-rise asx-d2 asx-filters bg-white rounded-3xl shadow-glass border border-surface-100 p-5 sm:p-6 mb-6">
                 <input type="hidden" name="size" th:value="${pageSize}">
 
                 <div class="flex items-center gap-2 mb-5">
