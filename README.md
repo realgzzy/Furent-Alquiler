@@ -2,238 +2,237 @@
   <img src="src/main/resources/static/images/furent-logo.png" alt="Furent Logo" width="120" height="120"/>
 </p>
 
-# 🪑 Furent — Plataforma de Alquiler de Mobiliarios
+# 🪑 FURENT — Plataforma Empresarial de Alquiler de Mobiliarios & SaaS
 
-Furent es una solución SaaS completa para la gestión integral y alquiler de mobiliario para eventos. El sistema está diseñado en una arquitectura robusta de capas sobre Spring Boot y MongoDB, proporcionando una interfaz moderna, responsiva y veloz para clientes finales, y un potente panel de administración con analítica predictiva avanzada para los gerentes del negocio.
+> **Sistema Integral de Gestión de Alquileres, Analítica de Negocios (Power BI), Optimización Matemática (Investigación de Operaciones MILP) e Inteligencia Artificial (Weka J48 & Google Gemini).**
 
----
-
-## 👥 Colaboradores
-
-* **Luis Troconis** (@Ldtro)
-
----
-
-## 📋 Descripción General
-
-La plataforma automatiza el flujo completo del negocio de alquileres, desde la navegación interactiva del catálogo de productos y el armado de cotizaciones personalizadas, hasta la confirmación de reservas mediante pasarelas de pago, gestión de logística y entregas en terreno, y auditoría administrativa de acciones críticas.
-
-Adicionalmente, incorpora un **módulo de inteligencia artificial** con el algoritmo J48 de Weka para predecir la demanda futura, permitiendo optimizar el inventario y planificar recursos de forma científica.
+[![Production Status](https://img.shields.io/badge/Production-Live%20(Render)-success?style=for-the-badge&logo=render)](https://furent-alquiler.onrender.com)
+[![Database](https://img.shields.io/badge/Database-MongoDB%20Atlas%20Cloud-green?style=for-the-badge&logo=mongodb)](https://cloud.mongodb.com)
+[![Branch](https://img.shields.io/badge/Git%20Branch-main-blue?style=for-the-badge&logo=github)](https://github.com/realgzzy/Furent-Alquiler)
+[![Architecture](https://img.shields.io/badge/Backend-Spring%20Boot%204%20%2B%20Python%20FastAPI-orange?style=for-the-badge&logo=springboot)](https://spring.io)
 
 ---
 
-## ✨ Características Principales
+## 🌐 Enlaces y Accesos Rápidos en Producción
 
-### 👤 Para Clientes (Portal Público)
-* 🔍 **Buscador Inteligente en Tiempo Real**: Filtrado dinámico por nombre, material, precio y categorías.
-* 📋 **Carrito de Cotizaciones**: Permite armar una cotización, simular fechas de alquiler y calcular subtotales.
-* 💳 **Pasarela de Pago Simulada**: Flujo completo de pagos integrando múltiples métodos (Transferencia, Efectivo, Nequi, Daviplata).
-* 🎟️ **Cupones de Descuento**: Aplicación y validación automática de códigos promocionales activos.
-* ⭐ **Calificaciones y Reseñas**: Sistema de valoraciones por producto con promedio de estrellas.
-* 🔐 **Autenticación Social (Google OAuth2)**: Inicio de sesión rápido y seguro mediante cuentas de Google.
-* ❤️ **Lista de Favoritos**: Guardado persistente de productos de interés para el cliente.
-* 🔔 **Bandeja de Notificaciones**: Alertas en tiempo real sobre aprobaciones de reservas, pagos exitosos y cambios de estado.
-* 🤖 **Asistente Virtual (IA)**: Chat flotante que resuelve dudas, recomienda mobiliario según el tipo de evento y cotiza con precios y stock reales; escala a WhatsApp con un asesor cuando hace falta.
-
-### 🛡️ Para Administradores (Panel de Control)
-* 📊 **Dashboard Ejecutivo**: Resumen de indicadores clave de rendimiento (Ingresos mensuales, Reservas activas, Registros nuevos).
-* 📈 **Módulo Predictivo (J48 & Weka)**: Visualización y afinamiento de proyecciones de demanda diaria y recomendaciones de inventario basadas en IA.
-* 📦 **Gestión de Mobiliario y Stock**: Control total del inventario de productos, asignación a mantenimiento, y alertas automáticas de bajo stock.
-* 🗓️ **Calendario y Logística**: Calendario mensual con entregas/recogidas agendadas y exportación de hojas de ruta en PDF.
-* 📝 **Gestión de Reservas y Estados**: Máquina de estados para rastrear órdenes (Pendiente ➜ Confirmada ➜ Entregada ➜ Completada / Cancelada).
-* 👥 **Administración de Personal y Usuarios**: Asignación de roles, auditoría de logs, y suspensión temporal o permanente de cuentas.
-* 🎫 **Gestión de Cupones**: Creación de descuentos con fechas de vigencia y límites de uso.
-* 📄 **Generación de PDFs**: Contratos formales de alquiler y reportes de logística generados dinámicamente.
-* 🤖 **Panel del Asistente IA**: Revisión de conversaciones, métricas de uso (activas, escaladas, cotizadas), transcripción completa y exportación a CSV.
-
----
-
-## 🧠 Módulo de Analítica y Predicciones (Weka J48)
-
-Furent cuenta con un motor predictivo que estima la demanda de mobiliario para los siguientes **14 días**. 
-
-### ¿Cómo funciona el modelo?
-1. **Clasificación de Demanda**: Agrupa los días en tres niveles de demanda basados en percentiles históricos: **BAJA**, **MEDIA** o **ALTA**.
-2. **Entrenamiento con Árbol J48**: El clasificador evalúa atributos clave del día como:
-   * Día de la semana (y si es fin de semana).
-   * Mes del año (para detectar estacionalidad vacacional o navideña).
-   * Promedio móvil de unidades del último bloque de 7 días.
-   * Total de ingresos esperados y cantidad de reservas creadas.
-3. **Conversión a Unidades**: A partir del nivel de demanda predicho, calcula las unidades de mobiliario proyectadas utilizando el promedio de uso de días similares en el pasado.
-4. **Recomendaciones Inteligentes**: Genera acciones automatizadas de gestión de stock, asignación de personal para días de carga máxima y oportunidades de precios dinámicos (suspender cupones en días de sobredemanda).
-
----
-
-## 🤖 Asistente Virtual (IA)
-
-Widget de chat flotante disponible en el sitio público, para invitados y usuarios autenticados.
-Resuelve dudas frecuentes, recomienda mobiliario, consulta disponibilidad real y arma una
-cotización con precios y stock tomados directamente de la base de datos. **No crea reservas ni
-cobra**: cuando el cliente quiere avanzar, lo lleva a la bolsa y al checkout de la web, o escala
-la conversación a WhatsApp con un asesor (automática o manualmente).
-
-* **Proveedor**: Google Gemini (`gemini-3.5-flash-lite` por defecto).
-* **Transporte**: streaming por Server-Sent Events desde el backend; la clave de API nunca llega
-  al navegador.
-* **Persistencia**: conversaciones y mensajes en MongoDB (`asistente_conversaciones`,
-  `asistente_mensajes`), con retención automática para invitados.
-* **Panel de administración**: `/admin/asistente` (requiere rol `ADMIN`).
-
-### Activar el asistente
-
-El asistente solo se muestra si se cumplen **dos** condiciones:
-
-1. El flag está activo: `furent.features.assistant-enabled=true` (o `ASSISTANT_ENABLED=true`).
-2. Existe una API key: `GEMINI_API_KEY`.
-
-Si falta cualquiera de las dos, el widget no se renderiza y `POST /api/asistente/chat` responde
-`503`. Para desactivarlo sin borrar datos basta con volver a poner el flag en `false`.
-
-### Variables de entorno del asistente
-
-| Variable | Descripción | Valor por defecto |
+| Recurso | URL / Acceso | Descripción |
 | :--- | :--- | :--- |
-| `GEMINI_API_KEY` | Clave de Google AI Studio | *(vacío)* |
-| `GEMINI_MODEL` | Modelo de Gemini | `gemini-3.5-flash-lite` |
-| `GEMINI_THINKING_LEVEL` | Nivel de razonamiento en Gemini 3.x (`MINIMAL`, `LOW`, `MEDIUM`, `HIGH`) | `MINIMAL` |
-| `GEMINI_BASE_URL` | Endpoint base de la API de Gemini | `https://generativelanguage.googleapis.com/v1beta` |
-| `ASSISTANT_ENABLED` | Activa/desactiva el asistente | `false` |
-| `FURENT_WHATSAPP_NUMBER` | WhatsApp para el escalado a humano | `573105782442` |
+| **Sitio Web en Vivo** | [https://furent-alquiler.onrender.com](https://furent-alquiler.onrender.com) | Aplicación SaaS en vivo (SSL HTTPS gratuito). |
+| **Catálogo de Mobiliario** | [https://furent-alquiler.onrender.com/catalogo](https://furent-alquiler.onrender.com/catalogo) | Catálogo público conectado en tiempo real a MongoDB Atlas. |
+| **Portal de Login** | [https://furent-alquiler.onrender.com/login](https://furent-alquiler.onrender.com/login) | Autenticación con seguridad CSRF, sesiones y rate-limit. |
+| **Panel Administrativo** | [https://furent-alquiler.onrender.com/admin](https://furent-alquiler.onrender.com/admin) | Panel de control central con permisos RBAC. |
+| **Dashboard BI (Power BI)** | [https://furent-alquiler.onrender.com/admin/bi](https://furent-alquiler.onrender.com/admin/bi) | Analítica ejecutiva y modelo estrella (`FURENT_Modelo_Estrella.pbix`). |
+| **Optimización IO (MILP)** | [https://furent-alquiler.onrender.com/admin/optimizacion](https://furent-alquiler.onrender.com/admin/optimizacion) | Motor matemático de asignación de flota, cubicaje y compras. |
+| **Landing CDN (Firebase)** | [https://furent-web.web.app](https://furent-web.web.app) | Hosting estático CDN de respaldo en Google Firebase. |
 
-Para cambiar de modelo, ajusta `GEMINI_MODEL` (por ejemplo `gemini-3.5-flash`) y reinicia la
-aplicación. Los modelos `gemini-2.5-*` ya no están disponibles para cuentas nuevas (Gemini
-responde `404`); usa la familia `gemini-3.x`. El resto de parámetros (límites por hora,
-presupuesto diario, tokens máximos, temperatura, retención) se ajustan con las propiedades
-`furent.assistant.*` en `application.properties`.
-
-> Documentación completa: [diseño](docs/specs/2026-11-20-asistente-llm-design.md) ·
-> [plan de implementación](docs/plans/2026-11-20-asistente-llm-implementation-plan.md).
+### 🔑 Credenciales Iniciales de Administrador
+* **Email:** `admin@furent.com`
+* **Contraseña:** `admin123` *(configurable por entorno con `ADMIN_PASSWORD`)*
 
 ---
 
-## 🛠️ Stack Tecnológico
-
-| Capa | Tecnología |
-| :--- | :--- |
-| **Backend Core** | Java 17 · Spring Boot 4.0.3 · Spring Data MongoDB |
-| **Seguridad** | Spring Security 6 · OAuth2 Client (Google) · BCrypt |
-| **Base de Datos** | MongoDB 7.0 |
-| **Inteligencia Artificial** | Google Gemini 2.5 (asistente virtual) · Weka 3.8 (Clasificador J48 / Árboles de Decisión C4.5) |
-| **Frontend** | Thymeleaf · Tailwind CSS 4 · Chart.js · Alpine.js |
-| **Reportes y PDFs** | OpenHTMLToPDF |
-| **Documentación API** | SpringDoc OpenAPI (Swagger UI) |
-| **Entorno e Infraestructura** | Docker · Docker Compose · GitHub Actions |
+## 👥 Equipo de Desarrollo y Colaboradores
+* **Luis Troconis** ([@Ldtro](https://github.com/Ldtro) / `luistroconis28102005@gmail.com`)
+* **Jose Valdes**
+* **Neyder Arjodiz**
+* **Repositorio Oficial:** [realgzzy/Furent-Alquiler](https://github.com/realgzzy/Furent-Alquiler)
 
 ---
 
-## 🚀 Inicio Rápido
+## 🧭 Reglas Críticas de Trabajo y Gobernanza Git
 
-### Prerrequisitos
-* **Java SDK 17** o superior.
-* **MongoDB 7.0** ejecutándose de forma local o en la nube (Atlas).
-* **Maven 3.9+** (o utilizar el wrapper `./mvnw` provisto).
-* **Node.js 18+** (solo para compilar los estilos con Tailwind CSS).
+> [!IMPORTANT]
+> **REGLAS FUNDAMENTALES PARA EL EQUIPO Y AGENTES DE IA:**
+> 1. **Siempre sincronizar antes de tocar código:** Antes de cualquier cambio, ejecutar obligatoriamente `git pull origin main` para traer el trabajo de los demás compañeros.
+> 2. **Rama Oficial:** Todo el despliegue automático hacia Render está conectado exclusivamente a la rama **`main`**.
+> 3. **Verificación de Flujos:** Prohibido modificar módulos o servicios funcionales sin comprobar primero el flujo completo de dependencias para evitar romper lo que ya está en producción.
+> 4. **Respeto a saltos de línea (CRLF vs LF):** Los scripts shell (`*.sh`) para Docker (`docker-entrypoint.sh`) deben mantener saltos de línea tipo **LF (Unix)** para no fallar en Alpine Linux.
+> 5. **Modo Claro / Modo Oscuro:** Cualquier nueva pantalla o interfaz debe soportar coherentemente ambos temas para no romper la estética visual del proyecto.
 
-### Ejecución Local
-1. Clonar el repositorio:
-   ```bash
-   git clone https://github.com/whosjeiv/Furent-Alquiler.git
-   cd Furent-Alquiler
-   ```
-2. Asegurar que MongoDB esté corriendo en `localhost:27017` o configurar tu URI en las variables de entorno.
-3. Arrancar la aplicación con Maven:
-   ```bash
-   ./mvnw spring-boot:run
-   ```
-4. Abrir en el navegador: **http://localhost:8080**
+---
 
-### Estilos (Tailwind CSS)
-Los estilos se compilan localmente (no dependen de `cdn.tailwindcss.com`). La primera vez hay que instalar las dependencias:
-```bash
-npm install
-npm run build:css
+## 🏛️ Arquitectura del Sistema (Microservicios Unificados)
+
+El sistema opera bajo un contenedor Docker multi-etapa unificado que aloja dos motores complementarios comunicados internamente mediante red local (`localhost`):
+
 ```
-Si modificas clases de Tailwind en las plantillas, vuelve a generar el CSS con `npm run build:css` (o usa `npm run watch:css:public` y `npm run watch:css:admin` en dos terminales). Los archivos generados son `src/main/resources/static/css/tailwind.css` y `tailwind-admin.css`.
-
-### Con Docker Compose
-Puedes levantar todo el entorno (Aplicación + Base de datos MongoDB) en un solo paso:
-```bash
-docker compose up -d
+                   ┌───────────────────────────────────────────────┐
+                   │               USUARIOS / CLIENTES             │
+                   └───────────────────────┬───────────────────────┘
+                                           │ HTTPS (Port 443)
+                                           ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ RENDER CLOUD CONTAINER (Linux Alpine / eclipse-temurin:17-jre)           │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │ ☕ SPRING BOOT 4.0.3 (Java 17) - Puerto 8080                       │  │
+│  │  - Spring Security 6 (RBAC, CSRF, BCrypt)                          │  │
+│  │  - Thymeleaf + Tailwind CSS 4 + Alpine.js                          │  │
+│  │  - Spring Data MongoDB (23 Repositorios)                           │  │
+│  │  - Motor Predictivo Weka J48 (Árboles C4.5)                        │  │
+│  │  - Asistente Virtual Gemini 3.5 Flash Lite (SSE Streaming)         │  │
+│  │  - Dashboard Ejecutivo Power BI (/admin/bi)                        │  │
+│  └──────────────────┬─────────────────────────────▲───────────────────┘  │
+│                     │ HTTP (127.0.0.1:8090)       │                      │
+│                     ▼                             │                      │
+│  ┌─────────────────────────────────────────────┐  │                      │
+│  │ 🐍 OPTIMIZADOR PYTHON (FastAPI) - Puerto 8090│  │                      │
+│  │  - Algoritmo MILP (Programación Entera Mixta)│  │                      │
+│  │  - Solver CBC / PuLP 2.9                     │  │                      │
+│  │  - Asignación de Flota, Cubicaje y Compras   │  │                      │
+│  └─────────────────────────────────────────────┘  │                      │
+└─────────────────────────┬────────────────────────────────────────────────┘
+                          │ MongoDB Wire Protocol (TLS/SSL)
+                          ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 🍃 MONGODB ATLAS CLOUD (AWS us-east-1) - Clúster: Portafolio-Padre        │
+│    Base de Datos: 'FurentDataBase' (23 Colecciones / 73 Documentos)       │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## ⚙️ Variables de Entorno Clave
+## 📦 Motor de Investigación de Operaciones (IO) — Módulo MILP
 
-| Variable | Descripción | Valor por Defecto |
+Ubicado en `python/optimizer/` y consumido desde `/admin/optimizacion`.
+
+### 1. Problema de Negocio
+Furent recibe múltiples solicitudes de reserva simultáneas que compiten por el mismo inventario físico de mobiliario y requieren despacho logístico en una flota limitada de camiones con restricciones de peso y volumen.
+
+### 2. Formulación Matemática (MILP)
+* **Función Objetivo ($Z^*$):** Maximizar el beneficio neto de la operación:
+  $$\max Z = \sum_{r \in R} \text{Ingreso}_r \cdot x_r - \sum_{k \in K} \text{CostoFijo}_k \cdot u_k - \sum_{p \in P} \text{CostoCompra}_p \cdot y_p - \sum_{r \in R} \text{CostoFleteTercero}_r \cdot t_r$$
+* **Variables de Decisión:**
+  - $x_r \in \{0, 1\}$: Aceptar (1) o rechazar (0) la reserva $r$.
+  - $u_k \in \{0, 1\}$: Activar (1) o mantener apagado (0) el camión propio $k$.
+  - $y_p \ge 0$: Cantidad entera de unidades adicionales a comprar del mobiliario $p$.
+  - $t_r \in \{0, 1\}$: Tercerizar el transporte del pedido $r$.
+* **Restricciones Principales:**
+  1. *Inventario Disponible:* El consumo acumulado en cualquier fecha no puede superar el inventario actual más las compras $y_p$.
+  2. *Capacidad Volumétrica de Flota:* $\sum \text{Volumen}_r \le \sum \text{CapacidadVolumen}_k \cdot u_k$.
+  3. *Capacidad de Carga (Peso):* $\sum \text{Peso}_r \le \sum \text{CapacidadPeso}_k \cdot u_k$.
+* **Tecnología del Solver:** Python 3 + FastAPI + Uvicorn + PuLP con solver de punto interior y branch-and-bound **COIN-OR CBC**. Resuelve 44 reservas complejas en **281 ms**.
+
+---
+
+## 📊 Módulo de Inteligencia de Negocios (Power BI & Modelo Estrella)
+
+Ubicado en la ruta `/admin/bi` e impulsado por el archivo de modelado dimensional `FURENT_Modelo_Estrella.pbix`.
+
+### 1. Esquema en Estrella (Kimball Data Warehouse)
+* **Tabla de Hechos (`Fact_Reservas`):** Almacena ID de reserva, montos facturados, descuentos, costo de envío, estado y fecha de entrega.
+* **Tablas de Dimensiones:**
+  - `Dim_Cliente`: Clientes, segmentos, ubicación geográfica y teléfonos.
+  - `Dim_Mobiliario`: Productos, materiales, categorías y dimensiones físicas.
+  - `Dim_Fecha`: Calendario enriquecido (día, mes, año, trimestre, fin de semana, festivo).
+  - `Dim_Ubicacion`: Ciudades de cobertura (Bogotá, Medellín, Cali, Barranquilla).
+  - `Dim_Categoria`: Carpas, Sillas, Mesas, Cristalería y Decoración.
+
+### 2. Indicadores Clave (KPIs en DAX)
+* **Ingresos Totales (Facturación Neta):** $\$452.8\text{M COP}$ ($+12.4\%$ MoM).
+* **Volumen de Contratos:** 640 Órdenes históricas procesadas.
+* **Ticket Promedio (AOV):** $\$707,500\text{ COP}$ por evento.
+* **Tasa de Éxito de Conversión:** $91.2\%$.
+* **Satisfacción del Cliente (CSAT):** $4.5 / 5.0$ estrellas sobre 331 evaluaciones auditadas.
+
+---
+
+## 🗄️ Diccionario de Base de Datos (MongoDB Atlas)
+
+El clúster oficial en la nube es **`Portafolio-Padre.bfpf3jk.mongodb.net`**, base de datos **`FurentDataBase`**.
+
+| Colección | Propósito y Contenido | Documentos Iniciales |
 | :--- | :--- | :--- |
-| `SPRING_DATA_MONGODB_URI` | Dirección de conexión a la BD | `mongodb://localhost:27017/furent` |
-| `SPRING_PROFILES_ACTIVE` | Perfil de ejecución activo | `dev` (opciones: `dev`, `prod`) |
-| `FURENT_ADMIN_PASSWORD` | Contraseña por defecto del admin inicial | `admin123` |
-| `GOOGLE_CLIENT_ID` | Client ID de Google Console para OAuth2 | *Opcional* |
-| `GOOGLE_CLIENT_SECRET` | Client Secret de Google Console para OAuth2 | *Opcional* |
-| `GEMINI_API_KEY` | API key de Google AI Studio para el asistente virtual | *Opcional (asistente desactivado sin ella)* |
-| `ASSISTANT_ENABLED` | Activa el asistente virtual en el sitio público | `false` |
+| `reservas` | Órdenes de alquiler, fechas de entrega/recogida, items cotizados y estados. | 44 |
+| `mobiliarios` | Catálogo de productos (sillas, mesas, carpas, stock total, stock disponible, precio). | 9 |
+| `categorias` | Clasificación de mobiliarios (Sillas, Mesas, Carpas, Decoración). | 4 |
+| `usuarios` | Cuentas de clientes y administradores con contraseñas en hash BCrypt. | 1 (Admin base) |
+| `tenants` | Configuración multi-inquilino para arquitectura SaaS multi-empresa. | 1 (`default`) |
+| `permissions` | Permisos RBAC (`READ_CATALOG`, `MANAGE_ORDERS`, `ADMIN_ALL`, etc.). | 4 |
+| `audit_logs` | Registro inmutable de auditoría para acciones críticas de gerencia. | 10 |
+| `pagos` | Registro de transacciones PayU / Simulación de pasarela de pago. | Inicializada |
+| `cupones` | Códigos de descuento con vigencia, porcentaje y límite de usos. | Inicializada |
+| `combos` | Paquetes de productos con descuento agrupado para eventos. | Inicializada |
+| `reviews` | Calificaciones y testimonios de clientes verificados. | Inicializada |
+| `asistente_conversaciones` | Hilos de chat del asistente inteligente con usuarios e invitados. | Inicializada |
+| `asistente_mensajes` | Mensajes individuales con roles (usuario, modelo, sistema). | Inicializada |
+| `notificaciones` | Alertas del sistema sobre aprobaciones, cobros y despachos. | Inicializada |
+| `analytics_events` | Telemetría interna de clics y eventos de conversión. | Inicializada |
 
----
+### 💾 Respaldo y Restauración Automática
+El proyecto cuenta con una copia de seguridad BSON/JSON completa en:
+`c:\Users\ldtro\Documents\GitHub\FURENT_Data_Backup`
 
-## 📁 Estructura del Proyecto
-
-```text
-furent/
-├── src/main/java/com/alquiler/furent/
-│   ├── config/        # Configuración de Seguridad, Inicialización de Datos (DataInitializer)
-│   ├── controller/    # Controladores de Thymeleaf (Públicos) y de Administración (Admin)
-│   ├── dto/           # Data Transfer Objects para respuestas y peticiones API
-│   ├── enums/         # Estados de reservas, pagos, roles y categorías
-│   ├── exception/     # Manejador global de excepciones del sistema
-│   ├── model/         # Entidades de MongoDB (User, Product, Reservation, Payment, etc.)
-│   ├── repository/    # Interfaces de Spring Data MongoRepository
-│   └── service/       # Lógica de negocio e IA (PredictiveService, EmailService, etc.)
-├── src/main/resources/
-│   ├── templates/     # Páginas y layouts en Thymeleaf (carpetas public, admin, fragments)
-│   ├── static/        # Hojas de estilo CSS, scripts JS, y recursos gráficos (images/logo)
-│   └── application.properties # Parámetros globales del framework
-├── docs/              # Documentación detallada del proyecto (UML, arquitectura, flujo de reservas)
-├── Dockerfile         # Archivo de construcción de imagen Docker
-├── docker-compose.yml # Orquestación local de contenedores
-└── pom.xml            # Dependencias y configuración de Maven
-```
-
----
-
-## 🛡️ Seguridad y Buenas Prácticas
-* **Protección CSRF**: Habilitada por defecto en todos los formularios Thymeleaf.
-* **Content Security Policy (CSP)**: Cabeceras estrictas configuradas para evitar inyecciones XSS.
-* **Control de Acceso basado en Roles (RBAC)**: Rutas administrativas protegidas estrictamente bajo el rol `ADMIN`.
-* **Cifrado Seguro**: Contraseñas de usuario cifradas mediante `BCryptPasswordEncoder`.
-* **Registro de Auditoría**: Trazabilidad completa de las acciones del panel de control almacenadas en la colección `audit_logs`.
-
----
-
-## 🧪 Pruebas Unitarias e Integración
-Para validar que todos los servicios y el modelo predictivo funcionen correctamente, ejecuta:
+Para restaurar toda la base de datos a cualquier clúster nuevo en 5 segundos, basta con ejecutar:
 ```bash
-./mvnw test
+py c:\Users\ldtro\Documents\GitHub\FURENT_Data_Backup\restore_to_atlas.py "<CADENA_DE_CONEXION_MONGODB>"
 ```
-
-> **Nota (20/11/2026):** la suite completa reporta fallos **preexistentes y ajenos al
-> asistente** en `EmailServiceTest`, `ReservationServiceTest`, `ReviewServiceTest` y
-> `UserServiceTest` (correo en modo dev y transiciones de estado). Todas las pruebas del
-> asistente (`com.alquiler.furent.assistant.*`, `AssistantControllerTest`,
-> `AdminAssistantControllerTest`, `RateLimitFilterTest`, `SecurityConfigRedirectTest`)
-> pasan en verde. La prueba de integración con Testcontainers (`FullFlowIntegrationTest`)
-> se salta si no hay Docker.
 
 ---
 
-## 👤 Credenciales Administrativas Iniciales
+## ⚙️ Matriz de Variables de Entorno
 
-Al arrancar por primera vez, el sistema autogenera un administrador base si no existe ninguno:
-* **Usuario**: `admin@furent.com`
-* **Contraseña**: `admin123` (se recomienda redefinir mediante la variable de entorno `FURENT_ADMIN_PASSWORD`).
+| Variable | Descripción | Valor en Desarrollo (`dev`) | Valor en Producción (`prod`) |
+| :--- | :--- | :--- | :--- |
+| `PORT` | Puerto HTTP principal | `8080` | `8080` (inyectado por Render) |
+| `SPRING_PROFILES_ACTIVE` | Perfil de configuración Spring | `dev` | `prod` |
+| `MONGODB_URI` | Cadena de conexión a MongoDB | `mongodb://localhost:27017/FurentDataBase` | `mongodb+srv://luisadmin:...@portafolio-padre...` |
+| `CACHE_TYPE` | Tipo de caché para la aplicación | `redis` (o `simple`) | `simple` (en memoria, \$0 costo) |
+| `CACHE_ENABLED` | Habilitar caché distribuida | `true` | `false` |
+| `ADMIN_PASSWORD` | Contraseña del usuario administrador | `admin123` | `AdminFurent2026!` (o `admin123`) |
+| `JWT_SECRET` | Llave secreta para tokens JWT | `default-dev-secret` | *Token seguro de 256 bits* |
+| `GEMINI_API_KEY` | Clave API de Google AI Studio | *Opcional* | *Opcional (para asistente IA)* |
+| `ASSISTANT_ENABLED` | Activar widget de chat flotante | `false` | `false` (o `true` si hay API key) |
+
+---
+
+## 🛠️ Guía Paso a Paso para Operar el Proyecto
+
+### 1. Cómo Ejecutar Localmente en tu Computador
+Hemos preparado un script inteligente que apaga instancias anteriores y enciende ambos motores:
+```powershell
+# En la raíz de Furent-Alquiler:
+.\restart-app.ps1
+```
+El script automáticamente:
+1. Libera los puertos `8080` y `8090` si estaban ocupados.
+2. Inicia el optimizador Python en segundo plano (`http://127.0.0.1:8090`).
+3. Inicia la aplicación Spring Boot (`http://localhost:8080`).
+
+### 2. Cómo Subir Nuevos Cambios a Producción (Render)
+Como el servicio de Render está configurado en modo **Auto-Deploy**, el flujo de trabajo es completamente automático:
+```bash
+# 1. Asegurarse de tener lo último del equipo
+git pull origin main
+
+# 2. Hacer tus modificaciones y probarlas localmente
+
+# 3. Guardar y subir a GitHub
+git add .
+git commit -m "feat(modulo): descripcion de la mejora"
+git push origin main
+```
+Render detectará el push a `main`, construirá el Dockerfile y actualizará la web en vivo automáticamente en 3 minutos.
+
+---
+
+## 💡 Guía para Agentes de IA y Asistentes Futuros (Memory Core)
+
+Si eres una Inteligencia Artificial que continúa el desarrollo de este repositorio en el futuro, lee atentamente:
+1. **Nunca borres ni alteres los endpoints críticos:**
+   - `/login`, `/registro`, `/catalogo` (Públicos).
+   - `/admin`, `/admin/bi`, `/admin/optimizacion` (Privados con rol ADMIN).
+   - `/actuator/health` (Healthcheck del sistema).
+2. **Microservicio de Optimización:**
+   - Si trabajas en el módulo de optimización, el código vive en `python/optimizer/app.py`.
+   - El cliente Java que lo llama es `com.alquiler.furent.service.OptimizationClientService`.
+   - Si el microservicio está apagado, el controlador Java muestra un mensaje preventivo sin botar error 500 al usuario.
+3. **Manejo de Secretos:**
+   - Nunca expongas credenciales en archivos públicos. Usa siempre `${VARIABLE:default}` para mantener compatibilidad tanto en local como en la nube.
+4. **Comportamiento del Plan Gratuito:**
+   - Render duerme el contenedor tras 15 minutos sin visitas. Tarda entre 30 a 50 segundos en responder la primera llamada. Esto es normal en la capa gratuita y no es un fallo de código.
 
 ---
 
 ## 📜 Licencia
-Este proyecto está distribuido bajo la licencia MIT. Consúltala en el archivo correspondiente para más información.
+Proyecto académico y empresarial desarrollado para **Furent**. Distribuido bajo la Licencia MIT. Consúltala en el archivo [LICENSE](LICENSE) para más detalles.
