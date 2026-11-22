@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir --break-system-packages -r /app/python/optimizer/
 
 # Script de arranque
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+RUN sed -i -e 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
 
 RUN mkdir -p /app/uploads && chown -R furent:furent /app
 USER furent
