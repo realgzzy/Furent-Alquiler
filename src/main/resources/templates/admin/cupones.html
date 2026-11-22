@@ -2,369 +2,946 @@
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/admin-layout :: layout(~{::title}, ~{::main}, 'cupones')}">
 <head><title>Cupones — Admin Furent</title></head>
 <body>
-    <main>
-        <!-- Header -->
-        <div class="px-10 pt-10 pb-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-surface-900 dark:text-white tracking-tight">Gestión de Cupones</h1>
-                    <p class="text-surface-500 dark:text-surface-400 mt-1">Crear y administrar cupones de descuento</p>
+<main>
+    <div class="acp-scope px-6 sm:px-10 py-8 pb-16 max-w-[88rem] mx-auto"
+         x-data="cuponesPage()" x-init="init()" x-cloak>
+
+        <style>
+            /* ============================================================
+               Cupones · promociones
+               Una sola tinta de acento (#E07A3A), base zinc, sin degradados.
+               ============================================================ */
+            [x-cloak] { display: none !important; }
+
+            /* ---- Tokens de la pantalla ---- */
+            .acp-scope {
+                --acp-accent: #E07A3A;
+                --acp-accent-strong: #C2630F;
+                --acp-accent-soft: #FFF7F0;
+                --acp-accent-line: #FED7AA;
+                --acp-ink: #18181b;
+                --acp-ink-2: #52525b;
+                --acp-mute: #a1a1aa;
+                --acp-line: #f4f4f5;
+                --acp-line-2: #e4e4e7;
+                --acp-card: #ffffff;
+                --acp-hover: #fafafa;
+            }
+            html.dark .acp-scope {
+                --acp-accent-soft: rgba(224,122,58,.14);
+                --acp-accent-line: rgba(224,122,58,.32);
+                --acp-ink: #fafafa;
+                --acp-ink-2: #a1a1aa;
+                --acp-mute: #71717a;
+                --acp-line: #1f1f23;
+                --acp-line-2: #27272a;
+                --acp-card: #131316;
+                --acp-hover: #1a1a1e;
+            }
+
+            .acp-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--acp-mute); }
+            .acp-tabular { font-variant-numeric: tabular-nums; }
+
+            /* Entrada escalonada */
+            .acp-rise { animation: acpRise .5s cubic-bezier(.16,1,.3,1) both; }
+            .acp-d1 { animation-delay: .05s; } .acp-d2 { animation-delay: .1s; }
+            .acp-d3 { animation-delay: .15s; } .acp-d4 { animation-delay: .2s; }
+            @keyframes acpRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+            /* Tarjetas */
+            .acp-card { background: var(--acp-card); border: 1px solid var(--acp-line); }
+
+            /* Botones */
+            .acp-btn-primary { background: #18181b; color: #fff; transition: background-color .16s ease, transform .16s ease; }
+            .acp-btn-primary:hover { background: #27272a; }
+            .acp-btn-primary:active { transform: scale(.98); }
+            .acp-btn-accent { background: var(--acp-accent); color: #fff; transition: background-color .16s ease, transform .16s ease; }
+            .acp-btn-accent:hover { background: var(--acp-accent-strong); }
+            .acp-btn-accent:active { transform: scale(.98); }
+            .acp-btn-ghost { background: var(--acp-card); border: 1px solid var(--acp-line-2); color: #3f3f46; transition: all .16s ease; }
+            .acp-btn-ghost:hover { border-color: #d4d4d8; color: #18181b; }
+            .acp-btn-danger { background: #dc2626; color: #fff; transition: background-color .16s ease; }
+            .acp-btn-danger:hover { background: #b91c1c; }
+            html.dark .acp-btn-primary { background: var(--acp-accent); }
+            html.dark .acp-btn-primary:hover { background: var(--acp-accent-strong); }
+            html.dark .acp-btn-ghost { background: #18181b; border-color: #27272a; color: #d4d4d8; }
+            html.dark .acp-btn-ghost:hover { border-color: #3f3f46; color: #fff; }
+
+            /* Botones de icono */
+            .acp-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem;
+                            border-radius: .6rem; color: #71717a; transition: all .14s ease; }
+            .acp-icon-btn:hover { background: #f4f4f5; color: #18181b; }
+            .acp-icon-btn.is-danger:hover { background: #fef2f2; color: #dc2626; }
+            .acp-icon-btn:disabled { opacity: .45; }
+            html.dark .acp-icon-btn { color: #a1a1aa; }
+            html.dark .acp-icon-btn:hover { background: #27272a; color: #fff; }
+            html.dark .acp-icon-btn.is-danger:hover { background: rgba(220,38,38,.16); color: #f87171; }
+
+            /* Píldoras de estado */
+            .acp-pill { display: inline-flex; align-items: center; gap: .35rem; padding: .2rem .55rem; border-radius: .5rem;
+                        font-size: .62rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+                        border: 1px solid transparent; white-space: nowrap; }
+            .acp-pill .acp-dot { width: .36rem; height: .36rem; border-radius: 9999px; background: currentColor; }
+            .acp-pill-ok { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+            .acp-pill-warn { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+            .acp-pill-stop { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+            .acp-pill-mute { background: #f4f4f5; color: #52525b; border-color: #e4e4e7; }
+            .acp-pill-accent { background: var(--acp-accent-soft); color: var(--acp-accent-strong); border-color: var(--acp-accent-line); }
+            html.dark .acp-pill-ok { background: rgba(22,163,74,.14); color: #4ade80; border-color: rgba(22,163,74,.32); }
+            html.dark .acp-pill-warn { background: rgba(217,119,6,.16); color: #fbbf24; border-color: rgba(217,119,6,.34); }
+            html.dark .acp-pill-stop { background: rgba(220,38,38,.16); color: #f87171; border-color: rgba(220,38,38,.34); }
+            html.dark .acp-pill-mute { background: rgba(113,113,122,.14); color: #a1a1aa; border-color: rgba(113,113,122,.3); }
+            html.dark .acp-pill-accent { color: #FDBA74; }
+
+            /* Código */
+            .acp-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; letter-spacing: .03em;
+                        font-size: .78rem; color: #18181b; background: #fafafa; border: 1px solid var(--acp-line-2);
+                        border-radius: .5rem; padding: .2rem .5rem; white-space: nowrap; }
+            html.dark .acp-code { color: #fafafa; background: #1c1c20; border-color: #3f3f46; }
+
+            /* Etiquetas de categoría */
+            .acp-cat { display: inline-flex; padding: .12rem .45rem; border-radius: .4rem; font-size: .62rem; font-weight: 700;
+                       background: #f4f4f5; color: #52525b; }
+            html.dark .acp-cat { background: #27272a; color: #a1a1aa; }
+
+            /* Barra de uso */
+            .acp-bar { height: .45rem; border-radius: 9999px; background: #f4f4f5; overflow: hidden; }
+            html.dark .acp-bar { background: #27272a; }
+            .acp-bar__fill { height: 100%; border-radius: 9999px; background: var(--acp-accent); transition: width .5s cubic-bezier(.16,1,.3,1); }
+            .acp-bar__fill.is-warn { background: #d97706; }
+            .acp-bar__fill.is-full { background: #dc2626; }
+
+            /* Interruptor activo/pausado */
+            .acp-switch { position: relative; display: inline-flex; align-items: center; width: 2.5rem; height: 1.4rem; flex-shrink: 0;
+                          border-radius: 9999px; background: #d4d4d8; border: 1px solid #d4d4d8; transition: background-color .16s ease, border-color .16s ease; }
+            .acp-switch__dot { position: absolute; top: .14rem; left: .14rem; width: 1rem; height: 1rem; border-radius: 9999px; background: #fff;
+                               box-shadow: 0 1px 2px rgba(0,0,0,.18); transition: transform .18s cubic-bezier(.16,1,.3,1); }
+            .acp-switch.is-on { background: var(--acp-accent); border-color: var(--acp-accent); }
+            .acp-switch.is-on .acp-switch__dot { transform: translateX(1.05rem); }
+            .acp-switch:disabled { opacity: .5; }
+            html.dark .acp-switch { background: #3f3f46; border-color: #3f3f46; }
+            html.dark .acp-switch__dot { background: #e4e4e7; }
+            html.dark .acp-switch.is-on { background: var(--acp-accent); border-color: var(--acp-accent); }
+            html.dark .acp-switch.is-on .acp-switch__dot { background: #fff; }
+
+            /* Segmentado */
+            .acp-seg { display: inline-flex; flex-wrap: wrap; padding: .2rem; border-radius: .8rem; background: #f4f4f5; gap: .2rem; }
+            .acp-seg__btn { padding: .42rem .75rem; border-radius: .6rem; font-size: .68rem; font-weight: 800;
+                            letter-spacing: .05em; text-transform: uppercase; color: #52525b; transition: all .14s ease; white-space: nowrap; }
+            .acp-seg__btn:hover { color: #18181b; }
+            .acp-seg__btn[aria-pressed="true"] { background: #fff; color: #18181b; box-shadow: 0 1px 2px rgba(0,0,0,.07); }
+            html.dark .acp-seg { background: #1c1c20; }
+            html.dark .acp-seg__btn { color: #a1a1aa; }
+            html.dark .acp-seg__btn:hover { color: #fff; }
+            html.dark .acp-seg__btn[aria-pressed="true"] { background: #27272a; color: #fff; box-shadow: none; }
+
+            /* Chips de categoría (selección) */
+            .acp-chip { display: inline-flex; align-items: center; padding: .35rem .65rem; border-radius: .6rem; cursor: pointer;
+                        border: 1px solid var(--acp-line-2); background: var(--acp-card); color: #52525b;
+                        font-size: .72rem; font-weight: 700; transition: all .14s ease; }
+            .acp-chip:hover { border-color: var(--acp-accent-line); color: var(--acp-accent-strong); }
+            .acp-chip.is-on { background: #18181b; border-color: #18181b; color: #fff; }
+            html.dark .acp-chip { color: #a1a1aa; }
+            html.dark .acp-chip.is-on { background: var(--acp-accent); border-color: var(--acp-accent); color: #fff; }
+
+            /* Campos */
+            .acp-field { width: 100%; border-radius: .8rem; border: 1px solid var(--acp-line-2); background: #fafafa;
+                         padding: .7rem .85rem; font-size: .83rem; font-weight: 600; color: #27272a;
+                         transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+            .acp-field::placeholder { color: #a1a1aa; font-weight: 500; }
+            .acp-field:focus { outline: none; border-color: #FDBA74; background: #fff; box-shadow: 0 0 0 4px rgba(224,122,58,.1); }
+            .acp-field.is-bad { border-color: #fca5a5; background: #fef2f2; }
+            .acp-field-pl { padding-left: 2.35rem; }
+            .acp-field-pr { padding-right: 2.6rem; }
+            html.dark .acp-field { background: #111113; border-color: #27272a; color: #e4e4e7; }
+            html.dark .acp-field:focus { border-color: rgba(224,122,58,.5); background: #111113; box-shadow: 0 0 0 4px rgba(224,122,58,.12); }
+            html.dark .acp-field.is-bad { border-color: rgba(248,113,113,.6); background: rgba(220,38,38,.08); }
+            .acp-err { font-size: .7rem; font-weight: 700; color: #dc2626; margin-top: .3rem; }
+            html.dark .acp-err { color: #f87171; }
+
+            /* Filas */
+            .acp-row { transition: background-color .16s ease; }
+            .acp-row:hover { background: #fafafa; }
+            html.dark .acp-row:hover { background: #1a1a1e; }
+
+            /* Vista previa del cupón */
+            .acp-preview { border: 1px dashed var(--acp-line-2); background: var(--acp-hover); border-radius: 1rem; padding: .85rem 1rem; }
+
+            /* Modal nativo */
+            .acp-modal { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; overflow: visible; }
+            .acp-modal::backdrop { background: rgba(24,24,27,.5); backdrop-filter: blur(3px); }
+            html.dark .acp-modal::backdrop { background: rgba(0,0,0,.66); }
+            .acp-modal[open] .acp-modal__card { animation: acpPop .22s cubic-bezier(.16,1,.3,1) both; }
+            @keyframes acpPop { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+
+            @media (prefers-reduced-motion: reduce) {
+                .acp-rise { animation: none !important; opacity: 1 !important; transform: none !important; }
+                .acp-bar__fill, .acp-switch__dot { transition: none !important; }
+                .acp-modal[open] .acp-modal__card { animation: none !important; }
+            }
+        </style>
+
+        <!-- ============================ Cabecera ============================ -->
+        <header class="acp-rise flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between mb-6">
+            <div class="min-w-0">
+                <div class="flex items-center gap-2.5 mb-3">
+                    <span class="acp-label">Promociones</span>
+                    <span class="block size-1 rounded-full bg-surface-300"></span>
+                    <span class="acp-pill acp-pill-mute acp-tabular" x-text="cupones.length + (cupones.length === 1 ? ' cupón' : ' cupones')">0 cupones</span>
                 </div>
-                <button onclick="openCouponModal()" class="px-5 py-2.5 bg-furent-500 hover:bg-furent-600 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-furent-500/20">
-                    + Nuevo Cupón
+                <h1 class="text-[2rem] leading-none font-black tracking-tight text-surface-900 dark:text-white">Cupones</h1>
+                <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-2.5 max-w-2xl">
+                    Crea códigos de descuento, controla cuándo y a qué categorías aplican, y pausa los que dejen de estar en campaña.
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button type="button" @click="abrirNuevo()"
+                        class="acp-btn-accent inline-flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest">
+                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                    Nuevo cupón
                 </button>
             </div>
-        </div>
+        </header>
 
-        <!-- Coupons Table -->
-        <div class="px-10">
-            <div class="relative overflow-x-auto bg-white dark:bg-surface-900 shadow-glass dark:shadow-none rounded-2xl border border-surface-200 dark:border-surface-700">
-                <div class="p-4 flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4 border-b border-surface-100 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50">
-                    <label for="couponSearchInput" class="sr-only">Buscar</label>
-                    <div class="relative w-full sm:w-auto">
-                        <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
-                            <svg class="w-4 h-4 text-surface-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="m21 21-3.5-3.5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"/></svg>
+        <!-- ============================ KPIs ============================ -->
+        <section class="acp-rise acp-d1 acp-card rounded-3xl shadow-glass overflow-hidden mb-6">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-surface-100 dark:divide-surface-800">
+                <div class="px-5 py-4">
+                    <span class="acp-label">Total</span>
+                    <p class="text-xl font-black text-surface-900 dark:text-white acp-tabular mt-1.5" x-text="kpi.total">0</p>
+                    <p class="text-[11px] font-semibold text-surface-400 mt-0.5">cupones registrados</p>
+                </div>
+                <div class="px-5 py-4">
+                    <span class="acp-label">Vigentes</span>
+                    <p class="text-xl font-black acp-tabular mt-1.5" style="color:#E07A3A" x-text="kpi.activos">0</p>
+                    <p class="text-[11px] font-semibold text-surface-400 mt-0.5">usables ahora mismo</p>
+                </div>
+                <div class="px-5 py-4">
+                    <span class="acp-label">Usos</span>
+                    <p class="text-xl font-black text-surface-900 dark:text-white acp-tabular mt-1.5" x-text="kpi.usos">0</p>
+                    <p class="text-[11px] font-semibold text-surface-400 mt-0.5" x-text="kpi.maxUsos > 0 ? ('de ' + kpi.maxUsos + ' permitidos') : 'sin límite global'"></p>
+                </div>
+                <div class="px-5 py-4">
+                    <span class="acp-label">Por vencer</span>
+                    <p class="text-xl font-black text-surface-900 dark:text-white acp-tabular mt-1.5" x-text="kpi.porVencer">0</p>
+                    <p class="text-[11px] font-semibold text-surface-400 mt-0.5">caducan en 7 días</p>
+                </div>
+                <div class="px-5 py-4">
+                    <span class="acp-label">Pausados</span>
+                    <p class="text-xl font-black text-surface-900 dark:text-white acp-tabular mt-1.5" x-text="kpi.pausados">0</p>
+                    <p class="text-[11px] font-semibold text-surface-400 mt-0.5">fuera de campaña</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================ Estado vacío real ============================ -->
+        <section x-show="cupones.length === 0" class="acp-rise acp-d2 acp-card rounded-3xl shadow-glass px-8 py-20 text-center">
+            <span class="mx-auto flex size-16 items-center justify-center rounded-2xl" style="background:#FFF7F0;color:#E07A3A">
+                <svg class="size-8" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm4.5 4.5h.008v.008h-.008V13.5z"/></svg>
+            </span>
+            <h2 class="text-lg font-black text-surface-900 dark:text-white mt-5">Aún no hay cupones</h2>
+            <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-2 max-w-sm mx-auto">
+                Crea tu primer código de descuento para campañas, clientes recurrentes o temporadas bajas.
+            </p>
+            <button type="button" @click="abrirNuevo()"
+                    class="acp-btn-accent inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest mt-7">
+                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                Crear el primero
+            </button>
+        </section>
+
+        <!-- ============================ Tabla ============================ -->
+        <section x-show="cupones.length > 0" class="acp-rise acp-d2 acp-card rounded-3xl shadow-glass overflow-hidden">
+
+            <!-- Barra de herramientas -->
+            <div class="flex flex-col gap-4 px-6 py-5 border-b border-surface-100 dark:border-surface-800">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                    <label class="relative lg:min-w-[18rem]">
+                        <span class="sr-only">Buscar cupón por código o categoría</span>
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                        <input type="text" x-model="filtroTexto" @input="pagina = 1" class="acp-field acp-field-pl" placeholder="Buscar código o categoría...">
+                    </label>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <div class="acp-seg" role="group" aria-label="Filtrar por tipo de descuento">
+                            <button type="button" class="acp-seg__btn" :aria-pressed="filtroTipo === 'todos'" @click="filtroTipo = 'todos'; pagina = 1">Todas</button>
+                            <button type="button" class="acp-seg__btn" :aria-pressed="filtroTipo === 'PORCENTAJE'" @click="filtroTipo = 'PORCENTAJE'; pagina = 1">%</button>
+                            <button type="button" class="acp-seg__btn" :aria-pressed="filtroTipo === 'MONTO_FIJO'" @click="filtroTipo = 'MONTO_FIJO'; pagina = 1">$</button>
                         </div>
-                        <input type="text" id="couponSearchInput" class="block w-full sm:w-80 ps-9 pe-3 py-2.5 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-600 text-surface-900 dark:text-white text-sm rounded-xl focus:ring-furent-500 focus:border-furent-500 shadow-sm placeholder:text-surface-400 transition-all" placeholder="Buscar cupón...">
-                    </div>
-                    <div class="w-full sm:w-auto relative">
-                        <button id="dropdownDefaultButton" class="w-full sm:w-auto inline-flex items-center justify-center text-surface-600 dark:text-surface-300 bg-white dark:bg-surface-900 box-border border border-surface-200 dark:border-surface-600 hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-white focus:ring-4 focus:ring-surface-100 dark:focus:ring-surface-700 shadow-sm font-medium rounded-xl text-sm px-4 py-2.5 focus:outline-none transition-all" type="button">
-                            <svg class="w-4 h-4 me-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M18.796 4H5.204a1 1 0 0 0-.753 1.659l5.302 6.058a1 1 0 0 1 .247.659v4.874a.5.5 0 0 0 .2.4l3 2.25a.5.5 0 0 0 .8-.4v-7.124a1 1 0 0 1 .247-.659l5.302-6.059c.566-.646.106-1.658-.753-1.658Z"/></svg>
-                            Filtrar por
-                            <svg class="w-4 h-4 ms-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
-                        </button>
-                        <!-- Dropdown menu -->
-                        <div id="dropdownFilter" class="z-50 hidden absolute right-0 mt-2 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl shadow-xl w-44 origin-top-right">
-                            <ul class="p-2 text-sm text-surface-600 dark:text-surface-300 font-medium" aria-labelledby="dropdownDefaultButton">
-                                <li>
-                                    <button class="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-700 hover:text-furent-500 dark:hover:text-furent-400 rounded-lg transition-colors filter-btn" data-filter="">Mostrar todos</button>
-                                </li>
-                                <li>
-                                    <button class="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-700 hover:text-furent-500 dark:hover:text-furent-400 rounded-lg transition-colors filter-btn" data-filter="Activo">Estado: Activo</button>
-                                </li>
-                                <li>
-                                    <button class="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-700 hover:text-furent-500 dark:hover:text-furent-400 rounded-lg transition-colors filter-btn" data-filter="Inactivo">Estado: Inactivo</button>
-                                </li>
-                                <li>
-                                    <button class="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-700 hover:text-furent-500 dark:hover:text-furent-400 rounded-lg transition-colors filter-btn" data-filter="PORCENTAJE">Tipo: Porcentaje</button>
-                                </li>
-                                <li>
-                                    <button class="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-700 hover:text-furent-500 dark:hover:text-furent-400 rounded-lg transition-colors filter-btn" data-filter="MONTO_FIJO">Tipo: Monto Fijo</button>
-                                </li>
-                            </ul>
-                        </div>
+                        <label class="relative">
+                            <span class="sr-only">Ordenar cupones</span>
+                            <select x-model="orden" @change="pagina = 1"
+                                    class="acp-field acp-field-pr appearance-none cursor-pointer">
+                                <option value="recientes">Más recientes</option>
+                                <option value="vigencia">Vencen antes</option>
+                                <option value="usos">Más usados</option>
+                                <option value="valor">Mayor descuento</option>
+                                <option value="codigo">Código (A–Z)</option>
+                            </select>
+                            <svg class="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-surface-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                        </label>
                     </div>
                 </div>
-                <!-- Table -->
-                <table id="couponTable" class="w-full text-sm text-left text-surface-500 dark:text-surface-400">
-                    <thead class="text-xs text-surface-500 dark:text-surface-400 bg-surface-50 dark:bg-surface-800/50 uppercase border-b border-surface-200 dark:border-surface-700">
+
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <span class="acp-label">Estado</span>
+                    <div class="acp-seg" role="group" aria-label="Filtrar por estado">
+                        <button type="button" class="acp-seg__btn" :aria-pressed="filtroEstado === 'todos'" @click="setEstado('todos')">Todos</button>
+                        <button type="button" class="acp-seg__btn" :aria-pressed="filtroEstado === 'vigentes'" @click="setEstado('vigentes')">Vigentes</button>
+                        <button type="button" class="acp-seg__btn" :aria-pressed="filtroEstado === 'programados'" @click="setEstado('programados')">Programados</button>
+                        <button type="button" class="acp-seg__btn" :aria-pressed="filtroEstado === 'agotados'" @click="setEstado('agotados')">Agotados</button>
+                        <button type="button" class="acp-seg__btn" :aria-pressed="filtroEstado === 'caducados'" @click="setEstado('caducados')">Caducados</button>
+                        <button type="button" class="acp-seg__btn" :aria-pressed="filtroEstado === 'pausados'" @click="setEstado('pausados')">Pausados</button>
+                    </div>
+                    <button type="button" x-show="tieneFiltros" @click="limpiarFiltros()" x-cloak
+                            class="text-[11px] font-black uppercase tracking-widest text-surface-400 hover:text-surface-700 dark:hover:text-white transition-colors ml-1">
+                        Limpiar
+                    </button>
+                    <span class="ml-auto text-[11px] font-bold text-surface-400 acp-tabular"
+                          x-text="filtrados.length === cupones.length ? (cupones.length + ' en total') : (filtrados.length + ' de ' + cupones.length)"></span>
+                </div>
+            </div>
+
+            <!-- Tabla -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse whitespace-nowrap">
+                    <caption class="sr-only">Listado de cupones de descuento</caption>
+                    <thead class="bg-surface-50/60 dark:bg-surface-800/40 border-b border-surface-100 dark:border-surface-800">
                         <tr>
-                            <th scope="col" class="px-6 py-4 font-semibold tracking-wider">Código</th>
-                            <th scope="col" class="px-6 py-4 font-semibold tracking-wider">Tipo</th>
-                            <th scope="col" class="px-6 py-4 font-semibold tracking-wider">Valor</th>
-                            <th scope="col" class="px-6 py-4 font-semibold tracking-wider hidden md:table-cell">Válido</th>
-                            <th scope="col" class="px-6 py-4 font-semibold tracking-wider">Usos</th>
-                            <th scope="col" class="px-6 py-4 font-semibold tracking-wider hidden lg:table-cell">Monto Mín.</th>
-                            <th scope="col" class="px-6 py-4 font-semibold tracking-wider">Estado</th>
-                            <th scope="col" class="px-6 py-4 font-semibold tracking-wider text-right">Acción</th>
+                            <th class="px-6 py-4 acp-label">Código</th>
+                            <th class="px-6 py-4 acp-label">Descuento</th>
+                            <th class="px-6 py-4 acp-label">Vigencia</th>
+                            <th class="px-6 py-4 acp-label">Usos</th>
+                            <th class="px-6 py-4 acp-label hidden xl:table-cell">Categorías</th>
+                            <th class="px-6 py-4 acp-label">Estado</th>
+                            <th class="px-6 py-4 acp-label text-right">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr th:each="c : ${cupones}" th:if="${c != null}" class="bg-white dark:bg-surface-900 border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/80 transition-colors">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="font-mono font-bold text-furent-600 dark:text-furent-400 bg-furent-50 dark:bg-furent-900/30 px-3 py-1.5 rounded-lg border border-furent-100 dark:border-furent-800" th:text="${c.codigo ?: '—'}">CUPON</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-surface-900 dark:text-white font-medium" th:text="${c.tipo ?: '—'}">PORCENTAJE</td>
-                            <td class="px-6 py-4 whitespace-nowrap font-medium text-surface-900 dark:text-surface-200">
-                                <span th:if="${c.tipo == 'PORCENTAJE'}" th:text="${(c.valor != null ? c.valor : 0) + '%'}">10%</span>
-                                <span th:if="${c.tipo != 'PORCENTAJE'}" th:text="${'$' + (c.valor != null ? c.valor : '0')}">$10,000</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-xs hidden md:table-cell">
-                                <span th:text="${(c.validoDesde != null ? c.validoDesde : '—') + ' — ' + (c.validoHasta != null ? c.validoHasta : '—')}">Fechas</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap min-w-[120px]">
-                                <div class="flex items-center gap-3">
-                                    <div class="flex-1 h-2 bg-surface-200 dark:bg-surface-700 rounded-full overflow-hidden">
-                                        <div class="h-full bg-furent-500 rounded-full" th:style="|width: ${c.usosMaximos > 0 ? (c.usosActuales * 100 / c.usosMaximos) : 0}%|"></div>
+                    <tbody class="divide-y divide-surface-100/70 dark:divide-surface-800/60">
+                        <template x-for="c in paginaActual" :key="c.id">
+                            <tr class="acp-row">
+                                <!-- Código + copiar -->
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span class="acp-code" x-text="c.codigo"></span>
+                                        <button type="button" class="acp-icon-btn" @click="copiar(c)"
+                                                :aria-label="'Copiar código ' + c.codigo" :title="copiado === c.id ? '¡Copiado!' : 'Copiar código'">
+                                            <svg x-show="copiado !== c.id" class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 8V5.25A2.25 2.25 0 0110.25 3h6.5A2.25 2.25 0 0119 5.25v6.5A2.25 2.25 0 0116.75 14H14M6 10h6.75A2.25 2.25 0 0115 12.25v6.5A2.25 2.25 0 0112.75 21H6a2.25 2.25 0 01-2.25-2.25v-6.5A2.25 2.25 0 016 10z"/></svg>
+                                            <svg x-show="copiado === c.id" x-cloak class="size-4" style="color:#16a34a" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                        </button>
                                     </div>
-                                    <span class="text-xs font-semibold text-surface-900 dark:text-white" th:text="${c.usosActuales + '/' + c.usosMaximos}">0/100</span>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap font-medium hidden lg:table-cell">
-                                <span th:text="${'$' + (c.montoMinimo != null ? c.montoMinimo : '0')}">$0</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span th:if="${c.activo}" class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200/50 dark:border-green-800/50 shadow-sm">Activo</span>
-                                <span th:unless="${c.activo}" class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200/50 dark:border-red-800/50 shadow-sm">Inactivo</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right">
-                                <div class="flex items-center justify-end gap-5">
-                                    <button class="font-bold text-furent-500 hover:text-furent-600 dark:text-furent-400 dark:hover:text-furent-300 transition-colors focus:outline-none btn-edit-coupon"
-                                            th:data-id="${c.id}"
-                                            th:data-codigo="${c.codigo ?: ''}"
-                                            th:data-tipo="${c.tipo ?: 'PORCENTAJE'}"
-                                            th:data-valor="${c.valor != null ? c.valor : 0}"
-                                            th:data-desde="${c.validoDesde != null ? c.validoDesde : ''}"
-                                            th:data-hasta="${c.validoHasta != null ? c.validoHasta : ''}"
-                                            th:data-usos="${c.usosMaximos}"
-                                            th:data-montomin="${c.montoMinimo != null ? c.montoMinimo : 0}">
-                                        Editar
-                                    </button>
-                                    <button type="button" class="font-bold text-[#E94B4B] hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors focus:outline-none" th:data-id="${c.id}" th:data-codigo="${c.codigo}" onclick="openDeleteModal(this.getAttribute('data-id'), this.getAttribute('data-codigo'))">
-                                        Eliminar
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
+                                </td>
+                                <!-- Descuento -->
+                                <td class="px-6 py-4">
+                                    <span class="block text-sm font-black text-surface-900 dark:text-white acp-tabular" x-text="textoValor(c)"></span>
+                                    <span class="block text-[11px] font-semibold text-surface-400 mt-0.5" x-text="c.tipo === 'PORCENTAJE' ? 'Porcentaje' : 'Monto fijo'"></span>
+                                </td>
+                                <!-- Vigencia -->
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex" :class="'acp-pill ' + pillEstado(c)">
+                                        <span class="acp-dot"></span><span x-text="etiquetaEstado(c)"></span>
+                                    </span>
+                                    <span class="block text-[11px] font-semibold text-surface-400 mt-1.5 acp-tabular"
+                                          x-text="fecha(c.validoDesde) + ' → ' + fecha(c.validoHasta)"></span>
+                                </td>
+                                <!-- Usos -->
+                                <td class="px-6 py-4">
+                                    <div class="w-36">
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <span class="text-xs font-black text-surface-900 dark:text-white acp-tabular"
+                                                  x-text="c.usosMaximos > 0 ? (c.usosActuales + ' / ' + c.usosMaximos) : (c.usosActuales + ' usos')"></span>
+                                            <span class="text-[10px] font-bold text-surface-400 acp-tabular"
+                                                  x-text="c.usosMaximos > 0 ? (usosPct(c) + '%') : '∞'"></span>
+                                        </div>
+                                        <div class="acp-bar">
+                                            <div class="acp-bar__fill" :class="barClase(c)" :style="'width:' + usosPct(c) + '%'"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <!-- Categorías -->
+                                <td class="px-6 py-4 hidden xl:table-cell">
+                                    <div class="flex flex-wrap items-center gap-1 max-w-[15rem]">
+                                        <template x-for="cat in catsVisibles(c)" :key="cat">
+                                            <span class="acp-cat" x-text="cat"></span>
+                                        </template>
+                                        <span class="acp-cat" x-show="catsExtra(c) > 0" x-text="'+' + catsExtra(c)"></span>
+                                        <span class="text-[11px] font-semibold text-surface-400" x-show="!c.categoriasAplicables || c.categoriasAplicables.length === 0">
+                                            Todo el catálogo
+                                        </span>
+                                    </div>
+                                </td>
+                                <!-- Estado -->
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2.5">
+                                        <button type="button" role="switch" :aria-checked="c.activo ? 'true' : 'false'"
+                                                :aria-label="(c.activo ? 'Pausar' : 'Activar') + ' ' + c.codigo"
+                                                @click="alternarActivo(c)" :disabled="toggling[c.id]"
+                                                class="acp-switch" :class="{ 'is-on': c.activo }">
+                                            <span class="acp-switch__dot"></span>
+                                        </button>
+                                        <span class="text-[11px] font-bold" :class="c.activo ? 'text-surface-500 dark:text-surface-400' : 'text-surface-400'" x-text="c.activo ? 'Activo' : 'Pausado'"></span>
+                                    </div>
+                                </td>
+                                <!-- Acciones -->
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center justify-end gap-1">
+                                        <button type="button" class="acp-icon-btn" @click="abrirEditar(c)" :aria-label="'Editar ' + c.codigo" title="Editar">
+                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+                                        </button>
+                                        <button type="button" class="acp-icon-btn" @click="duplicar(c)" :aria-label="'Duplicar ' + c.codigo" title="Duplicar">
+                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75V18a1.5 1.5 0 01-1.5 1.5H6A1.5 1.5 0 014.5 18v-8.25a1.5 1.5 0 011.5-1.5h2.25m3.75-3.75h5.25a1.5 1.5 0 011.5 1.5v5.25a1.5 1.5 0 01-1.5 1.5h-5.25a1.5 1.5 0 01-1.5-1.5V7.5a1.5 1.5 0 011.5-1.5zm3.75 3.75h.008v.008h-.008V11.25z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 8.25v-.75a1.5 1.5 0 00-1.5-1.5H8.25a1.5 1.5 0 00-1.5 1.5v6a1.5 1.5 0 001.5 1.5h.75"/></svg>
+                                        </button>
+                                        <button type="button" class="acp-icon-btn is-danger" @click="abrirEliminar(c)" :aria-label="'Eliminar ' + c.codigo" title="Eliminar">
+                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
                     </tbody>
                 </table>
             </div>
-        </div>
 
-        <!-- Empty State -->
-        <div th:if="${cupones == null or cupones.isEmpty()}" class="px-10 mt-6">
-            <div class="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-700 p-12 text-center shadow-sm">
-                <svg class="w-16 h-16 mx-auto text-surface-300 dark:text-surface-600 mb-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 4.5h.008v.008h-.008V13.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
-                <h3 class="text-lg font-semibold text-surface-700 dark:text-surface-300">No hay cupones creados</h3>
-                <p class="text-surface-400 dark:text-surface-500 mt-1">Crea tu primer cupón de descuento con el botón de "Nuevo Cupón"</p>
+            <!-- Sin resultados de filtro -->
+            <div x-show="filtrados.length === 0" class="px-8 py-16 text-center border-t border-surface-100 dark:border-surface-800">
+                <span class="mx-auto flex size-12 items-center justify-center rounded-xl bg-surface-100 dark:bg-surface-800 text-surface-400">
+                    <svg class="size-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                </span>
+                <h3 class="text-sm font-black text-surface-900 dark:text-white mt-4">Ningún cupón coincide</h3>
+                <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-1.5">Prueba con otro texto o quita los filtros de estado y tipo.</p>
+                <button type="button" @click="limpiarFiltros()"
+                        class="acp-btn-ghost inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest mt-5">
+                    Limpiar filtros
+                </button>
             </div>
-        </div>
 
-        <!-- Coupon Modal (TailwindPlus Style) -->
-        <div id="couponModal" tabindex="-1" aria-hidden="true" class="fixed inset-0 bg-surface-900/60 backdrop-blur-sm z-[100] hidden items-center justify-center transition-opacity fade-in">
-            <div class="relative w-full max-w-lg mx-4">
-                <!-- Modal content -->
-                <div class="relative bg-white dark:bg-surface-800 rounded-[28px] shadow-2xl p-8 transform transition-all fade-in-up">
-                    
-                    <!-- Modal header -->
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 id="couponModalTitle" class="text-2xl font-bold text-surface-900 dark:text-white tracking-tight">
-                            Nuevo Cupón
-                        </h3>
-                    </div>
-                    
-                    <!-- Modal body -->
-                    <form th:action="@{/admin/cupones/guardar}" method="post" class="space-y-4">
-                        <input type="hidden" id="couponId" name="id">
-                        
+            <!-- Paginación -->
+            <div x-show="filtrados.length > 0" class="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-surface-100 dark:border-surface-800">
+                <p class="text-[11px] font-bold text-surface-400 acp-tabular"
+                   x-text="'Mostrando ' + rangoInicio + '–' + rangoFin + ' de ' + filtrados.length"></p>
+                <div class="flex items-center gap-1">
+                    <button type="button" class="acp-icon-btn" :disabled="pagina <= 1" @click="irA(pagina - 1)" aria-label="Página anterior">
+                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
+                    </button>
+                    <template x-for="(p, idx) in paginasVisibles" :key="'pg' + idx">
+                        <button type="button" :disabled="p.gap" @click="irA(p.v)"
+                                class="min-w-8 h-8 px-2 rounded-lg text-xs font-black acp-tabular transition-colors"
+                                :class="p.gap ? 'text-surface-400 cursor-default' : (pagina === p.v ? 'bg-furent-500 text-white' : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800')"
+                                :aria-current="pagina === p.v ? 'page' : false" x-text="p.v"></button>
+                    </template>
+                    <button type="button" class="acp-icon-btn" :disabled="pagina >= totalPaginas" @click="irA(pagina + 1)" aria-label="Página siguiente">
+                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================ Modal: crear / editar ============================ -->
+        <dialog id="acp-form" class="acp-modal" x-ref="formDialog" @click="cerrarSiFondo($event)" aria-labelledby="acp-form-title">
+            <div class="acp-modal__card w-[min(38rem,calc(100vw-1.5rem))] bg-white dark:bg-[#131316] rounded-3xl border border-surface-100 dark:border-surface-700 shadow-glass overflow-hidden">
+                <form th:action="@{/admin/cupones/guardar}" method="post" @submit="validar($event)">
+                    <input type="hidden" name="id" :value="form.id">
+                    <input type="hidden" name="tipo" :value="form.tipo">
+                    <input type="hidden" name="activo" :value="form.activo ? 'true' : 'false'">
+
+                    <header class="flex items-start justify-between gap-4 px-6 pt-6 pb-5 border-b border-surface-100 dark:border-surface-800">
                         <div>
-                            <label for="couponCodigo" class="block text-[13px] font-semibold text-surface-600 dark:text-surface-300 mb-1.5">Código</label>
-                            <input type="text" id="couponCodigo" name="codigo" required placeholder="EJ. DESCUENTO20"
-                                   class="block w-full px-4 py-3 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-furent-500 focus:border-furent-500 placeholder:text-surface-400 font-medium transition-colors shadow-sm uppercase">
+                            <h2 id="acp-form-title" class="text-base font-black text-surface-900 dark:text-white leading-none" x-text="tituloForm"></h2>
+                            <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-1.5">Un código, una vigencia y a quién aplica.</p>
                         </div>
-                        
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label for="couponTipo" class="block text-[13px] font-semibold text-surface-600 dark:text-surface-300 mb-1.5">Tipo</label>
-                                <select id="couponTipo" name="tipo" class="block w-full px-4 py-3 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-furent-500 focus:border-furent-500 font-medium transition-colors shadow-sm">
-                                    <option value="PORCENTAJE">Porcentaje (%)</option>
-                                    <option value="MONTO_FIJO">Monto Fijo ($)</option>
-                                </select>
+                        <button type="button" @click="cerrarForm()" aria-label="Cerrar"
+                                class="acp-icon-btn shrink-0">
+                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                        </button>
+                    </header>
+
+                    <div class="px-6 py-5 space-y-5 max-h-[68vh] overflow-y-auto">
+                        <!-- Código -->
+                        <div>
+                            <label for="acp-codigo" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Código del cupón</label>
+                            <div class="relative">
+                                <input id="acp-codigo" name="codigo" type="text" x-model="form.codigo" @input="form.codigo = form.codigo.toUpperCase()"
+                                       class="acp-field font-mono tracking-wide" :class="{'is-bad': errores.codigo}" placeholder="VERANO25" autocomplete="off" spellcheck="false">
                             </div>
-                            <div>
-                                <label for="couponValor" class="block text-[13px] font-semibold text-surface-600 dark:text-surface-300 mb-1.5">Valor</label>
-                                <input type="number" step="0.01" id="couponValor" name="valor" required
-                                       class="block w-full px-4 py-3 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-furent-500 focus:border-furent-500 placeholder:text-surface-400 font-medium transition-colors shadow-sm">
-                            </div>
+                            <p class="acp-err" x-show="errores.codigo" x-text="errores.codigo"></p>
+                            <p class="text-[11px] font-medium text-surface-400 mt-1.5">Se guarda en mayúsculas. Debe ser único.</p>
                         </div>
-                        
-                        <div class="grid grid-cols-2 gap-4">
+
+                        <!-- Tipo + valor -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label for="couponDesde" class="block text-[13px] font-semibold text-surface-600 dark:text-surface-300 mb-1.5">Válido desde</label>
-                                <div class="relative">
-                                    <input type="date" id="couponDesde" name="validoDesde" required
-                                           class="block w-full px-4 py-3 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-furent-500 focus:border-furent-500 font-medium transition-colors shadow-sm [color-scheme:light] dark:[color-scheme:dark]">
+                                <span class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Tipo de descuento</span>
+                                <div class="acp-seg w-full" role="group" aria-label="Tipo de descuento">
+                                    <button type="button" class="acp-seg__btn flex-1" :aria-pressed="form.tipo === 'PORCENTAJE'" @click="form.tipo = 'PORCENTAJE'">Porcentaje</button>
+                                    <button type="button" class="acp-seg__btn flex-1" :aria-pressed="form.tipo === 'MONTO_FIJO'" @click="form.tipo = 'MONTO_FIJO'">Monto fijo</button>
                                 </div>
                             </div>
                             <div>
-                                <label for="couponHasta" class="block text-[13px] font-semibold text-surface-600 dark:text-surface-300 mb-1.5">Válido hasta</label>
+                                <label for="acp-valor" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide" x-text="form.tipo === 'PORCENTAJE' ? 'Porcentaje' : 'Monto'"></label>
                                 <div class="relative">
-                                    <input type="date" id="couponHasta" name="validoHasta" required
-                                           class="block w-full px-4 py-3 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-furent-500 focus:border-furent-500 font-medium transition-colors shadow-sm [color-scheme:light] dark:[color-scheme:dark]">
+                                    <input id="acp-valor" name="valor" type="number" step="0.01" min="0" x-model.number="form.valor"
+                                           class="acp-field acp-field-pr acp-tabular" :class="{'is-bad': errores.valor}">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-surface-400" x-text="form.tipo === 'PORCENTAJE' ? '%' : '$'"></span>
                                 </div>
+                                <p class="acp-err" x-show="errores.valor" x-text="errores.valor"></p>
                             </div>
                         </div>
-                        
-                        <div class="grid grid-cols-2 gap-4">
+
+                        <!-- Vigencia -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label for="couponUsos" class="block text-[13px] font-semibold text-surface-600 dark:text-surface-300 mb-1.5">Usos máximos</label>
-                                <input type="number" id="couponUsos" name="usosMaximos" required value="100"
-                                       class="block w-full px-4 py-3 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-furent-500 focus:border-furent-500 font-medium transition-colors shadow-sm">
+                                <label for="acp-desde" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Válido desde</label>
+                                <input id="acp-desde" name="validoDesde" type="date" x-model="form.validoDesde"
+                                       class="acp-field acp-tabular [color-scheme:light] dark:[color-scheme:dark]" :class="{'is-bad': errores.desde}">
+                                <p class="acp-err" x-show="errores.desde" x-text="errores.desde"></p>
                             </div>
                             <div>
-                                <label for="couponMontoMin" class="block text-[13px] font-semibold text-surface-600 dark:text-surface-300 mb-1.5">Monto mínimo ($)</label>
-                                <input type="number" step="0.01" id="couponMontoMin" name="montoMinimo" value="0"
-                                       class="block w-full px-4 py-3 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 text-surface-900 dark:text-white sm:text-sm rounded-xl focus:ring-furent-500 focus:border-furent-500 font-medium transition-colors shadow-sm">
+                                <label for="acp-hasta" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Válido hasta</label>
+                                <input id="acp-hasta" name="validoHasta" type="date" x-model="form.validoHasta"
+                                       class="acp-field acp-tabular [color-scheme:light] dark:[color-scheme:dark]" :class="{'is-bad': errores.hasta}">
+                                <p class="acp-err" x-show="errores.hasta" x-text="errores.hasta"></p>
                             </div>
                         </div>
-                        
-                        <!-- Modal footer -->
-                        <div class="flex items-center gap-3 pt-6 mt-6 border-t border-surface-100 dark:border-surface-700 mb-2">
-                            <button type="button" onclick="closeCouponModal()" class="flex-1 px-5 py-3.5 bg-surface-50 hover:bg-surface-100 dark:bg-surface-700 dark:hover:bg-surface-600 text-surface-800 dark:text-white font-semibold rounded-xl text-[15px] transition-colors focus:ring-4 focus:ring-surface-200 dark:focus:ring-surface-600 outline-none">
-                                Cancelar
-                            </button>
-                            <button type="submit" class="flex-1 px-5 py-3.5 bg-furent-500 hover:bg-furent-600 text-white font-semibold rounded-xl text-[15px] shadow-lg shadow-furent-500/30 transition-all focus:ring-4 focus:ring-furent-500/50 outline-none">
-                                Guardar Cupón
-                            </button>
+
+                        <!-- Usos + monto mínimo -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div>
+                                <label for="acp-usos" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Usos máximos</label>
+                                <input id="acp-usos" name="usosMaximos" type="number" min="0" step="1" x-model.number="form.usosMaximos"
+                                       class="acp-field acp-tabular" :class="{'is-bad': errores.usos}">
+                                <p class="acp-err" x-show="errores.usos" x-text="errores.usos"></p>
+                                <p class="text-[11px] font-medium text-surface-400 mt-1.5">0 = sin límite.</p>
+                            </div>
+                            <div>
+                                <label for="acp-monto" class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-1.5 uppercase tracking-wide">Compra mínima ($)</label>
+                                <input id="acp-monto" name="montoMinimo" type="number" min="0" step="0.01" x-model.number="form.montoMinimo"
+                                       class="acp-field acp-tabular" :class="{'is-bad': errores.monto}">
+                                <p class="acp-err" x-show="errores.monto" x-text="errores.monto"></p>
+                            </div>
                         </div>
+
+                        <!-- Categorías -->
+                        <div>
+                            <span class="block text-[11px] font-black text-surface-600 dark:text-surface-300 mb-2 uppercase tracking-wide">Categorías aplicables</span>
+                            <div class="flex flex-wrap gap-2" x-show="categorias.length > 0">
+                                <template x-for="cat in categorias" :key="cat">
+                                    <label class="acp-chip" :class="{ 'is-on': form.categoriasAplicables.includes(cat) }">
+                                        <input type="checkbox" name="categoriasAplicables" :value="cat" x-model="form.categoriasAplicables" class="sr-only">
+                                        <span x-text="cat"></span>
+                                    </label>
+                                </template>
+                            </div>
+                            <p class="text-[11px] font-medium text-surface-400" x-show="categorias.length === 0">No hay categorías en el catálogo.</p>
+                            <p class="text-[11px] font-medium text-surface-400 mt-2" x-show="form.categoriasAplicables.length === 0">Sin categorías seleccionadas, el cupón aplica a <strong class="font-black text-surface-500 dark:text-surface-300">todo el catálogo</strong>.</p>
+                        </div>
+
+                        <!-- Activo -->
+                        <label class="flex items-center justify-between gap-4 p-3.5 rounded-2xl border border-surface-200 dark:border-surface-700 cursor-pointer">
+                            <span>
+                                <span class="block text-sm font-bold text-surface-800 dark:text-surface-200">Cupón activo</span>
+                                <span class="block text-xs font-medium text-surface-500 dark:text-surface-400 mt-0.5">Los cupones pausados no se pueden canjear.</span>
+                            </span>
+                            <button type="button" role="switch" :aria-checked="form.activo ? 'true' : 'false'" aria-label="Activar cupón"
+                                    @click="form.activo = !form.activo" class="acp-switch shrink-0" :class="{ 'is-on': form.activo }">
+                                <span class="acp-switch__dot"></span>
+                            </button>
+                        </label>
+
+                        <!-- Vista previa -->
+                        <div class="acp-preview" x-show="form.codigo">
+                            <div class="flex items-center gap-2">
+                                <span class="acp-code" x-text="form.codigo || 'CÓDIGO'"></span>
+                                <span class="acp-pill acp-pill-accent">Vista previa</span>
+                            </div>
+                            <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-2.5" x-text="resumenForm"></p>
+                        </div>
+                    </div>
+
+                    <footer class="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-surface-100 dark:border-surface-800">
+                        <button type="button" @click="cerrarForm()"
+                                class="acp-btn-ghost px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest">Cancelar</button>
+                        <button type="submit" :disabled="guardando"
+                                class="acp-btn-accent px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-60">
+                            <span x-text="guardando ? 'Guardando...' : (form.id ? 'Guardar cambios' : 'Crear cupón')"></span>
+                        </button>
+                    </footer>
+                </form>
+            </div>
+        </dialog>
+
+        <!-- ============================ Modal: eliminar ============================ -->
+        <dialog id="acp-del" class="acp-modal" x-ref="delDialog" @click="cerrarSiFondo($event)" aria-labelledby="acp-del-title">
+            <div class="acp-modal__card w-[min(26rem,calc(100vw-1.5rem))] bg-white dark:bg-[#131316] rounded-3xl border border-surface-100 dark:border-surface-700 shadow-glass overflow-hidden">
+                <div class="px-7 pt-8 pb-5 text-center">
+                    <span class="mx-auto flex size-14 items-center justify-center rounded-2xl" style="background:#fef2f2;color:#dc2626">
+                        <svg class="size-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </span>
+                    <h2 id="acp-del-title" class="text-lg font-black text-surface-900 dark:text-white mt-4">Eliminar cupón</h2>
+                    <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-2">
+                        ¿Seguro que quieres eliminar el cupón
+                        <strong class="font-black text-surface-800 dark:text-surface-200" x-text="del.codigo"></strong>?
+                        Esta acción no se puede deshacer.
+                    </p>
+                </div>
+                <div class="flex items-center gap-3 px-7 pb-7">
+                    <button type="button" @click="cerrarEliminar()"
+                            class="acp-btn-ghost flex-1 px-5 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest">Cancelar</button>
+                    <form :action="urlEliminar" method="post" class="flex-1">
+                        <button type="submit" class="acp-btn-danger w-full px-5 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest">Eliminar</button>
                     </form>
                 </div>
             </div>
-        </div>
+        </dialog>
 
-        <!-- Delete Confirmation Modal (TailwindPlus) -->
-        <div id="deleteCouponModal" tabindex="-1" aria-hidden="true" class="fixed inset-0 bg-surface-900/60 backdrop-blur-sm z-[100] hidden items-center justify-center transition-opacity fade-in">
-            <div class="relative w-full max-w-sm mx-4">
-                <div class="relative bg-white dark:bg-surface-800 rounded-[24px] shadow-2xl p-6 transform transition-all fade-in-up text-center">
-                    
-                    <!-- Icon -->
-                    <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 dark:bg-red-900/40 mb-5">
-                        <svg class="h-8 w-8 text-red-600 dark:text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
+        <!-- Datos serializados para la interfaz -->
+        <script type="application/json" id="acp-data" th:utext="${cuponesJson}">{"cupones":[],"categorias":[]}</script>
+    </div>
 
-                    <!-- Texts -->
-                    <h3 class="text-xl font-bold text-surface-900 dark:text-white mb-2">Eliminar Cupón</h3>
-                    <p class="text-[14px] text-surface-500 dark:text-surface-400 mb-6">
-                        ¿Estás seguro de que deseas eliminar el cupón <strong id="deleteCouponCode" class="font-bold text-surface-800 dark:text-surface-200"></strong>? Esta acción no se puede deshacer.
-                    </p>
+    <script th:inline="none">
+        function cuponesPage() {
+            return {
+                base: '',
+                cupones: [],
+                categorias: [],
+                filtroTexto: '',
+                filtroEstado: 'todos',
+                filtroTipo: 'todos',
+                orden: 'recientes',
+                pagina: 1,
+                porPagina: 8,
+                copiado: '',
+                guardando: false,
+                toggling: {},
+                errores: {},
+                del: { id: '', codigo: '' },
+                form: {
+                    id: '', codigo: '', tipo: 'PORCENTAJE', valor: 10,
+                    validoDesde: '', validoHasta: '', usosMaximos: 100, montoMinimo: 0,
+                    activo: true, categoriasAplicables: []
+                },
 
-                    <!-- Form Buttons -->
-                    <div class="flex items-center gap-3">
-                        <button type="button" onclick="closeDeleteModal()" class="flex-1 px-4 py-3 bg-surface-50 hover:bg-surface-100 dark:bg-surface-700 dark:hover:bg-surface-600 text-surface-800 dark:text-white font-semibold rounded-xl transition-colors focus:ring-4 focus:ring-surface-200 dark:focus:ring-surface-600 outline-none text-sm">
-                            Cancelar
-                        </button>
-                        <form id="deleteCouponForm" th:action="@{/admin/cupones/eliminar/0}" method="post" class="flex-1">
-                            <button type="submit" class="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl text-sm transition-colors focus:ring-4 focus:ring-red-500/50 outline-none">
-                                Eliminar
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <script th:inline="none">
-            $(document).ready(function() {
-                var table = $('#couponTable').DataTable({
-                    language: {
-                        "sProcessing":     "Procesando...",
-                        "sLengthMenu":     "Mostrar _MENU_ registros",
-                        "sZeroRecords":    "No se encontraron resultados",
-                        "sEmptyTable":     "Ningún cupón disponible",
-                        "sInfo":           "Mostrando del _START_ al _END_ de _TOTAL_ cupones",
-                        "sInfoEmpty":      "Mostrando del 0 al 0 de 0 cupones",
-                        "sInfoFiltered":   "(filtrado de _MAX_ cupones en total)",
-                        "sSearch":         "Buscar:",
-                        "sLoadingRecords": "Cargando...",
-                        "oPaginate": {
-                            "sFirst":    "Primero",
-                            "sLast":     "Último",
-                            "sNext":     "Siguiente",
-                            "sPrevious": "Anterior"
-                        }
-                    },
-                    pageLength: 10,
-                    order: [[3, 'desc']],
-                    dom: '<"overflow-x-auto"t><"p-4 border-t border-surface-200 dark:border-surface-700 flex flex-col md:flex-row shadow-inner items-center justify-between"p>',
-                    ordering: true,
-                    info: false
-                });
-
-                // Flowbite Custom Input Search binding
-                $('#couponSearchInput').on('keyup', function() {
-                    table.search(this.value).draw();
-                });
-
-                // Toggle Dropdown Filter Menu
-                $('#dropdownDefaultButton').on('click', function(e) {
-                    e.stopPropagation();
-                    $('#dropdownFilter').toggleClass('hidden');
-                });
-
-                // Flowbite Custom Button Filter binding
-                $('.filter-btn').on('click', function(e) {
-                    e.preventDefault();
-                    var filter = $(this).data('filter');
-                    table.search(filter).draw();
-                    $('#dropdownFilter').addClass('hidden');
-                });
-
-                $(document).on('click', function(e) {
-                    if (!$(e.target).closest('#dropdownDefaultButton, #dropdownFilter').length) {
-                        $('#dropdownFilter').addClass('hidden');
+                init() {
+                    this.base = location.pathname.replace(/\/+$/, '');
+                    var raw = {};
+                    try {
+                        raw = JSON.parse(document.getElementById('acp-data').textContent || '{}');
+                    } catch (e) {
+                        raw = {};
                     }
-                });
+                    this.cupones = raw.cupones || [];
+                    var base = raw.categorias || [];
+                    // Sumamos cualquier categoría referida por un cupón y ausente del catálogo.
+                    this.cupones.forEach(function (c) {
+                        (c.categoriasAplicables || []).forEach(function (cat) {
+                            if (cat && base.indexOf(cat) < 0) base.push(cat);
+                        });
+                    });
+                    this.categorias = base.sort();
+                },
 
-                $(document).on('click', '.btn-edit-coupon', function() {
-                    var btn = $(this);
-                    editCoupon(
-                        btn.data('id'),
-                        btn.data('codigo'),
-                        btn.data('tipo'),
-                        btn.data('valor'),
-                        btn.data('desde'),
-                        btn.data('hasta'),
-                        btn.data('usos'),
-                        btn.data('montomin')
-                    );
-                });
-            });
+                // ── Utilidades de fecha ──
+                hoy() {
+                    var d = new Date();
+                    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                },
+                sumarDias(iso, n) {
+                    var d = new Date(iso + 'T00:00:00');
+                    d.setDate(d.getDate() + n);
+                    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                },
+                diasRestantes(c) {
+                    if (!c.validoHasta) return null;
+                    var h = new Date(this.hoy() + 'T00:00:00');
+                    var f = new Date(c.validoHasta + 'T00:00:00');
+                    return Math.round((f - h) / 86400000);
+                },
+                fecha(iso) {
+                    if (!iso) return '—';
+                    var p = String(iso).substring(0, 10).split('-');
+                    return p[2] + '/' + p[1] + '/' + p[0];
+                },
 
-            function openCouponModal() {
-                document.getElementById('couponModalTitle').textContent = 'Nuevo Cupón';
-                document.getElementById('couponId').value = '';
-                document.getElementById('couponCodigo').value = '';
-                document.getElementById('couponTipo').value = 'PORCENTAJE';
-                document.getElementById('couponValor').value = '';
-                document.getElementById('couponDesde').value = '';
-                document.getElementById('couponHasta').value = '';
-                document.getElementById('couponUsos').value = '100';
-                document.getElementById('couponMontoMin').value = '0';
-                document.getElementById('couponModal').classList.remove('hidden');
-                document.getElementById('couponModal').classList.add('flex');
-            }
+                // ── Estado del cupón ──
+                estado(c) {
+                    if (!c.activo) return 'pausado';
+                    var h = this.hoy();
+                    if (c.validoDesde && h < c.validoDesde) return 'programado';
+                    if (c.validoHasta && h > c.validoHasta) return 'caducado';
+                    if (c.usosMaximos > 0 && c.usosActuales >= c.usosMaximos) return 'agotado';
+                    var d = this.diasRestantes(c);
+                    if (d !== null && d >= 0 && d <= 7) return 'por_vencer';
+                    return 'vigente';
+                },
+                etiquetaEstado(c) {
+                    return {
+                        vigente: 'Vigente', por_vencer: 'Por vencer', programado: 'Programado',
+                        agotado: 'Agotado', caducado: 'Caducado', pausado: 'Pausado'
+                    }[this.estado(c)] || 'Vigente';
+                },
+                pillEstado(c) {
+                    return {
+                        vigente: 'acp-pill-ok', por_vencer: 'acp-pill-warn', programado: 'acp-pill-accent',
+                        agotado: 'acp-pill-stop', caducado: 'acp-pill-mute', pausado: 'acp-pill-mute'
+                    }[this.estado(c)] || 'acp-pill-mute';
+                },
 
-            function editCoupon(id, codigo, tipo, valor, desde, hasta, usos, montoMin) {
-                document.getElementById('couponModalTitle').textContent = 'Editar Cupón';
-                document.getElementById('couponId').value = id || '';
-                document.getElementById('couponCodigo').value = codigo || '';
-                document.getElementById('couponTipo').value = tipo || 'PORCENTAJE';
-                document.getElementById('couponValor').value = valor || '';
-                document.getElementById('couponDesde').value = desde || '';
-                document.getElementById('couponHasta').value = hasta || '';
-                document.getElementById('couponUsos').value = usos || '100';
-                document.getElementById('couponMontoMin').value = montoMin || '0';
-                document.getElementById('couponModal').classList.remove('hidden');
-                document.getElementById('couponModal').classList.add('flex');
-            }
+                // ── Formato ──
+                money(v) {
+                    if (v == null) v = 0;
+                    return '$ ' + new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Math.round(v));
+                },
+                num(v) {
+                    v = Number(v);
+                    if (v == null || isNaN(v)) v = 0;
+                    return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(v);
+                },
+                textoValor(c) {
+                    if (c.tipo === 'PORCENTAJE') return this.num(c.valor) + '%';
+                    return this.money(c.valor);
+                },
+                usosPct(c) {
+                    if (!c.usosMaximos || c.usosMaximos <= 0) return c.usosActuales > 0 ? 100 : 0;
+                    return Math.min(100, Math.round((c.usosActuales * 100) / c.usosMaximos));
+                },
+                barClase(c) {
+                    var p = this.usosPct(c);
+                    if (p >= 100) return 'is-full';
+                    if (p >= 80) return 'is-warn';
+                    return '';
+                },
+                catsVisibles(c) {
+                    var cats = c.categoriasAplicables || [];
+                    return cats.slice(0, 2);
+                },
+                catsExtra(c) {
+                    var cats = c.categoriasAplicables || [];
+                    return Math.max(0, cats.length - 2);
+                },
 
-            function closeCouponModal() {
-                document.getElementById('couponModal').classList.add('hidden');
-                document.getElementById('couponModal').classList.remove('flex');
-            }
+                // ── KPIs ──
+                get kpi() {
+                    var total = this.cupones.length, activos = 0, pausados = 0, usos = 0, maxUsos = 0, porVencer = 0;
+                    this.cupones.forEach(function (c) {
+                        var e = this.estado(c);
+                        if (!c.activo) pausados++;
+                        if (e === 'vigente' || e === 'por_vencer') activos++;
+                        if (e === 'por_vencer') porVencer++;
+                        usos += c.usosActuales || 0;
+                        if (c.usosMaximos > 0) maxUsos += c.usosMaximos;
+                    }, this);
+                    return { total: total, activos: activos, pausados: pausados, usos: usos, maxUsos: maxUsos, porVencer: porVencer };
+                },
 
-            document.getElementById('couponModal').addEventListener('click', function(e) {
-                if (e.target === this) closeCouponModal();
-            });
+                // ── Filtrado y orden ──
+                get tieneFiltros() {
+                    return !!this.filtroTexto || this.filtroEstado !== 'todos' || this.filtroTipo !== 'todos';
+                },
+                limpiarFiltros() {
+                    this.filtroTexto = '';
+                    this.filtroEstado = 'todos';
+                    this.filtroTipo = 'todos';
+                    this.pagina = 1;
+                },
+                setEstado(v) { this.filtroEstado = v; this.pagina = 1; },
+                get filtrados() {
+                    var q = (this.filtroTexto || '').trim().toLowerCase();
+                    var fe = this.filtroEstado, ft = this.filtroTipo;
+                    var arr = this.cupones.filter(function (c) {
+                        if (q) {
+                            var hay = (c.codigo || '').toLowerCase().indexOf(q) >= 0
+                                || (c.categoriasAplicables || []).join(' ').toLowerCase().indexOf(q) >= 0;
+                            if (!hay) return false;
+                        }
+                        if (ft !== 'todos' && c.tipo !== ft) return false;
+                        if (fe !== 'todos') {
+                            var e = this.estado(c);
+                            if (fe === 'vigentes' && e !== 'vigente' && e !== 'por_vencer') return false;
+                            if (fe === 'programados' && e !== 'programado') return false;
+                            if (fe === 'agotados' && e !== 'agotado') return false;
+                            if (fe === 'caducados' && e !== 'caducado') return false;
+                            if (fe === 'pausados' && e !== 'pausado') return false;
+                        }
+                        return true;
+                    }, this);
 
-            function openDeleteModal(id, codigo) {
-                document.getElementById('deleteCouponCode').textContent = codigo;
-                document.getElementById('deleteCouponForm').action = '/admin/cupones/eliminar/' + id;
-                document.getElementById('deleteCouponModal').classList.remove('hidden');
-                document.getElementById('deleteCouponModal').classList.add('flex');
-            }
+                    var o = this.orden;
+                    arr.sort(function (a, b) {
+                        if (o === 'codigo') return (a.codigo || '').localeCompare(b.codigo || '');
+                        if (o === 'valor') return (Number(b.valor) || 0) - (Number(a.valor) || 0);
+                        if (o === 'usos') return (b.usosActuales || 0) - (a.usosActuales || 0);
+                        if (o === 'vigencia') return (a.validoHasta || '9999').localeCompare(b.validoHasta || '9999');
+                        return (b.validoHasta || '').localeCompare(a.validoHasta || '') || (a.codigo || '').localeCompare(b.codigo || '');
+                    });
+                    return arr;
+                },
 
-            function closeDeleteModal() {
-                document.getElementById('deleteCouponModal').classList.add('hidden');
-                document.getElementById('deleteCouponModal').classList.remove('flex');
-            }
+                // ── Paginación ──
+                get totalPaginas() {
+                    return Math.max(1, Math.ceil(this.filtrados.length / this.porPagina));
+                },
+                get paginaActual() {
+                    var p = Math.min(this.pagina, this.totalPaginas);
+                    var start = (p - 1) * this.porPagina;
+                    return this.filtrados.slice(start, start + this.porPagina);
+                },
+                get rangoInicio() {
+                    if (this.filtrados.length === 0) return 0;
+                    return (Math.min(this.pagina, this.totalPaginas) - 1) * this.porPagina + 1;
+                },
+                get rangoFin() {
+                    return Math.min(this.filtrados.length, Math.min(this.pagina, this.totalPaginas) * this.porPagina);
+                },
+                get paginasVisibles() {
+                    var t = this.totalPaginas, p = Math.min(this.pagina, t), out = [], i;
+                    var push = function (v, gap) { out.push({ v: v, gap: !!gap }); };
+                    if (t <= 7) {
+                        for (i = 1; i <= t; i++) push(i, false);
+                        return out;
+                    }
+                    var start = Math.max(2, p - 1), end = Math.min(t - 1, p + 1);
+                    push(1, false);
+                    if (start > 2) push('…', true);
+                    for (i = start; i <= end; i++) push(i, false);
+                    if (end < t - 1) push('…', true);
+                    push(t, false);
+                    return out;
+                },
+                irA(n) {
+                    if (typeof n !== 'number') return;
+                    if (n < 1 || n > this.totalPaginas) return;
+                    this.pagina = n;
+                },
 
-            document.getElementById('deleteCouponModal').addEventListener('click', function(e) {
-                if (e.target === this) closeDeleteModal();
-            });
-        </script>
-    </main>
+                // ── Alta / edición / duplicado ──
+                get tituloForm() {
+                    if (this.form._copia) return 'Duplicar cupón';
+                    return this.form.id ? 'Editar cupón' : 'Nuevo cupón';
+                },
+                get resumenForm() {
+                    var f = this.form, partes = [];
+                    partes.push(f.tipo === 'PORCENTAJE' ? (this.num(f.valor) + '% de descuento') : ('Descuento de ' + this.money(f.valor)));
+                    partes.push((f.categoriasAplicables && f.categoriasAplicables.length) ? ('en ' + f.categoriasAplicables.join(', ')) : 'en todo el catálogo');
+                    if (Number(f.montoMinimo) > 0) partes.push('desde ' + this.money(f.montoMinimo));
+                    if (f.validoHasta) partes.push('hasta el ' + this.fecha(f.validoHasta));
+                    if (!f.activo) partes.push('(pausado)');
+                    return partes.join(' · ');
+                },
+                abrirNuevo() {
+                    var h = this.hoy();
+                    this.form = {
+                        id: '', codigo: '', tipo: 'PORCENTAJE', valor: 10,
+                        validoDesde: h, validoHasta: this.sumarDias(h, 30), usosMaximos: 100, montoMinimo: 0,
+                        activo: true, categoriasAplicables: [], _copia: false
+                    };
+                    this.errores = {};
+                    this.guardando = false;
+                    this.$refs.formDialog.showModal();
+                },
+                abrirEditar(c) {
+                    this.form = {
+                        id: c.id, codigo: c.codigo || '', tipo: c.tipo || 'PORCENTAJE', valor: Number(c.valor) || 0,
+                        validoDesde: c.validoDesde || '', validoHasta: c.validoHasta || '',
+                        usosMaximos: c.usosMaximos || 0, montoMinimo: Number(c.montoMinimo) || 0,
+                        activo: !!c.activo, categoriasAplicables: (c.categoriasAplicables || []).slice(), _copia: false
+                    };
+                    this.errores = {};
+                    this.guardando = false;
+                    this.$refs.formDialog.showModal();
+                },
+                duplicar(c) {
+                    this.form = {
+                        id: '', codigo: (c.codigo || '') + '-COPIA', tipo: c.tipo || 'PORCENTAJE', valor: Number(c.valor) || 0,
+                        validoDesde: c.validoDesde || this.hoy(), validoHasta: c.validoHasta || '',
+                        usosMaximos: c.usosMaximos || 0, montoMinimo: Number(c.montoMinimo) || 0,
+                        activo: true, categoriasAplicables: (c.categoriasAplicables || []).slice(), _copia: true
+                    };
+                    this.errores = {};
+                    this.guardando = false;
+                    this.$refs.formDialog.showModal();
+                },
+                cerrarForm() { this.$refs.formDialog.close(); },
+
+                validar(e) {
+                    var er = {}, f = this.form;
+                    var cod = (f.codigo || '').trim().toUpperCase();
+                    if (!cod) er.codigo = 'Escribe un código.';
+                    else if (cod.length < 3) er.codigo = 'Mínimo 3 caracteres.';
+                    else {
+                        var dup = this.cupones.some(function (c) { return (c.codigo || '').toUpperCase() === cod && c.id !== f.id; });
+                        if (dup) er.codigo = 'Ese código ya está en uso.';
+                    }
+                    var v = Number(f.valor);
+                    if (!(v > 0)) er.valor = 'Debe ser mayor que cero.';
+                    else if (f.tipo === 'PORCENTAJE' && v > 100) er.valor = 'Máximo 100%.';
+                    if (!f.validoDesde) er.desde = 'Indica la fecha de inicio.';
+                    if (!f.validoHasta) er.hasta = 'Indica la fecha de fin.';
+                    else if (f.validoDesde && f.validoHasta < f.validoDesde) er.hasta = 'No puede ser anterior al inicio.';
+                    if (Number(f.usosMaximos) < 0) er.usos = 'No puede ser negativo.';
+                    if (Number(f.montoMinimo) < 0) er.monto = 'No puede ser negativo.';
+                    this.errores = er;
+                    if (Object.keys(er).length) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    this.guardando = true;
+                    return true;
+                },
+
+                // ── Eliminar ──
+                abrirEliminar(c) {
+                    this.del = { id: c.id, codigo: c.codigo };
+                    this.$refs.delDialog.showModal();
+                },
+                cerrarEliminar() { this.$refs.delDialog.close(); },
+                get urlEliminar() { return this.base + '/eliminar/' + this.del.id; },
+
+                // ── Activar / pausar ──
+                async alternarActivo(c) {
+                    if (this.toggling[c.id]) return;
+                    var nuevo = !c.activo;
+                    this.toggling[c.id] = true;
+                    try {
+                        var headers = {};
+                        var t = document.querySelector('meta[name="_csrf"]');
+                        var h = document.querySelector('meta[name="_csrf_header"]');
+                        if (t && h && t.content && h.content) headers[h.content] = t.content;
+                        var res = await fetch(this.base + '/activar/' + c.id + '?activo=' + nuevo, { method: 'POST', headers: headers });
+                        var data = await res.json();
+                        if (res.ok && data.ok) {
+                            c.activo = nuevo;
+                            if (typeof showToast === 'function') showToast(nuevo ? 'Cupón activado.' : 'Cupón pausado.', nuevo ? 'success' : 'warning');
+                        } else if (typeof showToast === 'function') {
+                            showToast(data.message || 'No se pudo cambiar el estado.', 'error');
+                        }
+                    } catch (err) {
+                        if (typeof showToast === 'function') showToast('No se pudo cambiar el estado.', 'error');
+                    } finally {
+                        this.toggling[c.id] = false;
+                    }
+                },
+
+                // ── Copiar código ──
+                async copiar(c) {
+                    try {
+                        await navigator.clipboard.writeText(c.codigo);
+                    } catch (err) {
+                        var ta = document.createElement('textarea');
+                        ta.value = c.codigo;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+                        ta.remove();
+                    }
+                    this.copiado = c.id;
+                    var self = this;
+                    setTimeout(function () { if (self.copiado === c.id) self.copiado = ''; }, 1600);
+                },
+
+                cerrarSiFondo(e) {
+                    if (e.target === e.currentTarget) e.currentTarget.close();
+                }
+            };
+        }
+    </script>
+</main>
 </body>
 </html>

@@ -87,6 +87,14 @@ public class CouponService {
         return couponRepository.findById(id);
     }
 
+    /** Busca un cupón por su código (sin distinguir mayúsculas). */
+    public Optional<Coupon> getByCodigo(String codigo) {
+        if (codigo == null) {
+            return Optional.empty();
+        }
+        return couponRepository.findByCodigoIgnoreCase(codigo.trim());
+    }
+
     @CacheEvict(value = "coupons", allEntries = true)
     public void delete(String id) {
         couponRepository.deleteById(id);
