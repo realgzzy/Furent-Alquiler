@@ -32,6 +32,11 @@ build/
 ### Node / Tailwind ###
 node_modules/
 
+### Python (optimizador IO) ###
+__pycache__/
+*.pyc
+python/optimizer/.venv/
+
 ### VS Code ###
 .vscode/
 

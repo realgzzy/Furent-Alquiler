@@ -1,65 +1,67 @@
 package com.alquiler.furent.controller.admin;
 
 import com.alquiler.furent.service.FurentOptimizationService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Controlador administrativo para el Módulo de Investigación de Operaciones.
- * Presenta la formulación matemática, la ejecución computacional del modelo MILP
- * y el mecanismo interactivo de asignación de flota y despacho para Furent.
+ * Controlador administrativo del módulo de Investigación de Operaciones.
+ *
+ * Sirve la vista de optimización y expone los dos puntos de comunicación con el
+ * modelo: el resumen de insumos (para pintar la página) y la ejecución del
+ * modelo (que delega en el microservicio Python). La formulación matemática no
+ * vive aquí: esta capa solo prepara y transporta datos.
  */
 @Controller
 @RequestMapping("/admin/optimizacion")
 public class AdminOptimizacionController {
 
     private final FurentOptimizationService optimizationService;
+    private final ObjectMapper objectMapper;
 
-    public AdminOptimizacionController(FurentOptimizationService optimizationService) {
+    public AdminOptimizacionController(FurentOptimizationService optimizationService,
+                                       ObjectMapper objectMapper) {
         this.optimizationService = optimizationService;
+        this.objectMapper = objectMapper;
     }
 
+    /** Vista principal: trae los insumos disponibles para configurar el modelo. */
     @GetMapping("")
     public String optimizacionView(Model model) {
-        Map<String, Object> optData = optimizationService.getOptimizationResults();
-        
-        model.addAttribute("title", "Optimización de Flota MILP — Furent Admin");
+        Map<String, Object> resumen = optimizationService.getResumen();
         model.addAttribute("activeMenu", "optimizacion");
-        model.addAttribute("summary", optData.get("summary"));
-        model.addAttribute("trucks", optData.get("trucks"));
-        model.addAttribute("orders", optData.get("orders"));
-        model.addAttribute("outsourcedOrders", optData.get("outsourcedOrders"));
-        
+        model.addAttribute("resumen", resumen);
+        model.addAttribute("resumenJson", toJson(resumen));
         return "admin/optimizacion";
     }
 
-    /**
-     * Endpoint API REST que evidencia el mecanismo de comunicación entre la aplicación web
-     * y el modelo matemático de Investigación de Operaciones.
-     */
-    @GetMapping("/api/resultados")
+    /** Resumen de insumos (inventario, reservas y horizonte sugerido). */
+    @GetMapping("/api/resumen")
     @ResponseBody
-    public Map<String, Object> getResultadosApi() {
-        return optimizationService.getOptimizationResults();
+    public Map<String, Object> resumen() {
+        return optimizationService.getResumen();
     }
 
-    /**
-     * Re-ejecuta la resolución matemática del modelo MILP y retorna los resultados actualizados.
-     */
-    @PostMapping("/ejecutar")
+    /** Ejecuta el modelo con los supuestos elegidos por el administrador. */
+    @PostMapping("/optimizar")
     @ResponseBody
-    public Map<String, Object> ejecutarOptimizacion() {
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", "SUCCESS");
-        response.put("message", "Modelo MILP resuelto exitosamente mediante algoritmo HiGHS Branch-and-Bound.");
-        response.put("data", optimizationService.getOptimizationResults());
-        return response;
+    public Map<String, Object> optimizar(@RequestBody Map<String, Object> opciones) {
+        return optimizationService.optimizar(opciones);
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception e) {
+            return "{}";
+        }
     }
 }

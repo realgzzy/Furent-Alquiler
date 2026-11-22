@@ -1,283 +1,406 @@
 package com.alquiler.furent.service;
 
+import com.alquiler.furent.config.TenantContext;
+import com.alquiler.furent.model.Product;
+import com.alquiler.furent.model.Reservation;
+import com.alquiler.furent.repository.ProductRepository;
+import com.alquiler.furent.repository.ReservationRepository;
+import com.alquiler.furent.service.optimizacion.PythonOptimizerClient;
 import org.springframework.stereotype.Service;
 
-import java.io.Serializable;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
- * Servicio de Optimización Logística y Asignación de Flota (Investigación de Operaciones).
- * Modela un problema MILP (Mixed-Integer Linear Programming) de empaque multidimensional
- * y asignación de pedidos con costos fijos de activación y opción de tercerización.
+ * Orquestador del módulo de Investigación de Operaciones de Furent.
+ *
+ * Reúne los insumos reales de la base de datos (inventario de mobiliario y
+ * reservas), arma el payload del modelo y delega la resolución en el
+ * microservicio Python. La formulación matemática vive en Python; esta clase
+ * solo prepara los datos y presenta el resultado.
  */
 @Service
 public class FurentOptimizationService {
 
-    public static class TruckDto implements Serializable {
-        private String id;
-        private String nombre;
-        private String placa;
-        private double capacidadVolumen; // m3
-        private double capacidadPeso;    // kg
-        private BigDecimal costoFijo;    // COP
-        private boolean activo;
-        private double volumenOcupado;
-        private double pesoOcupado;
-        private double porcentajeVolumen;
-        private double porcentajePeso;
-        private List<OrderDto> ordenesAsignadas = new ArrayList<>();
+    /** Estados que, por defecto, el modelo puede aceptar o rechazar. */
+    private static final List<String> CANDIDATAS_FALLBACK =
+            List.of("PENDIENTE", "CONFIRMADA", "ENTREGADA", "COMPLETADA");
+    /** Estados que, por defecto, el modelo debe atender siempre. */
+    private static final List<String> COMPROMETIDAS_DEF = List.of();
 
-        public TruckDto(String id, String nombre, String placa, double capacidadVolumen, double capacidadPeso, BigDecimal costoFijo) {
-            this.id = id;
-            this.nombre = nombre;
-            this.placa = placa;
-            this.capacidadVolumen = capacidadVolumen;
-            this.capacidadPeso = capacidadPeso;
-            this.costoFijo = costoFijo;
+    private final ProductRepository productRepository;
+    private final ReservationRepository reservationRepository;
+    private final PythonOptimizerClient optimizer;
+
+    public FurentOptimizationService(ProductRepository productRepository,
+                                     ReservationRepository reservationRepository,
+                                     PythonOptimizerClient optimizer) {
+        this.productRepository = productRepository;
+        this.reservationRepository = reservationRepository;
+        this.optimizer = optimizer;
+    }
+
+    // ─────────────────────────── Resumen (carga inicial de la vista) ───────────────────────────
+
+    /** Datos ligeros para pintar la vista antes de ejecutar el modelo. */
+    public Map<String, Object> getResumen() {
+        String tenant = TenantContext.getCurrentTenant();
+        List<Product> productos = cargarProductos(tenant);
+        List<Reservation> reservas = cargarReservas(tenant);
+        LocalDate hoy = LocalDate.now();
+
+        Set<String> estados = new LinkedHashSet<>();
+        reservas.forEach(r -> {
+            if (r.getEstado() != null && !r.getEstado().isBlank()) {
+                estados.add(r.getEstado());
+            }
+        });
+
+        // Por defecto, todo lo que existe (salvo canceladas) es elegible: el modelo
+        // decide qué aceptar. El administrador puede mover estados a "comprometidas".
+        List<String> candidatasDef = new ArrayList<>();
+        for (String e : estados) {
+            if (!"CANCELADA".equalsIgnoreCase(e)) {
+                candidatasDef.add(e);
+            }
+        }
+        if (candidatasDef.isEmpty()) {
+            candidatasDef.addAll(CANDIDATAS_FALLBACK);
+        }
+        final List<String> candidatasFinal = candidatasDef;
+
+        long candidatas = reservas.stream()
+                .filter(r -> candidatasFinal.contains(r.getEstado())).count();
+        long comprometidas = reservas.stream()
+                .filter(r -> COMPROMETIDAS_DEF.contains(r.getEstado())).count();
+
+        LocalDate minIni = reservas.stream().map(Reservation::getFechaInicio)
+                .filter(Objects::nonNull).min(Comparator.naturalOrder()).orElse(null);
+        LocalDate maxFin = reservas.stream()
+                .map(r -> r.getFechaFin() != null ? r.getFechaFin() : r.getFechaInicio())
+                .filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
+
+        // Horizonte sugerido derivado del rango real de reservas, para que el
+        // modelo siempre tenga datos relevantes que analizar (aunque la base no
+        // esté "al día"). Si no hay reservas, una ventana centrada en hoy.
+        LocalDate desde;
+        LocalDate hasta;
+        if (minIni != null && maxFin != null && !maxFin.isBefore(minIni)) {
+            desde = minIni;
+            hasta = maxFin;
+        } else {
+            desde = hoy.minusDays(30);
+            hasta = hoy.plusDays(30);
         }
 
-        public String getId() { return id; }
-        public String getNombre() { return nombre; }
-        public String getPlaca() { return placa; }
-        public double getCapacidadVolumen() { return capacidadVolumen; }
-        public double getCapacidadPeso() { return capacidadPeso; }
-        public BigDecimal getCostoFijo() { return costoFijo; }
-        public boolean isActivo() { return activo; }
-        public void setActivo(boolean activo) { this.activo = activo; }
-        public double getVolumenOcupado() { return volumenOcupado; }
-        public void setVolumenOcupado(double volumenOcupado) { this.volumenOcupado = volumenOcupado; }
-        public double getPesoOcupado() { return pesoOcupado; }
-        public void setPesoOcupado(double pesoOcupado) { this.pesoOcupado = pesoOcupado; }
-        public double getPorcentajeVolumen() { return porcentajeVolumen; }
-        public void setPorcentajeVolumen(double porcentajeVolumen) { this.porcentajeVolumen = porcentajeVolumen; }
-        public double getPorcentajePeso() { return porcentajePeso; }
-        public void setPorcentajePeso(double porcentajePeso) { this.porcentajePeso = porcentajePeso; }
-        public List<OrderDto> getOrdenesAsignadas() { return ordenesAsignadas; }
-        public void setOrdenesAsignadas(List<OrderDto> ordenesAsignadas) { this.ordenesAsignadas = ordenesAsignadas; }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("disponibleSolver", optimizer.isAvailable());
+        m.put("totalProductos", productos.size());
+        m.put("totalReservas", reservas.size());
+        m.put("candidatas", candidatas);
+        m.put("comprometidas", comprometidas);
+        m.put("estados", new ArrayList<>(estados));
+        m.put("sugeridoDesde", desde.toString());
+        m.put("sugeridoHasta", hasta.toString());
+        m.put("candidatasDef", candidatasDef);
+        m.put("comprometidasDef", COMPROMETIDAS_DEF);
+        return m;
     }
 
-    public static class OrderDto implements Serializable {
-        private String id;
-        private String ciudad;
-        private String tipoEvento;
-        private BigDecimal ingreso;
-        private double volumen; // m3
-        private double peso;    // kg
-        private BigDecimal fleteTercero;
-        private String camionAsignado; // null si es tercerizado
-        private boolean tercerizado;
-
-        public OrderDto(String id, String ciudad, String tipoEvento, BigDecimal ingreso, double volumen, double peso, BigDecimal fleteTercero) {
-            this.id = id;
-            this.ciudad = ciudad;
-            this.tipoEvento = tipoEvento;
-            this.ingreso = ingreso;
-            this.volumen = volumen;
-            this.peso = peso;
-            this.fleteTercero = fleteTercero;
-        }
-
-        public String getId() { return id; }
-        public String getCiudad() { return ciudad; }
-        public String getTipoEvento() { return tipoEvento; }
-        public BigDecimal getIngreso() { return ingreso; }
-        public double getVolumen() { return volumen; }
-        public double getPeso() { return peso; }
-        public BigDecimal getFleteTercero() { return fleteTercero; }
-        public String getCamionAsignado() { return camionAsignado; }
-        public void setCamionAsignado(String camionAsignado) { this.camionAsignado = camionAsignado; }
-        public boolean isTercerizado() { return tercerizado; }
-        public void setTercerizado(boolean tercerizado) { this.tercerizado = tercerizado; }
-    }
-
-    public static class OptimizationSummaryDto implements Serializable {
-        private BigDecimal utilidadOptima;
-        private BigDecimal utilidadEmpirica;
-        private BigDecimal mejoraAbsoluta;
-        private double mejoraPorcentual;
-        private double totalVolumenFlota;
-        private double volumenOcupadoTotal;
-        private double porcentajeVolumenGlobal;
-        private double totalPesoFlota;
-        private double pesoOcupadoTotal;
-        private double porcentajePesoGlobal;
-        private BigDecimal costoFijoTotal;
-        private BigDecimal costoTercerizacionTotal;
-        private int camionesActivos;
-        private int totalCamiones;
-        private int ordenesFlotaPropia;
-        private int ordenesTercerizadas;
-        private double tiempoEjecucionSegundos;
-        private String estadoSolver;
-
-        // Getters and setters
-        public BigDecimal getUtilidadOptima() { return utilidadOptima; }
-        public void setUtilidadOptima(BigDecimal utilidadOptima) { this.utilidadOptima = utilidadOptima; }
-        public BigDecimal getUtilidadEmpirica() { return utilidadEmpirica; }
-        public void setUtilidadEmpirica(BigDecimal utilidadEmpirica) { this.utilidadEmpirica = utilidadEmpirica; }
-        public BigDecimal getMejoraAbsoluta() { return mejoraAbsoluta; }
-        public void setMejoraAbsoluta(BigDecimal mejoraAbsoluta) { this.mejoraAbsoluta = mejoraAbsoluta; }
-        public double getMejoraPorcentual() { return mejoraPorcentual; }
-        public void setMejoraPorcentual(double mejoraPorcentual) { this.mejoraPorcentual = mejoraPorcentual; }
-        public double getTotalVolumenFlota() { return totalVolumenFlota; }
-        public void setTotalVolumenFlota(double totalVolumenFlota) { this.totalVolumenFlota = totalVolumenFlota; }
-        public double getVolumenOcupadoTotal() { return volumenOcupadoTotal; }
-        public void setVolumenOcupadoTotal(double volumenOcupadoTotal) { this.volumenOcupadoTotal = volumenOcupadoTotal; }
-        public double getPorcentajeVolumenGlobal() { return porcentajeVolumenGlobal; }
-        public void setPorcentajeVolumenGlobal(double porcentajeVolumenGlobal) { this.porcentajeVolumenGlobal = porcentajeVolumenGlobal; }
-        public double getTotalPesoFlota() { return totalPesoFlota; }
-        public void setTotalPesoFlota(double totalPesoFlota) { this.totalPesoFlota = totalPesoFlota; }
-        public double getPesoOcupadoTotal() { return pesoOcupadoTotal; }
-        public void setPesoOcupadoTotal(double pesoOcupadoTotal) { this.pesoOcupadoTotal = pesoOcupadoTotal; }
-        public double getPorcentajePesoGlobal() { return porcentajePesoGlobal; }
-        public void setPorcentajePesoGlobal(double porcentajePesoGlobal) { this.porcentajePesoGlobal = porcentajePesoGlobal; }
-        public BigDecimal getCostoFijoTotal() { return costoFijoTotal; }
-        public void setCostoFijoTotal(BigDecimal costoFijoTotal) { this.costoFijoTotal = costoFijoTotal; }
-        public BigDecimal getCostoTercerizacionTotal() { return costoTercerizacionTotal; }
-        public void setCostoTercerizacionTotal(BigDecimal costoTercerizacionTotal) { this.costoTercerizacionTotal = costoTercerizacionTotal; }
-        public int getCamionesActivos() { return camionesActivos; }
-        public void setCamionesActivos(int camionesActivos) { this.camionesActivos = camionesActivos; }
-        public int getTotalCamiones() { return totalCamiones; }
-        public void setTotalCamiones(int totalCamiones) { this.totalCamiones = totalCamiones; }
-        public int getOrdenesFlotaPropia() { return ordenesFlotaPropia; }
-        public void setOrdenesFlotaPropia(int ordenesFlotaPropia) { this.ordenesFlotaPropia = ordenesFlotaPropia; }
-        public int getOrdenesTercerizadas() { return ordenesTercerizadas; }
-        public void setOrdenesTercerizadas(int ordenesTercerizadas) { this.ordenesTercerizadas = ordenesTercerizadas; }
-        public double getTiempoEjecucionSegundos() { return tiempoEjecucionSegundos; }
-        public void setTiempoEjecucionSegundos(double tiempoEjecucionSegundos) { this.tiempoEjecucionSegundos = tiempoEjecucionSegundos; }
-        public String getEstadoSolver() { return estadoSolver; }
-        public void setEstadoSolver(String estadoSolver) { this.estadoSolver = estadoSolver; }
-    }
+    // ─────────────────────────── Ejecución del modelo ───────────────────────────
 
     /**
-     * Devuelve el modelo completo con los resultados del MILP resuelto de forma determinista.
+     * Construye el payload con datos reales y resuelve el modelo en Python.
+     *
+     * @param opciones supuestos editables: desde, hasta, candidatas,
+     *                 comprometidas, costeFactor, maxExtraPct, permitirParcial
      */
-    public Map<String, Object> getOptimizationResults() {
-        // 1. Inicializar Flota de Vehículos
-        List<TruckDto> trucks = Arrays.asList(
-                new TruckDto("CAM-01", "Camión Turbo FTR Carga Pesada", "WKL-412", 45.0, 5000.0, new BigDecimal("380000")),
-                new TruckDto("CAM-02", "Camión Turbo NQR Mediano", "STR-892", 40.0, 4500.0, new BigDecimal("340000")),
-                new TruckDto("CAM-03", "Furgón NPR 5 Toneladas", "TLK-301", 25.0, 3000.0, new BigDecimal("260000")),
-                new TruckDto("CAM-04", "Camión Liviano NPR Reparto", "MNO-771", 20.0, 2500.0, new BigDecimal("210000")),
-                new TruckDto("CAM-05", "Van Carga Urbana N300", "JHY-554", 10.0, 1000.0, new BigDecimal("130000"))
-        );
+    public Map<String, Object> optimizar(Map<String, Object> opciones) {
+        String tenant = TenantContext.getCurrentTenant();
+        LocalDate hoy = LocalDate.now();
 
-        // 2. Inicializar Catálogo de Órdenes a Despachar
-        List<OrderDto> orders = Arrays.asList(
-                new OrderDto("R00001", "Cali", "Grado Corporativo", new BigDecimal("1200000"), 7.50, 380.0, new BigDecimal("120000")),
-                new OrderDto("R00002", "Cali", "Fiesta de Quince", new BigDecimal("950000"), 6.20, 310.0, new BigDecimal("150000")),
-                new OrderDto("R00003", "Medellín", "Matrimonio Campestre", new BigDecimal("2400000"), 14.80, 720.0, new BigDecimal("320000")),
-                new OrderDto("R00004", "Cartagena", "Boda Frente al Mar", new BigDecimal("3100000"), 18.50, 890.0, new BigDecimal("410000")),
-                new OrderDto("R00005", "Bogotá", "Lanzamiento Comercial", new BigDecimal("1850000"), 11.20, 540.0, new BigDecimal("250000")),
-                new OrderDto("R00006", "Barranquilla", "Conferencia Médica", new BigDecimal("1450000"), 8.90, 430.0, new BigDecimal("210000")),
-                new OrderDto("R00007", "Bucaramanga", "Gala Empresarial", new BigDecimal("2800000"), 16.40, 810.0, new BigDecimal("380000")),
-                new OrderDto("R00008", "Pereira", "Celebración Familiar", new BigDecimal("890000"), 5.30, 260.0, new BigDecimal("140000")),
-                new OrderDto("R00009", "Santa Marta", "Aniversario de Bodas", new BigDecimal("2150000"), 12.70, 630.0, new BigDecimal("310000")),
-                new OrderDto("R00010", "Bogotá", "Feria Gastronómica", new BigDecimal("3400000"), 21.00, 1020.0, new BigDecimal("460000")),
-                new OrderDto("R00011", "Medellín", "Coctel Networking", new BigDecimal("1100000"), 6.80, 330.0, new BigDecimal("160000")),
-                new OrderDto("R00012", "Cali", "Congreso Jurídico", new BigDecimal("1750000"), 10.40, 510.0, new BigDecimal("240000")),
-                new OrderDto("R00013", "Barranquilla", "Showroom de Marcas", new BigDecimal("980000"), 5.90, 290.0, new BigDecimal("130000")),
-                new OrderDto("R00014", "Bogotá", "Cumpleaños Temático", new BigDecimal("750000"), 4.50, 220.0, new BigDecimal("110000")),
-                new OrderDto("R00015", "Cartagena", "Cóctel de Bienvenida", new BigDecimal("1300000"), 8.00, 400.0, new BigDecimal("180000"))
-        );
-
-        // 3. Asignación Óptima Matemática (HiGHS Branch & Bound)
-        // CAM-01: R00003 (14.8m3), R00004 (18.5m3), R00011 (6.8m3) -> 40.1 m3 / 45.0 m3
-        // CAM-02: R00007 (16.4m3), R00010 (21.0m3) -> 37.4 m3 / 40.0 m3
-        // CAM-03: R00005 (11.2m3), R00009 (12.7m3) -> 23.9 m3 / 25.0 m3
-        // CAM-04: R00006 (8.9m3), R00012 (10.4m3) -> 19.3 m3 / 20.0 m3
-        // CAM-05: R00008 (5.3m3), R00014 (4.5m3) -> 9.8 m3 / 10.0 m3 (ajuste volumétrico estricto) + R00015 / R00013 en distribución equilibrada
-        // Tercerizados: R00001 ($120,000) y R00002 ($150,000)
-
-        Map<String, String> asignacionOptima = new LinkedHashMap<>();
-        asignacionOptima.put("R00001", null);       // Tercerizado
-        asignacionOptima.put("R00002", null);       // Tercerizado
-        asignacionOptima.put("R00003", "CAM-01");
-        asignacionOptima.put("R00004", "CAM-01");
-        asignacionOptima.put("R00005", "CAM-03");
-        asignacionOptima.put("R00006", "CAM-04");
-        asignacionOptima.put("R00007", "CAM-02");
-        asignacionOptima.put("R00008", "CAM-05");
-        asignacionOptima.put("R00009", "CAM-03");
-        asignacionOptima.put("R00010", "CAM-02");
-        asignacionOptima.put("R00011", "CAM-01");
-        asignacionOptima.put("R00012", "CAM-04");
-        asignacionOptima.put("R00013", "CAM-05");
-        asignacionOptima.put("R00014", "CAM-04");
-        asignacionOptima.put("R00015", "CAM-05");
-
-        // Aplicar asignaciones a pedidos y camiones
-        Map<String, TruckDto> truckMap = new LinkedHashMap<>();
-        for (TruckDto t : trucks) {
-            truckMap.put(t.getId(), t);
+        LocalDate desde = parseFecha(opciones.get("desde"), hoy.minusDays(30));
+        LocalDate hasta = parseFecha(opciones.get("hasta"), hoy.plusDays(30));
+        if (hasta.isBefore(desde)) {
+            LocalDate tmp = desde;
+            desde = hasta;
+            hasta = tmp;
         }
+        List<String> candidatas = listaTexto(opciones.get("candidatas"), CANDIDATAS_FALLBACK);
+        List<String> comprometidas = listaTexto(opciones.get("comprometidas"), COMPROMETIDAS_DEF);
+        double costeFactor = numero(opciones.get("costeFactor"), 3.0);
+        double maxExtraPct = numero(opciones.get("maxExtraPct"), 50.0) / 100.0;
+        boolean permitirParcial = booleano(opciones.get("permitirParcial"));
+        Set<String> estados = new LinkedHashSet<>();
+        estados.addAll(candidatas);
+        estados.addAll(comprometidas);
 
-        List<OrderDto> ordenesTercerizadasList = new ArrayList<>();
+        List<Product> productos = cargarProductos(tenant);
+        List<Reservation> reservas = cargarReservas(tenant);
 
-        for (OrderDto order : orders) {
-            String truckId = asignacionOptima.get(order.getId());
-            if (truckId != null && truckMap.containsKey(truckId)) {
-                order.setCamionAsignado(truckId);
-                order.setTercerizado(false);
-                TruckDto truck = truckMap.get(truckId);
-                truck.getOrdenesAsignadas().add(order);
-                truck.setVolumenOcupado(truck.getVolumenOcupado() + order.getVolumen());
-                truck.setPesoOcupado(truck.getPesoOcupado() + order.getPeso());
-                truck.setActivo(true);
-            } else {
-                order.setCamionAsignado(null);
-                order.setTercerizado(true);
-                ordenesTercerizadasList.add(order);
+        Map<String, Product> porId = new HashMap<>();
+        Map<String, Product> porNombre = new HashMap<>();
+        for (Product p : productos) {
+            if (p.getId() != null) {
+                porId.put(p.getId(), p);
+            }
+            if (p.getNombre() != null) {
+                porNombre.put(normalizar(p.getNombre()), p);
             }
         }
 
-        // Calcular porcentajes por camión
-        for (TruckDto truck : trucks) {
-            double pctVol = (truck.getVolumenOcupado() / truck.getCapacidadVolumen()) * 100.0;
-            double pctPeso = (truck.getPesoOcupado() / truck.getCapacidadPeso()) * 100.0;
-            truck.setPorcentajeVolumen(Math.round(pctVol * 10.0) / 10.0);
-            truck.setPorcentajePeso(Math.round(pctPeso * 10.0) / 10.0);
-            truck.setVolumenOcupado(Math.round(truck.getVolumenOcupado() * 100.0) / 100.0);
-            truck.setPesoOcupado(Math.round(truck.getPesoOcupado() * 100.0) / 100.0);
+        Map<String, Map<String, Object>> usados = new LinkedHashMap<>();
+        List<Map<String, Object>> demands = new ArrayList<>();
+
+        for (Reservation r : reservas) {
+            if (r.getEstado() == null || !estados.contains(r.getEstado())) {
+                continue;
+            }
+            LocalDate ini = r.getFechaInicio();
+            if (ini == null) {
+                continue;
+            }
+            LocalDate fin = r.getFechaFin();
+            if (fin == null || !fin.isAfter(ini)) {
+                fin = ini.plusDays(Math.max(1, r.getDiasAlquiler()));
+            }
+            // El alquiler ocupa [ini, fin). Descartar si no cruza el horizonte.
+            if (ini.isAfter(hasta) || !fin.isAfter(desde)) {
+                continue;
+            }
+
+            List<Map<String, Object>> items = new ArrayList<>();
+            for (Reservation.ItemReserva it : r.getItems()) {
+                if (it == null || it.getCantidad() <= 0) {
+                    continue;
+                }
+                Product p = resolverProducto(it, porId, porNombre);
+                String pid;
+                String nombre;
+                int stock;
+                double precio;
+                if (p != null) {
+                    pid = p.getId();
+                    nombre = p.getNombre();
+                    stock = p.getStock();
+                    precio = decimal(p.getPrecioPorDia());
+                } else {
+                    nombre = it.getProductoNombre() != null ? it.getProductoNombre() : "Producto";
+                    pid = "sin-catalogo-" + normalizarSlug(nombre);
+                    stock = 0;
+                    precio = decimal(it.getPrecioPorDia());
+                }
+                usados.putIfAbsent(pid, productoPayload(pid, nombre, stock, precio));
+                Map<String, Object> itemPayload = new LinkedHashMap<>();
+                itemPayload.put("productId", pid);
+                itemPayload.put("qty", it.getCantidad());
+                items.add(itemPayload);
+            }
+            if (items.isEmpty()) {
+                continue;
+            }
+
+            Map<String, Object> demand = new LinkedHashMap<>();
+            demand.put("id", r.getId());
+            demand.put("codigo", r.getCodigoPagoEfectivo() != null
+                    ? r.getCodigoPagoEfectivo() : r.getId());
+            demand.put("cliente", r.getUsuarioNombre() != null ? r.getUsuarioNombre() : "");
+            demand.put("tipoEvento", r.getTipoEvento() != null ? r.getTipoEvento() : "");
+            demand.put("start", ini.toString());
+            demand.put("end", fin.toString());
+            demand.put("revenue", decimal(r.getTotal() != null ? r.getTotal() : r.getSubtotal()));
+            demand.put("required", comprometidas.contains(r.getEstado()));
+            demand.put("items", items);
+            demands.add(demand);
         }
 
-        // 4. Calcular KPIs Consolidados
-        OptimizationSummaryDto summary = new OptimizationSummaryDto();
-        summary.setUtilidadOptima(new BigDecimal("12680500"));
-        summary.setUtilidadEmpirica(new BigDecimal("10700000"));
-        summary.setMejoraAbsoluta(summary.getUtilidadOptima().subtract(summary.getUtilidadEmpirica()));
-        double mejoraPct = ((12680500.0 - 10700000.0) / 10700000.0) * 100.0;
-        summary.setMejoraPorcentual(Math.round(mejoraPct * 100.0) / 100.0);
+        Map<String, Object> assumptions = new LinkedHashMap<>();
+        assumptions.put("extraUnitCostFactor", costeFactor);
+        assumptions.put("maxExtraPct", maxExtraPct);
+        assumptions.put("maxExtraAbs", 500);
+        assumptions.put("penaltyFactor", 50.0);
+        assumptions.put("allowPartial", permitirParcial);
 
-        summary.setTotalVolumenFlota(140.0);
-        summary.setVolumenOcupadoTotal(139.15);
-        summary.setPorcentajeVolumenGlobal(99.4);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("horizonStart", desde.toString());
+        payload.put("horizonEnd", hasta.toString());
+        payload.put("assumptions", assumptions);
+        payload.put("products", new ArrayList<>(usados.values()));
+        payload.put("demands", demands);
 
-        summary.setTotalPesoFlota(16000.0);
-        summary.setPesoOcupadoTotal(6790.0);
-        summary.setPorcentajePesoGlobal(42.4);
+        Map<String, Object> respuesta;
+        try {
+            respuesta = optimizer.optimize(payload);
+        } catch (PythonOptimizerClient.OptimizerUnavailableException e) {
+            return resultadoSinSolver(e.getMessage(), desde, hasta);
+        }
+        if (respuesta == null) {
+            return resultadoSinSolver("El optimizador no devolvió resultados.", desde, hasta);
+        }
 
-        summary.setCostoFijoTotal(new BigDecimal("1320000"));
-        summary.setCostoTercerizacionTotal(new BigDecimal("270000")); // R00001 (120k) + R00002 (150k)
+        respuesta.put("disponible", true);
+        Map<String, Object> horizonte = new LinkedHashMap<>();
+        horizonte.put("desde", desde.toString());
+        horizonte.put("hasta", hasta.toString());
+        respuesta.put("horizonte", horizonte);
+        respuesta.put("candidatas", candidatas);
+        respuesta.put("comprometidas", comprometidas);
+        respuesta.put("totalInsumosProductos", usados.size());
+        respuesta.put("totalInsumosReservas", demands.size());
+        return respuesta;
+    }
 
-        summary.setCamionesActivos(5);
-        summary.setTotalCamiones(5);
-        summary.setOrdenesFlotaPropia(13);
-        summary.setOrdenesTercerizadas(2);
-        summary.setTiempoEjecucionSegundos(0.04);
-        summary.setEstadoSolver("Óptimo Global Garantizado (HiGHS Branch & Bound)");
+    // ─────────────────────────── Carga de datos ───────────────────────────
 
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("summary", summary);
-        result.put("trucks", trucks);
-        result.put("orders", orders);
-        result.put("outsourcedOrders", ordenesTercerizadasList);
-        return result;
+    private List<Product> cargarProductos(String tenant) {
+        List<Product> out = new ArrayList<>();
+        for (Product p : productRepository.findAll()) {
+            if (coincideTenant(p.getTenantId(), tenant)) {
+                out.add(p);
+            }
+        }
+        return out;
+    }
+
+    private List<Reservation> cargarReservas(String tenant) {
+        List<Reservation> out = new ArrayList<>();
+        for (Reservation r : reservationRepository.findAll()) {
+            if (coincideTenant(r.getTenantId(), tenant)) {
+                out.add(r);
+            }
+        }
+        return out;
+    }
+
+    /** Acepta registros del tenant actual o sin tenant asignado (datos semilla). */
+    private boolean coincideTenant(String valorEntidad, String tenant) {
+        if (tenant == null || tenant.isBlank() || "default".equals(tenant)) {
+            return true;
+        }
+        return valorEntidad == null || valorEntidad.isBlank() || tenant.equals(valorEntidad);
+    }
+
+    // ─────────────────────────── Utilidades ───────────────────────────
+
+    private Product resolverProducto(Reservation.ItemReserva it,
+                                     Map<String, Product> porId, Map<String, Product> porNombre) {
+        if (it.getProductoId() != null) {
+            Product p = porId.get(it.getProductoId());
+            if (p != null) {
+                return p;
+            }
+        }
+        if (it.getProductoNombre() != null) {
+            return porNombre.get(normalizar(it.getProductoNombre()));
+        }
+        return null;
+    }
+
+    private Map<String, Object> productoPayload(String id, String nombre, int stock, double precio) {
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("id", id);
+        p.put("nombre", nombre);
+        p.put("stock", stock);
+        p.put("precioPorDia", precio);
+        return p;
+    }
+
+    private Map<String, Object> resultadoSinSolver(String mensaje, LocalDate desde, LocalDate hasta) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("status", "SIN_SOLVER");
+        m.put("disponible", false);
+        m.put("message", mensaje);
+        m.put("objective", 0.0);
+        m.put("revenue", 0.0);
+        m.put("extraCost", 0.0);
+        m.put("penaltyCost", 0.0);
+        m.put("accepted", List.of());
+        m.put("rejected", List.of());
+        m.put("shortfalls", List.of());
+        m.put("utilization", List.of());
+        m.put("purchases", List.of());
+        m.put("shadowPrices", List.of());
+        m.put("heatmap", null);
+        Map<String, Object> baseline = new LinkedHashMap<>();
+        baseline.put("profit", 0.0);
+        baseline.put("accepted", 0);
+        baseline.put("rejected", 0);
+        m.put("baseline", baseline);
+        Map<String, Object> mejora = new LinkedHashMap<>();
+        mejora.put("absolute", 0.0);
+        mejora.put("pct", 0.0);
+        m.put("improvement", mejora);
+        m.put("solverStatus", "sin conexión");
+        m.put("runtimeMs", 0);
+        Map<String, Object> horizonte = new LinkedHashMap<>();
+        horizonte.put("desde", desde.toString());
+        horizonte.put("hasta", hasta.toString());
+        m.put("horizonte", horizonte);
+        return m;
+    }
+
+    private String normalizar(String s) {
+        return s == null ? "" : s.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizarSlug(String s) {
+        return normalizar(s).replaceAll("[^a-z0-9]+", "-");
+    }
+
+    private double decimal(BigDecimal v) {
+        return v == null ? 0.0 : v.doubleValue();
+    }
+
+    private LocalDate parseFecha(Object valor, LocalDate def) {
+        if (valor == null) {
+            return def;
+        }
+        try {
+            return LocalDate.parse(String.valueOf(valor).substring(0, 10));
+        } catch (DateTimeParseException | StringIndexOutOfBoundsException e) {
+            return def;
+        }
+    }
+
+    private double numero(Object valor, double def) {
+        if (valor instanceof Number n) {
+            return n.doubleValue();
+        }
+        try {
+            return Double.parseDouble(String.valueOf(valor));
+        } catch (NumberFormatException e) {
+            return def;
+        }
+    }
+
+    private boolean booleano(Object valor) {
+        if (valor instanceof Boolean b) {
+            return b;
+        }
+        return valor != null && Boolean.parseBoolean(String.valueOf(valor));
+    }
+
+    private List<String> listaTexto(Object valor, List<String> def) {
+        if (valor instanceof List<?> lista) {
+            List<String> out = new ArrayList<>();
+            for (Object o : lista) {
+                if (o != null && !String.valueOf(o).isBlank()) {
+                    out.add(String.valueOf(o));
+                }
+            }
+            return out;
+        }
+        return def;
     }
 }

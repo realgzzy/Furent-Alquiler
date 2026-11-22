@@ -1,0 +1,28 @@
+{
+  "horizonStart": "2026-11-01",
+  "horizonEnd": "2026-12-31",
+  "assumptions": {
+    "extraUnitCostFactor": 3.0,
+    "maxExtraPct": 0.5,
+    "maxExtraAbs": 500,
+    "penaltyFactor": 50.0,
+    "allowPartial": false
+  },
+  "products": [
+    { "id": "p-silla", "nombre": "Silla Chiavari Dorada", "stock": 150, "precioPorDia": 60000 },
+    { "id": "p-carpa", "nombre": "Carpa Pagoda Premium", "stock": 8, "precioPorDia": 480000 },
+    { "id": "p-mesa", "nombre": "Mesa Redonda Cristal", "stock": 35, "precioPorDia": 180000 }
+  ],
+  "demands": [
+    { "id": "d2", "codigo": "FRNT-B", "cliente": "Empresa ABC", "tipoEvento": "Corporativo", "start": "2026-11-07", "end": "2026-11-08", "revenue": 2600000, "required": false,
+      "items": [ { "productId": "p-silla", "qty": 80 }, { "productId": "p-carpa", "qty": 4 } ] },
+    { "id": "d1", "codigo": "FRNT-A", "cliente": "María García", "tipoEvento": "Boda", "start": "2026-11-07", "end": "2026-11-09", "revenue": 4200000, "required": true,
+      "items": [ { "productId": "p-silla", "qty": 120 }, { "productId": "p-carpa", "qty": 6 }, { "productId": "p-mesa", "qty": 20 } ] },
+    { "id": "d3", "codigo": "FRNT-C", "cliente": "Carlos Rodríguez", "tipoEvento": "Grado", "start": "2026-11-14", "end": "2026-11-16", "revenue": 1800000, "required": false,
+      "items": [ { "productId": "p-silla", "qty": 100 }, { "productId": "p-mesa", "qty": 15 } ] },
+    { "id": "d4", "codigo": "FRNT-D", "cliente": "Laura Díaz", "tipoEvento": "Cumpleaños", "start": "2026-11-14", "end": "2026-11-15", "revenue": 900000, "required": false,
+      "items": [ { "productId": "p-carpa", "qty": 3 }, { "productId": "p-mesa", "qty": 10 } ] },
+    { "id": "d5", "codigo": "FRNT-E", "cliente": "Sofía Herrera", "tipoEvento": "Boda", "start": "2026-11-21", "end": "2026-11-23", "revenue": 5100000, "required": false,
+      "items": [ { "productId": "p-silla", "qty": 130 }, { "productId": "p-carpa", "qty": 7 }, { "productId": "p-mesa", "qty": 24 } ] }
+  ]
+}
