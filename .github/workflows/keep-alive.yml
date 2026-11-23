@@ -1,0 +1,30 @@
+name: Furent Keep-Alive & Health Ping
+
+on:
+  schedule:
+    # Ejecuta cada 10 minutos para evitar que Render entre en reposo (15 min timeout)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Permite ejecución manual desde la pestaña Actions en GitHub
+
+jobs:
+  keep-alive:
+    name: Ping Furent Cloud Service
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Ping Producción (Render)
+        run: |
+          echo "======================================================="
+          echo "🌐 Pinging Furent Production: https://furent-alquiler.onrender.com/login"
+          echo "======================================================="
+          
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "https://furent-alquiler.onrender.com/login")
+          echo "✅ Código de Respuesta HTTP: $STATUS"
+          
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "🚀 El servicio en Render está despierto y respondiendo al instante."
+          else
+            echo "⚠️ Advertencia: Código inusual $STATUS. Reintentando..."
+            curl -s -I "https://furent-alquiler.onrender.com/login" || true
+          fi
