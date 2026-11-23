@@ -5,6 +5,7 @@ import com.alquiler.furent.model.InspirationImage.InspirationPin;
 import com.alquiler.furent.model.Product;
 import com.alquiler.furent.repository.ProductRepository;
 import com.alquiler.furent.service.InspirationService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -13,7 +14,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,6 +27,7 @@ public class AdminInspiracionController {
 
     private final InspirationService inspirationService;
     private final ProductRepository productRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AdminInspiracionController(InspirationService inspirationService,
             ProductRepository productRepository) {
@@ -59,8 +63,70 @@ public class AdminInspiracionController {
         
         model.addAttribute("images", images != null ? images : new java.util.ArrayList<>());
         model.addAttribute("products", products != null ? products : new java.util.ArrayList<>());
+        model.addAttribute("inspiracionJson", buildInspiracionJson(images, products));
         model.addAttribute("activeMenu", "inspiracion");
         return "admin/inspiracion";
+    }
+
+    /**
+     * Construye el view-model JSON que alimenta la pagina de inspiracion (galeria,
+     * KPIs, filtros y editor de puntos). Mantiene la plantilla libre de logica de datos.
+     */
+    private String buildInspiracionJson(List<InspirationImage> images, List<Product> products) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+
+        List<Map<String, Object>> imgs = new ArrayList<>();
+        for (InspirationImage img : images) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", img.getId());
+            m.put("titulo", img.getTitle());
+            m.put("evento", img.getEventType());
+            m.put("ubicacion", img.getLocation());
+            m.put("invitados", img.getGuestCount());
+            m.put("categoria", img.getCategory());
+            m.put("visible", img.isActive());
+            m.put("orden", img.getDisplayOrder());
+            m.put("imagenUrl", img.getImageUrl());
+            m.put("creado", img.getCreatedAt() != null ? img.getCreatedAt().toString() : null);
+
+            int puntos = 0;
+            int conProducto = 0;
+            if (img.getPins() != null) {
+                puntos = img.getPins().size();
+                for (InspirationPin p : img.getPins()) {
+                    if (p.getProductId() != null && !p.getProductId().isBlank()) {
+                        conProducto++;
+                    }
+                }
+            }
+            m.put("puntos", puntos);
+            m.put("puntosConProducto", conProducto);
+            imgs.add(m);
+        }
+        payload.put("imagenes", imgs);
+
+        List<Map<String, Object>> prods = new ArrayList<>();
+        for (Product p : products) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", p.getId());
+            m.put("nombre", p.getNombre());
+            m.put("imagenUrl", p.getImagenUrl());
+            String desc = (p.getDescripcionCorta() != null && !p.getDescripcionCorta().isBlank())
+                    ? p.getDescripcionCorta()
+                    : p.getDescripcion();
+            m.put("descripcion", desc);
+            m.put("precio", p.getPrecioPorDia());
+            m.put("categoria", p.getCategoriaNombre());
+            prods.add(m);
+        }
+        payload.put("productos", prods);
+
+        try {
+            // Evita que un titulo con "</script>" rompa el bloque JSON embebido.
+            return objectMapper.writeValueAsString(payload).replace("</", "<\\/");
+        } catch (Exception e) {
+            return "{\"imagenes\":[],\"productos\":[]}";
+        }
     }
 
     @PostMapping("/upload")
