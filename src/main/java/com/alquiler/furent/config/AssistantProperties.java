@@ -31,6 +31,10 @@ public class AssistantProperties {
     private int userMessagesPerHour = 40;
     private int dailyRequestBudget = 800;
     private int requestTimeoutSeconds = 30;
+    /** Intentos totales (incluido el primero) ante 429 (cuota) o 5xx (sobrecarga) de Gemini. */
+    private int retryMaxAttempts = 3;
+    /** Espera base entre reintentos en milisegundos; se duplica en cada intento. */
+    private long retryBackoffMillis = 700;
     private String whatsappNumber = "573105782442";
     private String knowledgeFile = "classpath:assistant/knowledge.yml";
     /** Horas que se conservan las conversaciones y sus mensajes (chat temporal). */
@@ -151,6 +155,22 @@ public class AssistantProperties {
 
     public void setRequestTimeoutSeconds(int requestTimeoutSeconds) {
         this.requestTimeoutSeconds = requestTimeoutSeconds;
+    }
+
+    public int getRetryMaxAttempts() {
+        return retryMaxAttempts;
+    }
+
+    public void setRetryMaxAttempts(int retryMaxAttempts) {
+        this.retryMaxAttempts = retryMaxAttempts;
+    }
+
+    public long getRetryBackoffMillis() {
+        return retryBackoffMillis;
+    }
+
+    public void setRetryBackoffMillis(long retryBackoffMillis) {
+        this.retryBackoffMillis = retryBackoffMillis;
     }
 
     public String getWhatsappNumber() {
