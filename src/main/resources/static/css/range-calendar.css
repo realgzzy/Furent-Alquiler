@@ -1,0 +1,180 @@
+/*
+ * RangeCalendar / DateRangePicker — tokens y estilos para páginas que no usan
+ * el widget del asistente (por ejemplo el checkout /cotizacion).
+ *
+ * El componente (static/js/furent-range-calendar.js) construye una réplica del
+ * RangeCalendar de HeroUI. Este archivo define los tokens --fa-* que ese
+ * componente espera, apoyándose en los tokens --cz-* del checkout, y trae las
+ * mismas reglas .fa-rcal* del panel del asistente.
+ *
+ * Todo queda acotado bajo .frc para no filtrar estilos al resto de la página.
+ */
+
+.frc {
+    --fa-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --fa-ink: var(--cz-ink, #18181b);
+    --fa-ink-2: var(--cz-mut, #52525b);
+    --fa-ink-3: #a1a1aa;
+    --fa-surface: #ffffff;
+    --fa-surface-3: #f4f4f5;
+    --fa-line: var(--cz-line, #e4e4e7);
+    --fa-line-2: var(--cz-line2, #e4e4e7);
+    --fa-accent: var(--cz-accent, #e07a3a);
+    --fa-accent-strong: var(--cz-accent-ink, #b25a1e);
+    --fa-accent-soft: rgba(224, 122, 58, .14);
+    --fa-accent-line: rgba(224, 122, 58, .24);
+    --fa-r-xs: 6px;
+    --fa-r-sm: 8px;
+    --fa-r-pill: 999px;
+    --fa-r-xl: 14px;
+    --fa-dur: .18s;
+    --fa-dur-fast: .12s;
+    --fa-ease: ease;
+    --fa-ease-out: cubic-bezier(.2, .8, .2, 1);
+    --fa-2xs: 10px;
+    --fa-xs: 11px;
+    --fa-sm: 13px;
+    --fa-md: 15px;
+}
+
+.dark .frc {
+    --fa-ink: #f4f4f5;
+    --fa-ink-2: #d4d4d8;
+    --fa-ink-3: #71717a;
+    --fa-surface: #1e1e1e;
+    --fa-surface-3: #27272a;
+    --fa-line: rgba(255, 255, 255, .12);
+    --fa-line-2: rgba(255, 255, 255, .12);
+}
+
+/* Popover que contiene el calendario */
+.frc-pop {
+    position: absolute;
+    z-index: 130;
+    width: 304px;
+    max-width: calc(100% - 24px);
+    padding: 14px;
+    box-sizing: border-box;
+    background: var(--fa-surface);
+    border: 1px solid var(--fa-line);
+    border-radius: var(--fa-r-xl);
+    box-shadow: 0 20px 45px -12px rgba(24, 24, 27, .22);
+    transform-origin: top center;
+}
+.frc-pop[hidden] { display: none; }
+.frc-pop:not([hidden]) { animation: frc-pop-in var(--fa-dur) var(--fa-ease-out); }
+@keyframes frc-pop-in {
+    from { opacity: 0; transform: translateY(-7px) scale(.965); }
+    to { opacity: 1; transform: none; }
+}
+.frc-pop-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--fa-line);
+}
+.frc-pop-hint { font-size: var(--fa-xs); font-weight: 600; color: var(--fa-ink-3); min-width: 0; }
+.frc-pop-hint strong { color: var(--fa-accent-strong); font-weight: 800; }
+.frc-pop-clear {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--fa-2xs);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--fa-accent-strong);
+    padding: 4px 8px;
+    border-radius: var(--fa-r-xs);
+    transition: background var(--fa-dur) var(--fa-ease);
+}
+.frc-pop-clear:hover { background: var(--fa-accent-soft); }
+.frc-pop-clear[hidden] { display: none; }
+
+/* ── RangeCalendar ── */
+.frc .fa-rcal { width: 100%; font-family: var(--fa-font); -webkit-user-select: none; user-select: none; }
+.frc .fa-rcal-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+.frc .fa-rcal-month {
+    flex: 1 1 auto; text-align: center; font-size: var(--fa-md); font-weight: 800; color: var(--fa-ink);
+    text-transform: capitalize; letter-spacing: .01em;
+}
+.frc .fa-rcal-navbtn {
+    flex: 0 0 auto; width: 32px; height: 32px; padding: 0; border: none; cursor: pointer;
+    border-radius: var(--fa-r-pill); background: transparent; color: var(--fa-ink-2);
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background var(--fa-dur) var(--fa-ease), color var(--fa-dur) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease);
+}
+.frc .fa-rcal-navbtn svg { display: block; }
+.frc .fa-rcal-navbtn:hover:not(:disabled) { background: var(--fa-surface-3); color: var(--fa-accent-strong); }
+.frc .fa-rcal-navbtn:active:not(:disabled) { transform: scale(.9); }
+.frc .fa-rcal-navbtn:disabled { opacity: .3; cursor: default; }
+.frc .fa-rcal-navbtn:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
+
+.frc .fa-rcal-viewport { overflow: hidden; }
+.frc .fa-rcal-grid { display: flex; flex-direction: column; }
+.frc .fa-rcal-grid.slide-next { animation: fa-rcal-next var(--fa-dur) var(--fa-ease-out); }
+.frc .fa-rcal-grid.slide-prev { animation: fa-rcal-prev var(--fa-dur) var(--fa-ease-out); }
+@keyframes fa-rcal-next { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+@keyframes fa-rcal-prev { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: none; } }
+
+.frc .fa-rcal-week, .frc .fa-rcal-row { display: grid; grid-template-columns: repeat(7, 1fr); }
+.frc .fa-rcal-wd {
+    text-align: center; font-size: var(--fa-2xs); font-weight: 800; color: var(--fa-ink-3);
+    text-transform: uppercase; letter-spacing: .05em; padding: 4px 0 8px;
+}
+.frc .fa-rcal-day {
+    position: relative; height: 38px; padding: 0; border: none; background: transparent; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-family: inherit;
+}
+.frc .fa-rcal-day::before {
+    content: ''; position: absolute; top: 5px; bottom: 5px; left: -1px; right: -1px;
+    background: transparent; z-index: 0;
+    transition: background var(--fa-dur-fast) var(--fa-ease);
+}
+.frc .fa-rcal-day[data-in-selection="true"]::before { background: var(--fa-accent-soft); }
+.frc .fa-rcal-day[data-selection-start="true"]::before {
+    left: 50%; border-top-left-radius: var(--fa-r-pill); border-bottom-left-radius: var(--fa-r-pill);
+}
+.frc .fa-rcal-day[data-selection-end="true"]::before {
+    right: 50%; border-top-right-radius: var(--fa-r-pill); border-bottom-right-radius: var(--fa-r-pill);
+}
+.frc .fa-rcal-day-num {
+    position: relative; z-index: 1; width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--fa-r-pill); font-size: var(--fa-sm); font-weight: 600; color: var(--fa-ink);
+    font-variant-numeric: tabular-nums;
+    transition: background var(--fa-dur-fast) var(--fa-ease), color var(--fa-dur-fast) var(--fa-ease),
+                box-shadow var(--fa-dur-fast) var(--fa-ease), transform var(--fa-dur-fast) var(--fa-ease);
+}
+.frc .fa-rcal-day:hover:not(:disabled) .fa-rcal-day-num { background: var(--fa-surface-3); }
+.frc .fa-rcal-day:active:not(:disabled) .fa-rcal-day-num { transform: scale(.92); }
+.frc .fa-rcal-day:focus-visible { outline: none; }
+.frc .fa-rcal-day:focus-visible .fa-rcal-day-num { outline: 2px solid var(--fa-accent); outline-offset: 1px; }
+.frc .fa-rcal-day[data-outside="true"] .fa-rcal-day-num { opacity: .4; }
+.frc .fa-rcal-day[data-today="true"] .fa-rcal-day-num { box-shadow: inset 0 0 0 1.5px var(--fa-accent); }
+.frc .fa-rcal-day[data-in-selection="true"] .fa-rcal-day-num { color: var(--fa-accent-strong); font-weight: 700; }
+.frc .fa-rcal-day[data-in-selection="true"]:hover:not(:disabled) .fa-rcal-day-num { background: var(--fa-accent-line); }
+.frc .fa-rcal-day[data-selected="true"] .fa-rcal-day-num {
+    background: var(--fa-accent); color: #fff; font-weight: 800;
+    box-shadow: 0 4px 10px -3px rgba(194, 99, 15, .7);
+}
+.frc .fa-rcal-day[data-selected="true"]:hover .fa-rcal-day-num { background: var(--fa-accent-strong); }
+.frc .fa-rcal-day:disabled { cursor: default; }
+.frc .fa-rcal-day[data-disabled="true"] .fa-rcal-day-num { color: var(--fa-ink-3); opacity: .45; }
+.frc .fa-rcal-day[data-unavailable="true"] .fa-rcal-day-num { color: #b91c1c; opacity: 1; }
+.frc .fa-rcal-day[data-unavailable="true"] .fa-rcal-day-num::after {
+    content: ''; position: absolute; left: 7px; right: 7px; top: 50%; height: 1.5px;
+    background: currentColor; border-radius: 2px; transform: translateY(-50%);
+}
+
+/* Oscuro */
+.dark .frc .fa-rcal-day[data-in-selection="true"]::before { background: #3a2a1c; }
+.dark .frc .fa-rcal-day[data-in-selection="true"] .fa-rcal-day-num { color: #f0b483; }
+.dark .frc .fa-rcal-day[data-in-selection="true"]:hover:not(:disabled) .fa-rcal-day-num { background: #4a3524; }
+.dark .frc .fa-rcal-day[data-unavailable="true"] .fa-rcal-day-num { color: #fca5a5; }
+.dark .frc .fa-rcal-day:hover:not(:disabled) .fa-rcal-day-num { background: #352c24; }

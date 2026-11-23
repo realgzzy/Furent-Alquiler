@@ -128,6 +128,14 @@
             viewBolsa: document.getElementById('furent-assistant-view-bolsa'),
             viewReco: document.getElementById('furent-assistant-view-reco'),
             viewAlquiler: document.getElementById('furent-assistant-view-alquiler'),
+            viewComparar: document.getElementById('furent-assistant-view-comparar'),
+            viewResenas: document.getElementById('furent-assistant-view-resenas'),
+            viewInspiracion: document.getElementById('furent-assistant-view-inspiracion'),
+            viewDirecciones: document.getElementById('furent-assistant-view-direcciones'),
+            viewNotificaciones: document.getElementById('furent-assistant-view-notificaciones'),
+            viewPlan: document.getElementById('furent-assistant-view-plan'),
+            viewMesas: document.getElementById('furent-assistant-view-mesas'),
+            viewPresupuesto: document.getElementById('furent-assistant-view-presupuesto'),
             calendarHost: document.getElementById('furent-assistant-calendar-host'),
             calendarClear: document.getElementById('furent-assistant-calendar-clear'),
             calendarUse: document.getElementById('furent-assistant-calendar-use'),
@@ -142,6 +150,9 @@
         };
 
         var chatUrl = panel.getAttribute('data-chat-url') || '/api/asistente/chat';
+        var apiBase = chatUrl.replace(/\/chat$/, '');
+        var feedbackUrl = apiBase + '/feedback';
+        var quotePdfUrl = apiBase + '/cotizacion/pdf';
         var listUrl = (els.history && els.history.getAttribute('data-list-url'))
             || '/api/asistente/conversations';
         var authenticated = panel.getAttribute('data-authenticated') === 'true';
@@ -158,6 +169,7 @@
         var avatarSrc = headerAvatar ? headerAvatar.getAttribute('src') : '/images/furi.png';
 
         var state = { conversationId: null, whatsapp: null, closed: false };
+        var lastQuote = null;          // última cotización mostrada, para exportarla a PDF
         var isOpen = false;
         var isStreaming = false;
         var currentBubble = null;
@@ -696,6 +708,14 @@
                     closePendingBubble();
                     appendQuoteCard(data);
                     break;
+                case 'document':
+                    closePendingBubble();
+                    downloadDocument(data);
+                    break;
+                case 'links':
+                    closePendingBubble();
+                    appendLinksCard(data);
+                    break;
                 case 'panel':
                     if (data && data.vista) {
                         openSidePanel(data.vista, data);
@@ -722,7 +742,9 @@
                     }
                     break;
                 case 'done':
+                    var doneBubble = currentBubble;
                     closePendingBubble();
+                    attachFeedback(doneBubble);
                     break;
                 default:
                     break;
@@ -1048,6 +1070,10 @@
             if (!data) {
                 return;
             }
+            lastQuote = data;
+            // La cotización ya trae los datos del evento que el usuario dio en el chat: se guardan
+            // de una vez para que /cotizacion llegue precargado, sin depender del botón que pulse.
+            persistirDatosEvento(data);
             (data.items || []).forEach(function (item) { rememberContextProduct(item); });
             var card = document.createElement('div');
             card.className = 'fa-quote';
@@ -1131,6 +1157,10 @@
                 actions.appendChild(button('Enviar por WhatsApp', 'fa-btn-wa', function () {
                     abrirWhatsApp(cotizacionTexto(data), 'quote');
                 }, ICONS.whatsapp));
+                actions.appendChild(button('Descargar PDF', 'fa-btn-ghost', function () {
+                    trackAssistantEvent('assistant_quote_pdf');
+                    downloadQuotePdf(data);
+                }, ICONS.receipt));
             } else {
                 actions.appendChild(button('Continuar por WhatsApp', 'fa-btn-wa', function () {
                     abrirWhatsApp(cotizacionTexto(data), 'quote');
@@ -1151,6 +1181,145 @@
             els.messages.appendChild(row);
             scrollDown();
             trackAssistantEvent('assistant_quote_view', { total: data.total, dias: data.dias });
+        }
+
+        /** Botones de navegación sugeridos por el asistente (catálogo, inspiración, checkout...). */
+        function appendLinksCard(data) {
+            var links = (data && data.links) || [];
+            if (!links.length) {
+                return;
+            }
+            var card = document.createElement('div');
+            card.className = 'fa-quote';
+            var head = document.createElement('div');
+            head.className = 'fa-quote-head';
+            var badge = document.createElement('span');
+            badge.className = 'fa-quote-ico';
+            badge.appendChild(svgIcon(ICONS.range, 16));
+            head.appendChild(badge);
+            var headText = document.createElement('div');
+            headText.style.minWidth = '0';
+            var title = document.createElement('h4');
+            title.textContent = 'Te dejo el acceso directo';
+            headText.appendChild(title);
+            head.appendChild(headText);
+            card.appendChild(head);
+
+            var row = document.createElement('div');
+            row.className = 'fa-links';
+            links.forEach(function (link) {
+                var a = document.createElement('a');
+                a.className = 'fa-btn fa-btn-primary';
+                a.href = link.url || '#';
+                if (/^https?:/i.test(link.url || '')) {
+                    a.target = '_blank';
+                    a.rel = 'noopener';
+                }
+                a.textContent = link.label || 'Ver más';
+                row.appendChild(a);
+            });
+            card.appendChild(row);
+
+            var wrap = document.createElement('div');
+            wrap.className = 'fa-row fa-enter';
+            wrap.style.width = '100%';
+            wrap.appendChild(card);
+            els.messages.appendChild(wrap);
+            scrollDown();
+        }
+
+        /** Descarga la cotización mostrada cuando el backend emite el evento "document". */
+        function downloadDocument(data) {
+            if (!data || data.tipo !== 'cotizacion' || !lastQuote) {
+                appendAssistantBubble('Primero pídele a Furi una cotización y luego la descargo en PDF.'
+                    + ' Así tendrás el detalle con precios reales.', true);
+                return;
+            }
+            downloadQuotePdf(lastQuote);
+        }
+
+        function downloadQuotePdf(data) {
+            var quote = data || lastQuote;
+            if (!quote || !quote.items || !quote.items.length) {
+                toast('Primero pide una cotización para descargarla.', 'info');
+                return;
+            }
+            fetch(quotePdfUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(quote)
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('pdf ' + response.status);
+                }
+                return response.blob();
+            }).then(function (blob) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'cotizacion-furent.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                trackAssistantEvent('assistant_quote_pdf_done');
+            }).catch(function () {
+                toast('No pude descargar el PDF. Intenta de nuevo en un momento.', 'error');
+            });
+        }
+
+        /** Agrega la valoración positiva/negativa a una respuesta ya terminada. */
+        function attachFeedback(bubble) {
+            if (!bubble || bubble._feedbackAttached || !authenticated || !state.conversationId) {
+                return;
+            }
+            if (!(bubble._raw || '').trim()) {
+                return;
+            }
+            bubble._feedbackAttached = true;
+
+            var wrap = document.createElement('div');
+            wrap.className = 'fa-feedback';
+            var note = document.createElement('span');
+            note.className = 'fa-feedback-note';
+            note.textContent = '¿Te sirvió esta respuesta?';
+            var up = document.createElement('button');
+            up.type = 'button';
+            up.title = 'Me sirvió';
+            up.setAttribute('aria-label', 'Respuesta útil');
+            up.appendChild(svgIcon(ICONS.thumbUp, 15));
+            var down = document.createElement('button');
+            down.type = 'button';
+            down.title = 'No me sirvió';
+            down.setAttribute('aria-label', 'Respuesta poco útil');
+            down.appendChild(svgIcon(ICONS.thumbDown, 15));
+            wrap.appendChild(note);
+            wrap.appendChild(up);
+            wrap.appendChild(down);
+
+            function send(valor, chosen) {
+                up.disabled = true;
+                down.disabled = true;
+                chosen.classList.add('is-on');
+                note.textContent = '¡Gracias por tu valoración!';
+                fetch(feedbackUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ conversationId: state.conversationId, valor: valor })
+                }).catch(function () { /* silencioso: la valoración no debe romper el chat */ });
+            }
+
+            up.addEventListener('click', function () {
+                trackAssistantEvent('assistant_feedback', { valor: 'POSITIVO' });
+                send('POSITIVO', up);
+            });
+            down.addEventListener('click', function () {
+                trackAssistantEvent('assistant_feedback', { valor: 'NEGATIVO' });
+                send('NEGATIVO', down);
+            });
+
+            bubble.appendChild(wrap);
+            scrollDown();
         }
 
         function appendEscalationCard(data) {
@@ -1316,6 +1485,10 @@
             lock: ['M6.75 10.5h10.5a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5V12a1.5 1.5 0 0 1 1.5-1.5Z',
                 'M8.25 10.5V8.25a3.75 3.75 0 0 1 7.5 0v2.25'],
             user: ['M12 12.5a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', 'M4.9 20.5a7.1 7.1 0 0 1 14.2 0'],
+            thumbUp: ['M7 10v10H4.5A1.5 1.5 0 0 1 3 18.5v-7A1.5 1.5 0 0 1 4.5 10H7Z',
+                'M7 10l3.2-6.4A1.6 1.6 0 0 1 11.7 3h.3a2.3 2.3 0 0 1 2.3 2.3V9h4.1a2 2 0 0 1 2 2.4l-1.4 7A2 2 0 0 1 18 20H7'],
+            thumbDown: ['M7 14V4H4.5A1.5 1.5 0 0 0 3 5.5v7A1.5 1.5 0 0 0 4.5 14H7Z',
+                'M7 14l3.2 6.4A1.6 1.6 0 0 0 11.7 21h.3a2.3 2.3 0 0 0 2.3-2.3V15h4.1a2 2 0 0 0 2-2.4l-1.4-7A2 2 0 0 0 18 4H7'],
             eraser: ['M4 20h16',
                 'M13.5 5.5 8 11l3.5 3.5 5.5-5.5a2.47 2.47 0 0 0-3.5-3.5Z',
                 'm9.5 12.5-3 3a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l3-3']
@@ -1340,7 +1513,15 @@
             fechas: function () { return els.viewFechas; },
             bolsa: function () { return els.viewBolsa; },
             recomendacion: function () { return els.viewReco; },
-            alquiler: function () { return els.viewAlquiler; }
+            alquiler: function () { return els.viewAlquiler; },
+            comparar: function () { return els.viewComparar; },
+            resenas: function () { return els.viewResenas; },
+            inspiracion: function () { return els.viewInspiracion; },
+            direcciones: function () { return els.viewDirecciones; },
+            notificaciones: function () { return els.viewNotificaciones; },
+            plan: function () { return els.viewPlan; },
+            mesas: function () { return els.viewMesas; },
+            presupuesto: function () { return els.viewPresupuesto; }
         };
 
         var SIDE_TITLES = {
@@ -1349,7 +1530,15 @@
             fechas: 'Fechas del alquiler',
             bolsa: 'Tu bolsa',
             recomendacion: 'Recomendación',
-            alquiler: 'Tu alquiler'
+            alquiler: 'Tu alquiler',
+            comparar: 'Comparar mobiliario',
+            resenas: 'Reseñas',
+            inspiracion: 'Inspiración',
+            direcciones: 'Mis direcciones',
+            notificaciones: 'Notificaciones',
+            plan: 'Plan del evento',
+            mesas: 'Distribución de mesas',
+            presupuesto: 'Presupuesto'
         };
 
         function openSidePanel(vista, data) {
@@ -1387,6 +1576,22 @@
                 renderRecommendation(data || {});
             } else if (vista === 'alquiler') {
                 renderReservation(data || {});
+            } else if (vista === 'comparar') {
+                renderComparar(data || {});
+            } else if (vista === 'resenas') {
+                renderReviews(data || {});
+            } else if (vista === 'inspiracion') {
+                renderInspiracion(data || {});
+            } else if (vista === 'direcciones') {
+                renderDirecciones(data || {});
+            } else if (vista === 'notificaciones') {
+                renderNotificaciones(data || {});
+            } else if (vista === 'plan') {
+                renderPlan(data || {});
+            } else if (vista === 'mesas') {
+                renderMesas(data || {});
+            } else if (vista === 'presupuesto') {
+                renderPresupuesto(data || {});
             }
         }
 
@@ -1399,6 +1604,538 @@
             els.side.hidden = true;
             els.panel.classList.remove('fa-wide');
             sideVista = null;
+        }
+
+        // ── Vistas: descubrimiento, plan y cuenta ──
+
+        function panelIntro(view, texto) {
+            var p = document.createElement('p');
+            p.className = 'fa-panel-sub';
+            p.textContent = texto;
+            view.appendChild(p);
+        }
+
+        function panelEmpty(view, texto) {
+            var p = document.createElement('p');
+            p.className = 'fa-bag-empty';
+            p.textContent = texto;
+            view.appendChild(p);
+        }
+
+        function stars(rating) {
+            var full = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+            var out = '';
+            for (var i = 0; i < 5; i++) {
+                out += i < full ? '★' : '☆';
+            }
+            return out;
+        }
+
+        /** Fila genérica del panel: imagen, título, metadatos, etiquetas, atributos y precio. */
+        function panelItem(opts) {
+            var item = document.createElement('div');
+            item.className = 'fa-item';
+
+            if (opts.imagen) {
+                var img = document.createElement('img');
+                img.className = 'fa-item-img';
+                img.loading = 'lazy';
+                img.alt = '';
+                img.src = opts.imagen;
+                item.appendChild(img);
+            }
+
+            var main = document.createElement('div');
+            main.className = 'fa-item-main';
+
+            var name = document.createElement('p');
+            name.className = 'fa-item-name';
+            name.textContent = opts.nombre || '';
+            main.appendChild(name);
+
+            if (opts.rating != null) {
+                var rating = document.createElement('p');
+                rating.className = 'fa-item-meta';
+                var star = document.createElement('span');
+                star.className = 'fa-stars';
+                star.textContent = stars(opts.rating);
+                rating.appendChild(star);
+                if (opts.ratingTexto) {
+                    rating.appendChild(document.createTextNode(' ' + opts.ratingTexto));
+                }
+                main.appendChild(rating);
+            }
+
+            if (opts.meta) {
+                var meta = document.createElement('p');
+                meta.className = 'fa-item-meta';
+                meta.textContent = opts.meta;
+                main.appendChild(meta);
+            }
+
+            if (opts.texto) {
+                var texto = document.createElement('p');
+                texto.className = 'fa-item-meta';
+                texto.style.lineHeight = '1.5';
+                texto.textContent = opts.texto;
+                main.appendChild(texto);
+            }
+
+            if (opts.extra) {
+                var extra = document.createElement('p');
+                extra.className = 'fa-item-meta';
+                extra.style.lineHeight = '1.5';
+                extra.style.paddingLeft = '8px';
+                extra.style.borderLeft = '2px solid var(--fa-line-2)';
+                extra.textContent = 'Respuesta de Furent: ' + opts.extra;
+                main.appendChild(extra);
+            }
+
+            (opts.attrs || []).forEach(function (attr) {
+                var row = document.createElement('div');
+                row.className = 'fa-cmp-attr';
+                var label = document.createElement('span');
+                label.textContent = attr.label;
+                var value = document.createElement('span');
+                value.textContent = attr.value;
+                row.appendChild(label);
+                row.appendChild(value);
+                main.appendChild(row);
+            });
+
+            if (opts.tags && opts.tags.length) {
+                var tags = document.createElement('div');
+                tags.className = 'fa-tags';
+                opts.tags.forEach(function (t) {
+                    var tag = document.createElement(t.href ? 'a' : 'span');
+                    tag.className = 'fa-tag' + (t.good ? ' is-good' : '');
+                    tag.textContent = t.text;
+                    if (t.href) {
+                        tag.href = t.href;
+                    }
+                    tags.appendChild(tag);
+                });
+                main.appendChild(tags);
+            }
+
+            item.appendChild(main);
+
+            if (opts.precio != null) {
+                var price = document.createElement('span');
+                price.className = 'fa-item-price';
+                price.textContent = opts.precio;
+                item.appendChild(price);
+            }
+            return item;
+        }
+
+        function renderComparar(data) {
+            var view = els.viewComparar;
+            if (!view) {
+                return;
+            }
+            view.textContent = '';
+            var productos = data.productos || [];
+            if (!productos.length) {
+                panelEmpty(view, 'No hay productos para comparar.');
+                return;
+            }
+            panelIntro(view, 'Compara precio, valoración y disponibilidad antes de elegir.');
+            var list = document.createElement('div');
+            list.className = 'fa-list';
+            productos.forEach(function (p) {
+                var tags = [];
+                if (p.mejorPrecio) {
+                    tags.push({ text: 'Mejor precio', good: true });
+                }
+                if (p.mejorCalificacion) {
+                    tags.push({ text: 'Mejor valorado', good: true });
+                }
+                var attrs = [
+                    { label: 'Stock', value: String(p.stock == null ? '—' : p.stock) },
+                    { label: 'Material', value: p.material || '—' },
+                    { label: 'Medidas', value: p.dimensiones || '—' },
+                    { label: 'Color', value: p.color || '—' }
+                ];
+                list.appendChild(panelItem({
+                    imagen: p.imagen,
+                    nombre: p.nombre,
+                    meta: p.categoria || '',
+                    rating: p.calificacion,
+                    ratingTexto: p.cantidadResenas ? '(' + p.cantidadResenas + ')' : '',
+                    attrs: attrs,
+                    tags: tags,
+                    precio: formatCOP(p.precioDia) + '/día'
+                }));
+            });
+            view.appendChild(list);
+        }
+
+        function renderReviews(data) {
+            var view = els.viewResenas;
+            if (!view) {
+                return;
+            }
+            view.textContent = '';
+            var producto = data.producto || {};
+            if (producto.nombre) {
+                view.appendChild(panelItem({
+                    imagen: producto.imagen,
+                    nombre: producto.nombre,
+                    meta: producto.categoria || 'Producto',
+                    rating: producto.calificacion,
+                    ratingTexto: (producto.cantidadResenas || 0) + ' reseñas',
+                    precio: producto.precioDia != null ? formatCOP(producto.precioDia) + '/día' : null
+                }));
+            }
+            var resenas = data.resenas || [];
+            if (!resenas.length) {
+                panelEmpty(view, 'Este producto todavía no tiene reseñas.');
+                return;
+            }
+            var list = document.createElement('div');
+            list.className = 'fa-list';
+            list.style.marginTop = '12px';
+            resenas.forEach(function (r) {
+                var tags = [];
+                if (r.respuesta) {
+                    tags.push({ text: 'Respondida por Furent', good: true });
+                }
+                list.appendChild(panelItem({
+                    nombre: r.usuario || 'Cliente Furent',
+                    rating: r.rating,
+                    meta: r.fecha || '',
+                    texto: r.comentario || '',
+                    tags: tags,
+                    extra: r.respuesta ? r.respuesta : null
+                }));
+            });
+            view.appendChild(list);
+        }
+
+        function renderInspiracion(data) {
+            var view = els.viewInspiracion;
+            if (!view) {
+                return;
+            }
+            view.textContent = '';
+            var imagenes = data.imagenes || [];
+            if (!imagenes.length) {
+                panelEmpty(view, 'No hay imágenes de inspiración con esos filtros.');
+                return;
+            }
+            var list = document.createElement('div');
+            list.className = 'fa-list';
+            imagenes.forEach(function (img) {
+                var card = document.createElement('div');
+                card.className = 'fa-item';
+                card.style.flexDirection = 'column';
+                if (img.imagen) {
+                    var foto = document.createElement('img');
+                    foto.className = 'fa-insp-img';
+                    foto.loading = 'lazy';
+                    foto.alt = img.titulo || 'Inspiración';
+                    foto.src = img.imagen;
+                    card.appendChild(foto);
+                }
+                var main = document.createElement('div');
+                main.className = 'fa-item-main';
+                var title = document.createElement('p');
+                title.className = 'fa-item-name';
+                title.textContent = img.titulo || 'Inspiración';
+                main.appendChild(title);
+                var bits = [];
+                if (img.tipoEvento) { bits.push(img.tipoEvento); }
+                if (img.ubicacion) { bits.push(img.ubicacion); }
+                if (img.invitados) { bits.push(img.invitados + ' invitados'); }
+                if (bits.length) {
+                    var meta = document.createElement('p');
+                    meta.className = 'fa-item-meta';
+                    meta.textContent = bits.join(' · ');
+                    main.appendChild(meta);
+                }
+                var pins = img.pins || [];
+                if (pins.length) {
+                    var tags = document.createElement('div');
+                    tags.className = 'fa-tags';
+                    pins.forEach(function (pin) {
+                        if (!pin.nombre) { return; }
+                        var tag = document.createElement('a');
+                        tag.className = 'fa-tag';
+                        tag.href = pin.productoId ? ('/producto/' + encodeURIComponent(pin.productoId)) : '#';
+                        tag.textContent = pin.nombre + (pin.precioDia ? ' · ' + formatCOP(pin.precioDia) : '');
+                        tags.appendChild(tag);
+                    });
+                    main.appendChild(tags);
+                }
+                card.appendChild(main);
+                list.appendChild(card);
+            });
+            view.appendChild(list);
+        }
+
+        function renderDirecciones(data) {
+            var view = els.viewDirecciones;
+            if (!view) {
+                return;
+            }
+            view.textContent = '';
+            var direcciones = data.direcciones || [];
+            if (!direcciones.length) {
+                panelEmpty(view, 'Aún no tienes direcciones guardadas. Puedes agregarlas en tu perfil.');
+                return;
+            }
+            var list = document.createElement('div');
+            list.className = 'fa-list';
+            direcciones.forEach(function (d) {
+                var tags = [];
+                if (d.predeterminada) {
+                    tags.push({ text: 'Predeterminada', good: true });
+                }
+                var partes = [d.ciudad, d.departamento, d.pais].filter(Boolean);
+                list.appendChild(panelItem({
+                    nombre: d.alias || 'Dirección',
+                    meta: d.direccion || '',
+                    texto: partes.join(', ') + (d.codigoPostal ? ' · CP ' + d.codigoPostal : ''),
+                    tags: tags
+                }));
+            });
+            view.appendChild(list);
+        }
+
+        function renderNotificaciones(data) {
+            var view = els.viewNotificaciones;
+            if (!view) {
+                return;
+            }
+            view.textContent = '';
+            var total = Number(data.noLeidas || 0);
+            if (data.notificaciones && data.notificaciones.length) {
+                panelIntro(view, total > 0
+                    ? ('Tienes ' + total + (total === 1 ? ' notificación sin leer.' : ' notificaciones sin leer.'))
+                    : 'Estás al día.');
+            }
+            var lista = data.notificaciones || [];
+            if (!lista.length) {
+                panelEmpty(view, 'No tienes notificaciones por ahora.');
+                return;
+            }
+            var list = document.createElement('div');
+            list.className = 'fa-list';
+            lista.forEach(function (n) {
+                var tags = [];
+                if (n.tipo) {
+                    tags.push({ text: n.tipo });
+                }
+                if (!n.leida) {
+                    tags.push({ text: 'Nueva', good: true });
+                }
+                var item = panelItem({
+                    nombre: n.titulo || 'Notificación',
+                    meta: n.fecha || '',
+                    texto: n.mensaje || '',
+                    tags: tags
+                });
+                if (n.link) {
+                    item.style.cursor = 'pointer';
+                    item.addEventListener('click', function () { window.location.href = n.link; });
+                }
+                list.appendChild(item);
+            });
+            view.appendChild(list);
+        }
+
+        function renderMesas(data) {
+            var view = els.viewMesas;
+            if (!view) {
+                return;
+            }
+            view.textContent = '';
+            var totalMesas = Number(data.totalMesas || 0);
+            var totalSillas = Number(data.totalSillas || 0);
+            panelIntro(view, totalMesas + (totalMesas === 1 ? ' mesa' : ' mesas') + ' y '
+                + totalSillas + (totalSillas === 1 ? ' silla' : ' sillas') + ' para tu evento.');
+            var grid = document.createElement('div');
+            grid.className = 'fa-grid';
+            (data.detalle || []).forEach(function (mesa) {
+                var celda = document.createElement('div');
+                celda.className = 'fa-mesa';
+                var num = document.createElement('div');
+                num.className = 'fa-mesa-num';
+                num.textContent = 'Mesa ' + mesa.numero;
+                var cap = document.createElement('div');
+                cap.className = 'fa-mesa-cap';
+                cap.textContent = mesa.personas + ' personas';
+                celda.appendChild(num);
+                celda.appendChild(cap);
+                grid.appendChild(celda);
+            });
+            view.appendChild(grid);
+        }
+
+        function renderPresupuesto(data) {
+            var view = els.viewPresupuesto;
+            if (!view) {
+                return;
+            }
+            view.textContent = '';
+            (data.niveles || []).forEach(function (nivel) {
+                var card = document.createElement('div');
+                card.className = 'fa-level' + (nivel.nombre === 'Recomendado' ? ' is-main' : '');
+                var top = document.createElement('div');
+                top.className = 'fa-level-top';
+                var name = document.createElement('span');
+                name.className = 'fa-level-name';
+                name.textContent = nivel.nombre || '';
+                var total = document.createElement('span');
+                total.className = 'fa-level-total';
+                total.textContent = formatCOP(nivel.total);
+                top.appendChild(name);
+                top.appendChild(total);
+                card.appendChild(top);
+                var desc = document.createElement('p');
+                desc.className = 'fa-level-desc';
+                desc.textContent = nivel.descripcion || '';
+                card.appendChild(desc);
+                view.appendChild(card);
+            });
+
+            var categorias = data.categorias || [];
+            if (categorias.length) {
+                var title = document.createElement('h4');
+                title.className = 'fa-panel-title';
+                title.textContent = 'Por categoría';
+                view.appendChild(title);
+                var max = categorias.reduce(function (acc, c) { return Math.max(acc, Number(c.total) || 0); }, 0) || 1;
+                categorias.forEach(function (c) {
+                    var row = document.createElement('div');
+                    row.style.marginBottom = '8px';
+                    var head = document.createElement('div');
+                    head.className = 'fa-cmp-attr';
+                    var label = document.createElement('span');
+                    label.textContent = c.categoria || 'Otros';
+                    var value = document.createElement('span');
+                    value.textContent = formatCOP(c.total);
+                    head.appendChild(label);
+                    head.appendChild(value);
+                    row.appendChild(head);
+                    var bar = document.createElement('div');
+                    bar.className = 'fa-bar';
+                    var fill = document.createElement('span');
+                    fill.style.width = Math.round((Number(c.total) || 0) / max * 100) + '%';
+                    bar.appendChild(fill);
+                    row.appendChild(bar);
+                    view.appendChild(row);
+                });
+            }
+        }
+
+        function renderPlan(data) {
+            var view = els.viewPlan;
+            if (!view) {
+                return;
+            }
+            view.textContent = '';
+            var resumen = data.resumen || {};
+            var bits = [];
+            if (resumen.invitados) { bits.push(resumen.invitados + ' invitados'); }
+            if (resumen.dias) { bits.push(resumen.dias + (resumen.dias === 1 ? ' día' : ' días')); }
+            if (resumen.tipoEvento) { bits.push(resumen.tipoEvento); }
+            if (resumen.estilo) { bits.push('estilo ' + resumen.estilo); }
+            if (resumen.fechaInicio) {
+                bits.push(fmtFecha(resumen.fechaInicio) + (resumen.fechaFin ? ' al ' + fmtFecha(resumen.fechaFin) : ''));
+            }
+            panelIntro(view, bits.length ? bits.join(' · ') : 'Plan sugerido para tu evento.');
+            if (resumen.totalEstimado != null) {
+                var total = document.createElement('p');
+                total.className = 'fa-reco-budget';
+                total.textContent = 'Total estimado: ' + formatCOP(resumen.totalEstimado);
+                view.appendChild(total);
+            }
+
+            var mobiliario = data.mobiliario || [];
+            if (mobiliario.length) {
+                var h1 = document.createElement('h4');
+                h1.className = 'fa-panel-title';
+                h1.textContent = 'Mobiliario';
+                view.appendChild(h1);
+                var list = document.createElement('div');
+                list.className = 'fa-list';
+                mobiliario.forEach(function (m) {
+                    list.appendChild(panelItem({
+                        imagen: m.imagen,
+                        nombre: m.nombre,
+                        meta: (m.categoria || '') + ' · ' + m.cantidad + ' × ' + formatCOP(m.precioDia) + '/día',
+                        precio: formatCOP(m.subtotal)
+                    }));
+                });
+                view.appendChild(list);
+            }
+
+            var categorias = data.categorias || [];
+            if (categorias.length) {
+                var h2 = document.createElement('h4');
+                h2.className = 'fa-panel-title';
+                h2.textContent = 'Presupuesto por categoría';
+                h2.style.marginTop = '14px';
+                view.appendChild(h2);
+                var max = categorias.reduce(function (acc, c) { return Math.max(acc, Number(c.total) || 0); }, 0) || 1;
+                categorias.forEach(function (c) {
+                    var row = document.createElement('div');
+                    row.style.marginBottom = '8px';
+                    var head = document.createElement('div');
+                    head.className = 'fa-cmp-attr';
+                    var label = document.createElement('span');
+                    label.textContent = c.categoria || 'Otros';
+                    var value = document.createElement('span');
+                    value.textContent = formatCOP(c.total);
+                    head.appendChild(label);
+                    head.appendChild(value);
+                    row.appendChild(head);
+                    var bar = document.createElement('div');
+                    bar.className = 'fa-bar';
+                    var fill = document.createElement('span');
+                    fill.style.width = Math.round((Number(c.total) || 0) / max * 100) + '%';
+                    bar.appendChild(fill);
+                    row.appendChild(bar);
+                    view.appendChild(row);
+                });
+            }
+
+            var mesas = data.mesas || {};
+            if (mesas.totalMesas) {
+                var h3 = document.createElement('h4');
+                h3.className = 'fa-panel-title';
+                h3.textContent = 'Mesas';
+                h3.style.marginTop = '14px';
+                view.appendChild(h3);
+                panelIntro(view, mesas.totalMesas + ' mesas · ' + mesas.totalSillas + ' sillas');
+            }
+
+            var checklist = data.checklist || [];
+            if (checklist.length) {
+                var h4 = document.createElement('h4');
+                h4.className = 'fa-panel-title';
+                h4.textContent = 'Pasos clave';
+                h4.style.marginTop = '14px';
+                view.appendChild(h4);
+                var ul = document.createElement('ul');
+                ul.className = 'fa-plan-list';
+                checklist.forEach(function (paso) {
+                    var li = document.createElement('li');
+                    var strong = document.createElement('strong');
+                    strong.textContent = paso.titulo || '';
+                    li.appendChild(strong);
+                    if (paso.fecha) {
+                        li.appendChild(document.createTextNode(' · ' + fmtFecha(paso.fecha)));
+                    }
+                    if (paso.detalle) {
+                        li.appendChild(document.createTextNode(' — ' + paso.detalle));
+                    }
+                    ul.appendChild(li);
+                });
+                view.appendChild(ul);
+            }
         }
 
         // ── Vista: formulario del evento ──
@@ -1502,7 +2239,7 @@
                     return;
                 }
                 closeSidePanel();
-                sendUserMessage('Datos de mi evento:\n' + lines.join('\n'));
+                sendUserMessage((data.submitPrefix || 'Datos de mi evento:') + '\n' + lines.join('\n'));
             });
 
             view.appendChild(form);
@@ -1515,25 +2252,35 @@
         var DETALLES_MAX_DIAS = 7;
 
         function defaultDetallesData() {
+            // Rescata lo que el usuario ya dio antes (en el asistente o en un intento previo de
+            // checkout) para que el formulario no arranque en blanco.
+            var saved = {};
+            var dates = {};
+            try { saved = JSON.parse(localStorage.getItem('furent_event_details') || '{}') || {}; } catch (e) { saved = {}; }
+            try { dates = JSON.parse(localStorage.getItem('furent_selected_dates') || '{}') || {}; } catch (e) { dates = {}; }
+            if (!dates.start && pendingStart) { dates.start = pendingStart; }
+            if (!dates.end && pendingEnd) { dates.end = pendingEnd; }
             return {
                 vista: 'detalles',
                 titulo: 'Detalles del alquiler',
-                descripcion: 'Completa los datos de tu evento y te los dejo listos en el checkout.',
+                descripcion: 'Revisa y completa los datos de tu evento; te los dejo listos en el checkout.',
                 submitLabel: 'Confirmar y reservar',
                 fields: [
-                    { name: 'tipoEvento', label: 'Tipo de evento', type: 'select', required: true, options: [
+                    { name: 'tipoEvento', label: 'Tipo de evento', type: 'select', required: true,
+                        value: saved.tipoEvento || '', options: [
                         { value: 'Boda', label: 'Boda' }, { value: 'Corporativo', label: 'Corporativo' },
                         { value: 'Cumpleaños', label: 'Cumpleaños' }, { value: 'Graduación', label: 'Graduación' },
                         { value: 'Feria', label: 'Feria' }, { value: 'Otro', label: 'Otro' }] },
-                    { name: 'invitados', label: 'Número de invitados', type: 'number', required: true, placeholder: '120' },
-                    { name: 'fechaInicio', label: 'Desde', type: 'date', required: true },
-                    { name: 'fechaFin', label: 'Hasta', type: 'date', required: true },
+                    { name: 'invitados', label: 'Número de invitados', type: 'number', required: true,
+                        placeholder: '120', value: saved.invitados || '' },
+                    { name: 'fechaInicio', label: 'Desde', type: 'date', required: true, value: dates.start || '' },
+                    { name: 'fechaFin', label: 'Hasta', type: 'date', required: true, value: dates.end || '' },
                     { name: 'horaEntrega', label: 'Hora de entrega', type: 'time', required: true,
-                        min: DETALLES_HORA_MIN, max: DETALLES_HORA_MAX, value: '09:00' },
+                        min: DETALLES_HORA_MIN, max: DETALLES_HORA_MAX, value: saved.horaEntrega || '09:00' },
                     { name: 'direccion', label: 'Dirección del evento', type: 'text', required: true,
-                        placeholder: 'Calle, número, ciudad...' },
+                        placeholder: 'Calle, número, ciudad...', value: saved.direccion || '' },
                     { name: 'notas', label: 'Notas (opcional)', type: 'textarea',
-                        placeholder: 'Accesos, requerimientos especiales...' }
+                        placeholder: 'Accesos, requerimientos especiales...', value: saved.notas || '' }
                 ]
             };
         }
@@ -1580,6 +2327,15 @@
             view.textContent = '';
 
             var fields = data.fields || [];
+            // El asistente nos dio estos valores: se recuerdan para que el checkout los recupere
+            // aunque el usuario no llegue a enviar el formulario.
+            var conocido = {};
+            fields.forEach(function (f) {
+                if (f && f.value != null && f.value !== '') {
+                    conocido[f.name] = f.value;
+                }
+            });
+            persistirDatosEvento(conocido);
             var inputs = {};
 
             var form = document.createElement('form');
@@ -2014,6 +2770,17 @@
                 menu.appendChild(li);
             });
 
+            // Valor inicial: si el dato ya se conoce (p. ej. lo dijo al asistente) se preselecciona.
+            if (field.value != null && field.value !== '') {
+                for (var q = 0; q < optEls.length; q++) {
+                    if (optEls[q].getAttribute('data-value') === String(field.value)) {
+                        var iniSpan = optEls[q].querySelector('.fa-select-opt-text');
+                        applyValue(String(field.value), iniSpan ? iniSpan.textContent : String(field.value));
+                        break;
+                    }
+                }
+            }
+
             var activeIndex = -1;
 
             function setActive(index) {
@@ -2315,6 +3082,17 @@
 
             clearBtn.addEventListener('click', clearRange);
             footClear.addEventListener('click', clearRange);
+
+            // Rango inicial: si las fechas ya se conocen (asistente o intento previo) se precargan.
+            var initStart = first.value || null;
+            var initEnd = (second && second.value) || initStart;
+            if (initStart) {
+                hiddenStart.value = initStart;
+                if (hiddenEnd) {
+                    hiddenEnd.value = initEnd || initStart;
+                }
+                cal.setRange(initStart, initEnd || initStart);
+            }
 
             updateTrigger();
             return wrap;
@@ -3935,6 +4713,49 @@
         }
 
         /**
+         * Persiste los datos del evento que el asistente ya conoce y avisa al checkout abierto en
+         * la misma pestaña para que se actualice en vivo. Así /cotizacion llega precargado sin
+         * depender de qué botón pulse el usuario.
+         */
+        function persistirDatosEvento(datos) {
+            if (!datos) {
+                return;
+            }
+            var detalles;
+            try {
+                detalles = JSON.parse(localStorage.getItem('furent_event_details') || '{}') || {};
+            } catch (e) {
+                detalles = {};
+            }
+            var cambio = false;
+            ['tipoEvento', 'invitados', 'direccion', 'horaEntrega', 'notas'].forEach(function (campo) {
+                var valor = datos[campo];
+                if (valor != null && valor !== '' && valor !== detalles[campo]) {
+                    detalles[campo] = valor;
+                    cambio = true;
+                }
+            });
+            try {
+                if (cambio || !localStorage.getItem('furent_event_details')) {
+                    localStorage.setItem('furent_event_details', JSON.stringify(detalles));
+                }
+                if (datos.fechaInicio && datos.fechaFin) {
+                    localStorage.setItem('furent_selected_dates', JSON.stringify({
+                        start: datos.fechaInicio, end: datos.fechaFin
+                    }));
+                }
+            } catch (e) { /* almacenamiento lleno o bloqueado */ }
+            var evento = Object.assign({}, detalles);
+            if (datos.fechaInicio && datos.fechaFin) {
+                evento.fechaInicio = datos.fechaInicio;
+                evento.fechaFin = datos.fechaFin;
+            }
+            try {
+                document.dispatchEvent(new CustomEvent('furent:evento-actualizado', { detail: evento }));
+            } catch (e) { /* CustomEvent no soportado */ }
+        }
+
+        /**
          * Guarda las fechas y deja en la bolsa exactamente lo cotizado. Es idempotente: repetir la
          * acción no multiplica cantidades. Así /cotizacion llega precargada por el asistente.
          */
@@ -3964,13 +4785,8 @@
             });
             try {
                 localStorage.setItem(BAG_KEY, JSON.stringify(bag));
-                if (data && data.fechaInicio && data.fechaFin) {
-                    localStorage.setItem('furent_selected_dates', JSON.stringify({
-                        start: data.fechaInicio,
-                        end: data.fechaFin
-                    }));
-                }
             } catch (e) { /* almacenamiento lleno o bloqueado */ }
+            persistirDatosEvento(data);
             notifyBagChanged();
         }
 
@@ -4097,9 +4913,9 @@
                     mensaje = 'Inicia sesión o crea una cuenta para usar el asistente.';
                     codigo = 'AUTH_REQUIRED';
                 } else if (status === 429) {
-                    mensaje = 'Demasiadas solicitudes. Espera un momento e intenta de nuevo.';
+                    mensaje = 'El asistente está recibiendo muchas solicitudes ahora mismo. Espera unos segundos e intenta de nuevo.';
                 } else if (status === 503) {
-                    mensaje = 'El asistente no está disponible en este momento.';
+                    mensaje = 'El asistente está sobrecargado en este momento. Intenta de nuevo en unos segundos.';
                 }
             }
             if (status === 401 && !codigo) {

@@ -887,6 +887,42 @@
         .fa-step:not(:last-child) .fa-step-line { width: 2px; flex: 1 1 auto; background: var(--fa-line-2); }
         .fa-step-col { display: flex; flex-direction: column; align-items: center; }
 
+        /* ───────── Vistas de descubrimiento, plan y cuenta ───────── */
+        .fa-list { display: flex; flex-direction: column; gap: var(--fa-s2); }
+        .fa-item { display: flex; gap: var(--fa-s2); padding: var(--fa-s2); border: 1px solid var(--fa-line-2); border-radius: var(--fa-r-sm); background: var(--fa-surface); }
+        .fa-item-img { width: 46px; height: 46px; border-radius: var(--fa-r-xs); object-fit: cover; background: var(--fa-surface-3); flex: 0 0 auto; }
+        .fa-item-main { flex: 1 1 auto; min-width: 0; }
+        .fa-item-name { margin: 0; font-size: var(--fa-sm); font-weight: 800; color: var(--fa-ink); }
+        .fa-item-meta { margin: 2px 0 0; font-size: var(--fa-2xs); color: var(--fa-ink-3); }
+        .fa-item-price { font-size: var(--fa-sm); font-weight: 800; color: var(--fa-ink); white-space: nowrap; }
+        .fa-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .fa-tag { font-size: var(--fa-2xs); font-weight: 700; padding: 2px 7px; border-radius: var(--fa-r-pill); background: var(--fa-surface-3); color: var(--fa-ink-2); }
+        .fa-tag.is-good { background: var(--fa-accent-soft); color: var(--fa-accent); }
+        .fa-stars { color: #d98324; font-size: var(--fa-sm); letter-spacing: 1px; }
+        .fa-cmp-attr { display: flex; justify-content: space-between; gap: var(--fa-s2); font-size: var(--fa-2xs); color: var(--fa-ink-2); padding: 2px 0; }
+        .fa-cmp-attr span:first-child { color: var(--fa-ink-3); font-weight: 600; }
+        .fa-insp-img { width: 100%; border-radius: var(--fa-r-sm); aspect-ratio: 4 / 3; object-fit: cover; background: var(--fa-surface-3); }
+        .fa-plan-list { margin: 0; padding-left: 16px; font-size: var(--fa-xs); color: var(--fa-ink-2); }
+        .fa-plan-list li { margin-bottom: 3px; }
+        .fa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--fa-s2); }
+        .fa-mesa { border: 1px solid var(--fa-line-2); border-radius: var(--fa-r-sm); padding: var(--fa-s2); text-align: center; background: var(--fa-surface); }
+        .fa-mesa-num { font-size: var(--fa-sm); font-weight: 800; color: var(--fa-ink); }
+        .fa-mesa-cap { font-size: var(--fa-2xs); color: var(--fa-ink-3); }
+        .fa-bar { height: 7px; border-radius: var(--fa-r-pill); background: var(--fa-surface-3); overflow: hidden; margin-top: 3px; }
+        .fa-bar > span { display: block; height: 100%; background: var(--fa-accent); }
+        .fa-level { border: 1px solid var(--fa-line-2); border-radius: var(--fa-r-sm); padding: var(--fa-s2) var(--fa-s3); margin-bottom: var(--fa-s2); }
+        .fa-level.is-main { border-color: var(--fa-accent); background: var(--fa-accent-soft); }
+        .fa-level-top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--fa-s2); }
+        .fa-level-name { font-size: var(--fa-sm); font-weight: 800; color: var(--fa-ink); }
+        .fa-level-total { font-size: var(--fa-sm); font-weight: 800; color: var(--fa-ink); }
+        .fa-level-desc { margin: 2px 0 0; font-size: var(--fa-2xs); color: var(--fa-ink-3); line-height: 1.45; }
+        .fa-feedback { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+        .fa-feedback button { border: 1px solid var(--fa-line-2); background: var(--fa-surface); border-radius: var(--fa-r-pill); width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--fa-ink-2); transition: background .15s ease, border-color .15s ease, color .15s ease; }
+        .fa-feedback button:hover { background: var(--fa-surface-3); color: var(--fa-ink); }
+        .fa-feedback button.is-on { border-color: var(--fa-accent); background: var(--fa-accent-soft); color: var(--fa-accent); }
+        .fa-feedback-note { font-size: var(--fa-2xs); color: var(--fa-ink-3); }
+        .fa-links { display: flex; flex-wrap: wrap; gap: var(--fa-s2); }
+
         /* ───────── Vista de seguimiento del alquiler ───────── */
         .fa-res-head { margin-bottom: var(--fa-s3); }
         .fa-res-top { display: flex; align-items: center; justify-content: space-between; gap: var(--fa-s2); }
@@ -1092,6 +1128,14 @@
                     <div class="fa-view" id="furent-assistant-view-bolsa" hidden></div>
                     <div class="fa-view" id="furent-assistant-view-reco" hidden></div>
                     <div class="fa-view" id="furent-assistant-view-alquiler" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-comparar" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-resenas" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-inspiracion" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-direcciones" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-notificaciones" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-plan" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-mesas" hidden></div>
+                    <div class="fa-view" id="furent-assistant-view-presupuesto" hidden></div>
                 </div>
             </aside>
 
