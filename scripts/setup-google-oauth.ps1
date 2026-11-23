@@ -59,7 +59,7 @@ Write-Host ""
 Write-Host "[System.Environment]::SetEnvironmentVariable('GOOGLE_CLIENT_ID', '$client_id', 'User')" -ForegroundColor Cyan
 Write-Host "[System.Environment]::SetEnvironmentVariable('GOOGLE_CLIENT_SECRET', '$client_secret', 'User')" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Ahora puedes ejecutar la aplicación con:" -ForegroundColor Yellow
+Write-Host "Ahora puedes ejecutar la aplicación con (desde la raíz del repo):" -ForegroundColor Yellow
 Write-Host ".\mvnw.cmd spring-boot:run" -ForegroundColor Cyan
 Write-Host ""
 

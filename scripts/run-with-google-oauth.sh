@@ -2,6 +2,10 @@
 
 # Script para ejecutar Furent con Google OAuth2 configurado
 # Linux/Mac
+# Ubicacion: scripts/run-with-google-oauth.sh
+
+# Moverse a la raiz del repositorio (este script vive en /scripts)
+cd "$(dirname "$0")/.."
 
 echo "========================================"
 echo "  Furent - Inicio con Google OAuth2"

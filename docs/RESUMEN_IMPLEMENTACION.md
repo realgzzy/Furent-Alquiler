@@ -50,13 +50,13 @@
 
 **Windows:**
 ```powershell
-.\run-with-google-oauth.ps1
+.\scripts\run-with-google-oauth.ps1
 ```
 
 **Linux/Mac:**
 ```bash
-chmod +x run-with-google-oauth.sh
-./run-with-google-oauth.sh
+chmod +x scripts/run-with-google-oauth.sh
+./scripts/run-with-google-oauth.sh
 ```
 
 ### Opción 2: Manual
@@ -266,7 +266,7 @@ db.usuarios.find({ provider: "google" })
 
 ## 🎉 ¡Todo Listo!
 
-**Siguiente paso:** Ejecuta `.\run-with-google-oauth.ps1` (Windows) o `./run-with-google-oauth.sh` (Linux/Mac)
+**Siguiente paso:** Ejecuta `.\scripts\run-with-google-oauth.ps1` (Windows) o `./scripts/run-with-google-oauth.sh` (Linux/Mac)
 
 **Documentación principal:** `CONFIGURACION_GOOGLE_COMPLETADA.md`
 

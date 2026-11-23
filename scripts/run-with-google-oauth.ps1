@@ -1,5 +1,10 @@
 # Script para ejecutar Furent con Google OAuth2 configurado
 # Windows PowerShell
+# Ubicacion: scripts\run-with-google-oauth.ps1
+
+# Resolver la raiz del repositorio (este script vive en /scripts)
+$repoRoot = Split-Path -Parent $PSScriptRoot
+Set-Location $repoRoot
 
 # Asegurar entorno JDK para compilación
 if (-not $env:JAVA_HOME -or -not (Test-Path "$env:JAVA_HOME\bin\javac.exe")) {

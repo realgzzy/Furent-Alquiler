@@ -1,5 +1,10 @@
 # Script para reiniciar la aplicacion Furent
 # Windows PowerShell
+# Ubicacion: scripts\restart-app.ps1
+
+# Resolver la raiz del repositorio (este script vive en /scripts)
+$repoRoot = Split-Path -Parent $PSScriptRoot
+Set-Location $repoRoot
 
 # Asegurar entorno JDK para compilacion
 if (-not $env:JAVA_HOME -or -not (Test-Path "$env:JAVA_HOME\bin\javac.exe")) {
@@ -61,7 +66,7 @@ Write-Host "[OK] OAuth2 Google: CONFIGURADO" -ForegroundColor Green
 $optRunning = Get-NetTCPConnection -LocalPort 8090 -ErrorAction SilentlyContinue
 if (-not $optRunning) {
     Write-Host "[+] Iniciando Optimizador Python (Puerto 8090)..." -ForegroundColor Yellow
-    Start-Process py -ArgumentList "-m uvicorn app:app --host 127.0.0.1 --port 8090" -WorkingDirectory "$PSScriptRoot\python\optimizer" -WindowStyle Hidden
+    Start-Process py -ArgumentList "-m uvicorn app:app --host 127.0.0.1 --port 8090" -WorkingDirectory "$repoRoot\python\optimizer" -WindowStyle Hidden
     Start-Sleep -Seconds 1
     Write-Host "[OK] Optimizador Python activo" -ForegroundColor Green
 } else {

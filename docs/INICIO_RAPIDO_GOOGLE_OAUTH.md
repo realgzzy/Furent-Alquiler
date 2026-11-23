@@ -6,7 +6,7 @@ Si viste un error "429 - Too Many Requests", ya está solucionado. El rate limit
 
 **Reinicia la aplicación:**
 ```powershell
-.\restart-app.ps1
+.\scripts\restart-app.ps1
 ```
 
 O manualmente:
@@ -45,13 +45,13 @@ O manualmente:
 
 **Windows:**
 ```powershell
-.\run-with-google-oauth.ps1
+.\scripts\run-with-google-oauth.ps1
 ```
 
 **Linux/Mac:**
 ```bash
-chmod +x run-with-google-oauth.sh
-./run-with-google-oauth.sh
+chmod +x scripts/run-with-google-oauth.sh
+./scripts/run-with-google-oauth.sh
 ```
 
 **O manualmente:**

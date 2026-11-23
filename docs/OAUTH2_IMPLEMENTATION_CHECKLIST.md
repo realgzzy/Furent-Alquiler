@@ -83,13 +83,13 @@
    
    **Windows (PowerShell):**
    ```powershell
-   .\setup-google-oauth.ps1
+   .\scripts\setup-google-oauth.ps1
    ```
    
    **Linux/Mac:**
    ```bash
-   chmod +x setup-google-oauth.sh
-   ./setup-google-oauth.sh
+   chmod +x scripts/setup-google-oauth.sh
+   ./scripts/setup-google-oauth.sh
    ```
    
    **O manualmente:**

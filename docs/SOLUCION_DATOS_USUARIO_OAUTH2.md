@@ -39,7 +39,7 @@ Actualizado el método `/configuracion` con la misma lógica.
 
 ### Opción 1: Script Automático
 ```powershell
-.\restart-app.ps1
+.\scripts\restart-app.ps1
 ```
 
 ### Opción 2: Manual
@@ -124,4 +124,4 @@ Los cambios en el código Java requieren reiniciar la aplicación. Los cambios e
 
 ---
 
-**Siguiente paso:** Reinicia la aplicación con `.\restart-app.ps1`
+**Siguiente paso:** Reinicia la aplicación con `.\scripts\restart-app.ps1`
