@@ -1,773 +1,1633 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/admin-layout :: layout(~{::title}, ~{::main}, 'logistica')}">
 <head>
-    <title>Logística Operativa — Furent Admin</title>
+    <title>Centro de Logística — Furent Admin</title>
 </head>
 <body>
 <main>
-    <div class="px-6 sm:px-10 py-8 max-w-[90rem] mx-auto">
+    <!-- ============================================================
+         Logística · tablero de despacho
+         Identidad Furent: base zinc, una sola tinta de acento (#E07A3A).
+         Registro: "hoja de ruta" — KPIs que filtran al clic, un cronograma
+         mensual propio con densidad por día, manifiesto del día y manifiesto
+         general de operaciones. Modales de ficha, cambio de estado y
+         exportación de la hoja de ruta.
+         ============================================================ -->
+    <div class="lg-scope px-5 sm:px-8 lg:px-10 py-8 pb-20 max-w-[94rem] mx-auto"
+         x-data="logisticaPage()" x-init="init()" x-cloak
+         @pointerdown.window="cerrarPopovers($event)" @keydown.escape.window="cerrarPopovers()" @resize.window="onResize()">
 
-        <!-- Page Header -->
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 mb-8">
-            <div>
-                <h1 class="text-3xl font-extrabold tracking-tight text-surface-900">Centro de Logística</h1>
-                <p class="text-sm font-medium text-surface-500 mt-1">Entregas, retornos y seguimiento operativo diario</p>
+        <style>
+            .lg-scope {
+                --lg-accent: #E07A3A;
+                --lg-accent-strong: #C2630F;
+                --lg-accent-soft: #FFF7F0;
+                --lg-accent-line: #FED7AA;
+                --lg-ink: #18181b;
+                --lg-ink-2: #52525b;
+                --lg-mute: #71717a;
+                --lg-faint: #a1a1aa;
+                --lg-line: #f4f4f5;
+                --lg-line-2: #e4e4e7;
+                --lg-card: #ffffff;
+                --lg-hover: #fafafa;
+                --lg-tint: #fafafa;
+                --lg-ring: rgba(224, 122, 58, .1);
+                --lg-ent: #2563eb;
+                --lg-ent-soft: #eff6ff;
+                --lg-ent-line: #bfdbfe;
+                --lg-ret: #d97706;
+                --lg-ret-soft: #fffbeb;
+                --lg-ret-line: #fde68a;
+                --lg-stop: #dc2626;
+                --lg-stop-soft: #fef2f2;
+                --lg-stop-line: #fecaca;
+                --lg-ok: #16a34a;
+                --lg-ok-soft: #f0fdf4;
+                --lg-ok-line: #bbf7d0;
+            }
+            html.dark .lg-scope {
+                --lg-accent-soft: rgba(224, 122, 58, .14);
+                --lg-accent-line: rgba(224, 122, 58, .32);
+                --lg-ink: #fafafa;
+                --lg-ink-2: #a1a1aa;
+                --lg-mute: #71717a;
+                --lg-faint: #52525b;
+                --lg-line: #1c1c20;
+                --lg-line-2: #27272a;
+                --lg-card: #131316;
+                --lg-hover: #1a1a1e;
+                --lg-tint: #17171a;
+                --lg-ent: #60a5fa;
+                --lg-ent-soft: rgba(37, 99, 235, .16);
+                --lg-ent-line: rgba(37, 99, 235, .34);
+                --lg-ret: #fbbf24;
+                --lg-ret-soft: rgba(217, 119, 6, .16);
+                --lg-ret-line: rgba(217, 119, 6, .34);
+                --lg-stop: #f87171;
+                --lg-stop-soft: rgba(220, 38, 38, .16);
+                --lg-stop-line: rgba(220, 38, 38, .34);
+                --lg-ok: #4ade80;
+                --lg-ok-soft: rgba(22, 163, 74, .16);
+                --lg-ok-line: rgba(22, 163, 74, .32);
+            }
+
+            .lg-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .13em; color: var(--lg-faint); }
+            .lg-tabular { font-variant-numeric: tabular-nums; }
+            .lg-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+            /* Entrada escalonada */
+            .lg-rise { animation: lgRise .5s cubic-bezier(.16, 1, .3, 1) both; }
+            .lg-d1 { animation-delay: .04s; } .lg-d2 { animation-delay: .1s; } .lg-d3 { animation-delay: .16s; }
+            @keyframes lgRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+            .lg-card { background: var(--lg-card); border: 1px solid var(--lg-line); border-radius: 1rem; }
+
+            /* KPIs (clic = filtro) */
+            .lg-kpi { position: relative; overflow: hidden; width: 100%; text-align: left; padding: 1.05rem 1.15rem; cursor: pointer;
+                      display: flex; flex-direction: column; transition: border-color .16s ease, transform .16s ease, background-color .16s ease; }
+            .lg-kpi:hover { border-color: var(--lg-line-2); transform: translateY(-1px); }
+            .lg-kpi:focus-visible { outline: 2px solid var(--lg-accent); outline-offset: 2px; }
+            .lg-kpi[aria-pressed="true"] { border-color: var(--lg-accent-line); background: var(--lg-accent-soft); }
+            .lg-kpi--static { cursor: default; }
+            .lg-kpi--static:hover { transform: none; border-color: var(--lg-line); }
+            .lg-kpi__ray { position: absolute; right: 1rem; top: 1.25rem; color: var(--lg-line-2); opacity: .9; pointer-events: none; }
+            .lg-kpi__top { display: flex; align-items: center; gap: .55rem; }
+            .lg-kpi__icon { display: inline-flex; align-items: center; justify-content: center; width: 2.05rem; height: 2.05rem; border-radius: .65rem;
+                            background: var(--lg-tint); color: var(--lg-ink-2); flex-shrink: 0; }
+            .lg-kpi__icon--accent { background: var(--lg-accent-soft); color: var(--lg-accent); }
+            .lg-kpi__icon--ent { background: var(--lg-ent-soft); color: var(--lg-ent); }
+            .lg-kpi__icon--ret { background: var(--lg-ret-soft); color: var(--lg-ret); }
+            .lg-kpi__icon--ok { background: var(--lg-ok-soft); color: var(--lg-ok); }
+            .lg-kpi__icon--stop { background: var(--lg-stop-soft); color: var(--lg-stop); }
+            .lg-kpi__value { font-size: 1.7rem; line-height: 1; font-weight: 900; letter-spacing: -.025em; color: var(--lg-ink); margin-top: .75rem; }
+            .lg-kpi__sub { font-size: .72rem; font-weight: 600; color: var(--lg-mute); margin-top: .4rem; }
+
+            /* Segmentos */
+            .lg-seg { display: inline-flex; padding: .22rem; border-radius: .8rem; background: #f4f4f5; gap: .22rem; }
+            .lg-seg__btn { display: inline-flex; align-items: center; gap: .45rem; padding: .5rem .85rem; border-radius: .62rem;
+                           font-size: .72rem; font-weight: 800; letter-spacing: .02em; color: #52525b; transition: all .14s ease; white-space: nowrap; }
+            .lg-seg__btn:hover { color: #18181b; }
+            .lg-seg__btn:focus-visible { outline: 2px solid var(--lg-accent); outline-offset: 2px; }
+            .lg-seg__btn[aria-selected="true"] { background: #fff; color: #18181b; box-shadow: 0 1px 2px rgba(0, 0, 0, .07); }
+            .lg-seg__count { font-size: .62rem; font-weight: 900; padding: .1rem .4rem; border-radius: .45rem; background: var(--lg-line-2); color: var(--lg-ink-2); }
+            .lg-seg__btn[aria-selected="true"] .lg-seg__count { background: var(--lg-accent-soft); color: var(--lg-accent-strong); }
+            html.dark .lg-seg { background: #1c1c20; }
+            html.dark .lg-seg__btn { color: #a1a1aa; }
+            html.dark .lg-seg__btn:hover { color: #fff; }
+            html.dark .lg-seg__btn[aria-selected="true"] { background: #27272a; color: #fff; box-shadow: none; }
+            html.dark .lg-seg__count { background: #3f3f46; color: #d4d4d8; }
+            html.dark .lg-seg__btn[aria-selected="true"] .lg-seg__count { background: rgba(224, 122, 58, .2); color: #f0b483; }
+
+            /* Píldoras */
+            .lg-pill { display: inline-flex; align-items: center; gap: .32rem; padding: .2rem .58rem; border-radius: .5rem;
+                       font-size: .63rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+                       border: 1px solid transparent; white-space: nowrap; }
+            .lg-dot { width: .4rem; height: .4rem; border-radius: 9999px; background: currentColor; flex-shrink: 0; }
+            .lg-pill-ok { background: var(--lg-ok-soft); color: #15803d; border-color: var(--lg-ok-line); }
+            .lg-pill-warn { background: var(--lg-ret-soft); color: #b45309; border-color: var(--lg-ret-line); }
+            .lg-pill-stop { background: var(--lg-stop-soft); color: #b91c1c; border-color: var(--lg-stop-line); }
+            .lg-pill-info { background: var(--lg-ent-soft); color: #1d4ed8; border-color: var(--lg-ent-line); }
+            .lg-pill-mute { background: var(--lg-line); color: var(--lg-ink-2); border-color: var(--lg-line-2); }
+            .lg-pill-accent { background: var(--lg-accent-soft); color: var(--lg-accent-strong); border-color: var(--lg-accent-line); }
+            html.dark .lg-pill-ok { color: #4ade80; }
+            html.dark .lg-pill-warn { color: #fbbf24; }
+            html.dark .lg-pill-stop { color: #f87171; }
+            html.dark .lg-pill-info { color: #93c5fd; }
+            html.dark .lg-pill-mute { background: rgba(113, 113, 122, .16); color: #a1a1aa; border-color: rgba(113, 113, 122, .3); }
+            html.dark .lg-pill-accent { color: #FDBA74; }
+
+            /* Botones */
+            .lg-btn { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; padding: .6rem .95rem; border-radius: .75rem;
+                      font-size: .72rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; cursor: pointer;
+                      transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .14s ease; white-space: nowrap; }
+            .lg-btn:active { transform: scale(.975); }
+            .lg-btn:focus-visible { outline: 2px solid var(--lg-accent); outline-offset: 2px; }
+            .lg-btn:disabled { opacity: .5; cursor: not-allowed; }
+            .lg-btn-accent { background: var(--lg-accent); color: #fff; }
+            .lg-btn-accent:hover { background: var(--lg-accent-strong); }
+            .lg-btn-dark { background: #18181b; color: #fff; }
+            .lg-btn-dark:hover { background: #000; }
+            .lg-btn-ghost { background: var(--lg-card); border: 1px solid var(--lg-line-2); color: var(--lg-ink-2); }
+            .lg-btn-ghost:hover { border-color: var(--lg-faint); color: var(--lg-ink); }
+            .lg-btn-soft { background: var(--lg-accent-soft); border: 1px solid var(--lg-accent-line); color: var(--lg-accent-strong); }
+            .lg-btn-soft:hover { background: #FFEDD5; }
+            .lg-btn-ent { background: var(--lg-ent-soft); border: 1px solid var(--lg-ent-line); color: var(--lg-ent); }
+            .lg-btn-ent:hover { filter: brightness(.97); }
+            .lg-btn-ret { background: var(--lg-ret-soft); border: 1px solid var(--lg-ret-line); color: var(--lg-ret); }
+            .lg-btn-ret:hover { filter: brightness(.97); }
+            .lg-btn-icon { padding: .6rem; }
+            html.dark .lg-btn-dark { background: #fafafa; color: #18181b; }
+            html.dark .lg-btn-dark:hover { background: #fff; }
+            html.dark .lg-btn-ghost { background: #18181b; border-color: #27272a; color: #d4d4d8; }
+            html.dark .lg-btn-ghost:hover { border-color: #3f3f46; color: #fff; }
+            html.dark .lg-btn-soft { background: rgba(224, 122, 58, .14); border-color: rgba(224, 122, 58, .32); color: #FDBA74; }
+            html.dark .lg-btn-soft:hover { background: rgba(224, 122, 58, .22); }
+            /* Campos */
+            .lg-field { width: 100%; border-radius: .75rem; border: 1px solid var(--lg-line-2); background: var(--lg-tint);
+                        padding: .6rem .8rem; font-size: .82rem; font-weight: 600; color: var(--lg-ink);
+                        transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+            .lg-field::placeholder { color: var(--lg-faint); font-weight: 500; }
+            .lg-field:focus { outline: none; border-color: #FDBA74; background: var(--lg-card); box-shadow: 0 0 0 4px var(--lg-ring); }
+            .lg-field-pl { padding-left: 2.3rem; }
+            .lg-field-pr { padding-right: 2.2rem; }
+            .lg-field--open { border-color: #FDBA74; background: var(--lg-card); box-shadow: 0 0 0 4px var(--lg-ring); }
+            .lg-fld-wrap { min-width: 12rem; }
+
+            /* Disparadores dropdown */
+            .lg-dd { display: flex; align-items: center; gap: .5rem; width: 100%; padding-left: .8rem; padding-right: .8rem; cursor: pointer; text-align: left; }
+            .lg-dd__lead { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--lg-ink-2); }
+            .lg-dd__val { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35; font-weight: 700; color: var(--lg-ink); }
+            .lg-dd__caret { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--lg-faint); transition: transform .16s ease; }
+            .lg-dd__caret--open { transform: rotate(180deg); }
+
+            /* Popovers */
+            .lg-pop { position: absolute; top: calc(100% + .5rem); z-index: 60; background: var(--lg-card);
+                      border: 1px solid var(--lg-line-2); border-radius: 1rem;
+                      box-shadow: 0 18px 44px -14px rgba(24, 24, 27, .24), 0 4px 12px -6px rgba(24, 24, 27, .12);
+                      animation: lgPop .16s cubic-bezier(.16, 1, .3, 1) both; }
+            html.dark .lg-pop { box-shadow: 0 18px 44px -14px rgba(0, 0, 0, .72); }
+            .lg-pop--menu { right: 0; left: auto; width: max-content; min-width: 15rem; max-width: 22rem; padding: .35rem;
+                            max-height: 22rem; overflow-y: auto; }
+            @media (max-width: 639px) { .lg-pop--menu { left: 0; right: 0; width: auto; max-width: none; } }
+
+            /* Opciones */
+            .lg-opt { display: flex; align-items: center; gap: .65rem; width: 100%; text-align: left; padding: .5rem .55rem;
+                      border-radius: .7rem; transition: background-color .12s ease; }
+            .lg-opt--active { background: var(--lg-hover); }
+            .lg-opt__ic { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem;
+                          border-radius: .6rem; background: var(--lg-tint); color: var(--lg-ink-2); flex-shrink: 0; }
+            .lg-opt--sel .lg-opt__ic { background: var(--lg-accent-soft); color: var(--lg-accent); }
+            .lg-opt__body { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+            .lg-opt__label { font-size: .8rem; font-weight: 700; color: var(--lg-ink); }
+            .lg-opt__desc { font-size: .66rem; font-weight: 500; color: var(--lg-mute); }
+            .lg-opt__count { font-size: .66rem; font-weight: 800; color: var(--lg-faint); margin-left: auto; padding-left: .5rem; }
+            .lg-opt__check { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--lg-accent); }
+            .lg-opt[aria-selected="true"] { background: var(--lg-accent-soft); }
+            html.dark .lg-opt[aria-selected="true"] { background: rgba(224, 122, 58, .12); }
+
+            /* Placa de icono */
+            .lg-tile { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+                       border-radius: .85rem; background: var(--lg-accent-soft); color: var(--lg-accent);
+                       border: 1px solid var(--lg-accent-line); }
+            .lg-tile svg { width: 55%; height: 55%; }
+            .lg-tile--sm { width: 2.5rem; height: 2.5rem; border-radius: .7rem; }
+            .lg-tile--md { width: 3.15rem; height: 3.15rem; }
+            .lg-tile--lg { width: 4rem; height: 4rem; border-radius: 1rem; }
+            .lg-tile--ent { background: var(--lg-ent-soft); border-color: var(--lg-ent-line); color: var(--lg-ent); }
+            .lg-tile--ret { background: var(--lg-ret-soft); border-color: var(--lg-ret-line); color: var(--lg-ret); }
+
+            /* Cronograma */
+            .lg-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: .3rem; }
+            .lg-cal__hd { font-size: .6rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--lg-faint); text-align: center; padding: .35rem 0; }
+            .lg-cal__cell { position: relative; aspect-ratio: 1 / 1; border-radius: .7rem; border: 1px solid transparent; background: var(--lg-tint);
+                            display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: .12rem; padding: .3rem .05rem; width: 100%;
+                            transition: border-color .14s ease, background-color .14s ease, transform .14s ease; }
+            .lg-cal__cell:hover { border-color: var(--lg-line-2); background: var(--lg-hover); transform: translateY(-1px); }
+            .lg-cal__cell:focus-visible { outline: 2px solid var(--lg-accent); outline-offset: 2px; }
+            .lg-cal__cell--out { opacity: .38; }
+            .lg-cal__cell--sel { border-color: var(--lg-accent); background: var(--lg-accent-soft); }
+            .lg-cal__cell--today .lg-cal__num { color: var(--lg-accent-strong); }
+            .lg-cal__cell--today::after { content: ''; position: absolute; inset: 0; border-radius: .7rem; box-shadow: inset 0 0 0 2px var(--lg-accent-line); pointer-events: none; }
+            .lg-cal__num { font-size: .78rem; font-weight: 800; color: var(--lg-ink); font-variant-numeric: tabular-nums; }
+            .lg-cal__badges { display: flex; gap: .15rem; flex-wrap: wrap; justify-content: center; }
+            .lg-cal__badge { font-size: .55rem; font-weight: 900; line-height: 1; padding: .13rem .24rem; border-radius: .35rem; }
+            .lg-cal__badge--e { background: var(--lg-ent-soft); color: var(--lg-ent); }
+            .lg-cal__badge--r { background: var(--lg-ret-soft); color: var(--lg-ret); }
+
+            /* Operación (manifiesto) */
+            .lg-op { display: grid; grid-template-columns: 3.6rem 0.3rem 1fr auto; align-items: center; gap: .85rem; width: 100%; text-align: left;
+                     padding: .8rem .9rem; border-radius: .9rem; border: 1px solid var(--lg-line); background: var(--lg-card);
+                     transition: border-color .14s ease, background-color .14s ease, transform .14s ease; }
+            .lg-op:hover { border-color: var(--lg-line-2); background: var(--lg-hover); transform: translateY(-1px); }
+            .lg-op:focus-visible { outline: 2px solid var(--lg-accent); outline-offset: 2px; }
+            .lg-op__rail { align-self: stretch; border-radius: 9999px; }
+            .lg-op__rail--entrega { background: var(--lg-ent); }
+            .lg-op__rail--retorno { background: var(--lg-ret); }
+            .lg-op__time { display: flex; flex-direction: column; }
+            .lg-op__hh { font-size: .86rem; font-weight: 900; color: var(--lg-ink); font-variant-numeric: tabular-nums; }
+            .lg-op__tipo { font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+            .lg-op__tipo--entrega { color: var(--lg-ent); }
+            .lg-op__tipo--retorno { color: var(--lg-ret); }
+
+            /* Tabla */
+            .lg-th { font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--lg-faint);
+                     text-align: left; padding: .7rem 1rem; white-space: nowrap; }
+            .lg-td { padding: .7rem 1rem; font-size: .82rem; color: var(--lg-ink-2); vertical-align: middle; }
+            .lg-row { transition: background-color .15s ease; cursor: pointer; }
+            .lg-row:hover { background: var(--lg-hover); }
+            .lg-row:focus-visible { outline: 2px solid var(--lg-accent); outline-offset: -2px; }
+            .lg-row-line { border-bottom: 1px solid var(--lg-line); }
+            .lg-row-line:last-child { border-bottom: 0; }
+
+            /* Lista de definición */
+            .lg-dl { display: grid; grid-template-columns: auto 1fr; gap: .55rem 1rem; align-items: baseline; }
+            .lg-dl dt { font-size: .68rem; font-weight: 700; color: var(--lg-faint); white-space: nowrap; }
+            .lg-dl dd { font-size: .82rem; font-weight: 600; color: var(--lg-ink); text-align: right; word-break: break-word; }
+
+            /* Barra de pago */
+            .lg-paybar { height: .34rem; border-radius: 9999px; background: var(--lg-line-2); overflow: hidden; }
+            .lg-payfill { height: 100%; border-radius: 9999px; background: var(--lg-accent); transition: width .5s cubic-bezier(.16, 1, .3, 1); }
+            .lg-payfill--ok { background: var(--lg-ok); }
+
+            /* Ítem de mobiliario */
+            .lg-item { display: flex; align-items: center; gap: .55rem; padding: .45rem .6rem; border-radius: .7rem;
+                       border: 1px solid var(--lg-line); background: var(--lg-tint); }
+
+            /* Modal nativo */
+            .lg-modal { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; }
+            .lg-modal::backdrop { background: rgba(24, 24, 27, .55); backdrop-filter: blur(4px); }
+            html.dark .lg-modal::backdrop { background: rgba(0, 0, 0, .7); }
+            .lg-modal[open] .lg-modal__card { animation: lgPop .24s cubic-bezier(.16, 1, .3, 1) both; }
+            @keyframes lgPop { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+            .lg-modal__card { background: var(--lg-card); border: 1px solid var(--lg-line-2); border-radius: 1.25rem;
+                              box-shadow: 0 30px 80px -30px rgba(24, 24, 27, .5); }
+            .lg-scroll { scrollbar-width: thin; }
+            .lg-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+            .lg-scroll::-webkit-scrollbar-thumb { background: var(--lg-line-2); border-radius: 9999px; }
+            .lg-scroll::-webkit-scrollbar-track { background: transparent; }
+
+            /* Formularios del modal */
+            .lg-flabel { display: block; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; color: var(--lg-faint); margin-bottom: .45rem; }
+            .lg-finput { width: 100%; border-radius: .75rem; border: 1px solid var(--lg-line-2); background: var(--lg-tint);
+                         padding: .68rem .85rem; font-size: .85rem; font-weight: 600; color: var(--lg-ink); transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+            .lg-finput::placeholder { color: var(--lg-faint); font-weight: 500; }
+            .lg-finput:focus { outline: none; border-color: #FDBA74; background: var(--lg-card); box-shadow: 0 0 0 4px var(--lg-ring); }
+            .lg-section { padding-top: 1.1rem; margin-top: 1.1rem; border-top: 1px solid var(--lg-line); }
+
+            /* Selector de estado (radios de tarjeta) */
+            .lg-estado { display: flex; align-items: flex-start; gap: .7rem; width: 100%; text-align: left; padding: .7rem .8rem;
+                         border-radius: .85rem; border: 1px solid var(--lg-line-2); background: var(--lg-card);
+                         transition: border-color .14s ease, background-color .14s ease, box-shadow .14s ease; }
+            .lg-estado:hover { border-color: var(--lg-faint); }
+            .lg-estado:focus-visible { outline: 2px solid var(--lg-accent); outline-offset: 2px; }
+            .lg-estado--on { border-color: var(--lg-accent); background: var(--lg-accent-soft); box-shadow: 0 0 0 3px var(--lg-ring); }
+            .lg-estado__ic { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: .6rem;
+                             background: var(--lg-tint); color: var(--lg-ink-2); flex-shrink: 0; }
+            .lg-estado--on .lg-estado__ic { background: var(--lg-card); color: var(--lg-accent); }
+            .lg-estado__ic--ok { background: var(--lg-ok-soft); color: var(--lg-ok); }
+            .lg-estado__ic--ent { background: var(--lg-ent-soft); color: var(--lg-ent); }
+            .lg-estado__ic--ret { background: var(--lg-ret-soft); color: var(--lg-ret); }
+            .lg-estado__ic--stop { background: var(--lg-stop-soft); color: var(--lg-stop); }
+
+            /* Selector de fecha (DateRangePicker HeroUI-style) */
+            .lg-dp { right: 0; left: auto; width: min(40rem, 92vw); padding: 1rem; }
+            .lg-dp__presets { display: flex; flex-wrap: wrap; gap: .4rem; padding: .1rem .35rem .7rem; }
+            .lg-dp__preset { font-size: .68rem; font-weight: 800; padding: .4rem .7rem; border-radius: .6rem; border: 1px solid var(--lg-line-2);
+                             background: var(--lg-tint); color: var(--lg-ink-2); transition: all .14s ease; }
+            .lg-dp__preset:hover { border-color: var(--lg-accent-line); color: var(--lg-accent-strong); background: var(--lg-accent-soft); }
+            .lg-dp__nav { display: flex; align-items: center; justify-content: space-between; padding: .1rem .2rem .5rem; }
+            .lg-dp__navbtn { width: 2rem; height: 2rem; display: inline-flex; align-items: center; justify-content: center; border-radius: .6rem;
+                             border: 1px solid var(--lg-line-2); background: var(--lg-card); color: var(--lg-ink-2); transition: all .14s ease; }
+            .lg-dp__navbtn:hover { border-color: var(--lg-faint); color: var(--lg-ink); }
+            .lg-dp__navbtn:disabled { opacity: .4; cursor: not-allowed; }
+            .lg-dp__months { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+            @media (min-width: 640px) { .lg-dp__months { grid-template-columns: 1fr 1fr; } }
+            .lg-dp__mtitle { font-size: .78rem; font-weight: 800; color: var(--lg-ink); text-align: center; text-transform: capitalize; }
+            .lg-dp__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: .12rem; }
+            .lg-dp__hd { font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--lg-faint); text-align: center; padding: .3rem 0; }
+            .lg-dp__day { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; border-radius: .6rem;
+                          font-size: .76rem; font-weight: 700; color: var(--lg-ink-2); font-variant-numeric: tabular-nums;
+                          border: 1px solid transparent; transition: background-color .12s ease, color .12s ease, border-color .12s ease; }
+            .lg-dp__day:hover { background: var(--lg-hover); color: var(--lg-ink); }
+            .lg-dp__day:focus-visible { outline: 2px solid var(--lg-accent); outline-offset: 1px; }
+            .lg-dp__day--out { color: var(--lg-faint); opacity: .55; }
+            .lg-dp__day--today { border-color: var(--lg-accent-line); color: var(--lg-accent-strong); }
+            .lg-dp__day--range { background: var(--lg-accent-soft); color: var(--lg-accent-strong); border-radius: 0; }
+            .lg-dp__day--edge { background: var(--lg-accent); color: #fff; }
+            .lg-dp__day--edge:hover { background: var(--lg-accent-strong); color: #fff; }
+            .lg-dp__foot { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding-top: .8rem; margin-top: .6rem; border-top: 1px solid var(--lg-line); }
+            .lg-dp__sel { font-size: .74rem; font-weight: 700; color: var(--lg-ink-2); }
+            .lg-dp__sel b { color: var(--lg-ink); }
+
+            @media (prefers-reduced-motion: reduce) {
+                .lg-rise { animation: none !important; opacity: 1 !important; transform: none !important; }
+                .lg-modal[open] .lg-modal__card, .lg-pop { animation: none !important; }
+                .lg-row, .lg-seg__btn, .lg-dd__caret, .lg-kpi, .lg-btn, .lg-cal__cell, .lg-op, .lg-payfill, .lg-estado, .lg-dp__day { transition: none !important; }
+                .lg-kpi:hover, .lg-cal__cell:hover, .lg-op:hover { transform: none; }
+            }
+        </style>
+        <!-- ============================ Cabecera ============================ -->
+        <header class="lg-rise flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div class="min-w-0">
+                <div class="flex items-center gap-2.5 mb-3 flex-wrap">
+                    <span class="lg-label">Logística · Operaciones</span>
+                    <span class="block size-1 rounded-full bg-surface-300"></span>
+                    <span class="lg-pill" :class="stats.atrasadas > 0 ? 'lg-pill-stop' : 'lg-pill-ok'">
+                        <span class="lg-dot"></span>
+                        <span x-text="stats.atrasadas > 0 ? (num(stats.atrasadas) + ' atrasadas') : 'Sin atrasos'"></span>
+                    </span>
+                    <span class="lg-pill lg-pill-info" x-show="stats.enCurso > 0" x-cloak>
+                        <span class="lg-dot"></span><span x-text="num(stats.enCurso) + ' en ruta'"></span>
+                    </span>
+                </div>
+                <h1 class="text-[2.1rem] leading-none font-black tracking-tight text-surface-900 dark:text-white">Centro de Logística</h1>
+                <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-3 max-w-2xl">
+                    Planifica y sigue cada entrega y retorno: la ruta del día, el cronograma del mes y el estado de cada operación en un solo tablero.
+                </p>
             </div>
-            <div class="flex flex-wrap items-center gap-2.5">
-                <button type="button" onclick="refreshToday(this)" id="btnRefresh" class="px-4 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-xs font-bold hover:bg-surface-50 transition-colors flex items-center gap-2 shadow-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button type="button" class="lg-btn lg-btn-ghost" x-show="!sinDatos" x-cloak @click="location.reload()" aria-label="Actualizar tablero">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
                     Actualizar
                 </button>
-                <button type="button" onclick="window.print()" class="px-4 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-xs font-bold hover:bg-surface-50 transition-colors flex items-center gap-2 shadow-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.872a9.124 9.124 0 012.845-2.845m0 0a9.124 9.124 0 012.845 2.845m-2.845-2.845V19.5m0 0h-6.75m6.75 0h6.75M3.375 5.25h17.25M3.75 6v13.5A2.25 2.25 0 006 21.75h12a2.25 2.25 0 002.25-2.25V6m-18 0l1.35-2.7a2.25 2.25 0 011.83-1.05h1.14a2.25 2.25 0 011.83 1.05l1.35 2.7"/></svg>
-                    Imprimir
+                <button type="button" class="lg-btn lg-btn-ghost" @click="imprimirDia()" aria-label="Imprimir manifiesto del día">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5z"/></svg>
+                    <span class="hidden sm:inline">Imprimir día</span>
                 </button>
-                <button type="button" onclick="generateRouteSheet()" class="px-4 py-2.5 bg-surface-900 text-white rounded-xl text-xs font-bold hover:bg-surface-800 transition-colors flex items-center gap-2 shadow-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625A1.125 1.125 0 004.5 3.375v17.25a1.125 1.125 0 001.125 1.125h12.75a1.125 1.125 0 001.125-1.125V11.25a9 9 0 00-9-9z"></path></svg>
+                <button type="button" class="lg-btn lg-btn-dark" @click="abrirRuta()">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     Exportar hoja de ruta
                 </button>
             </div>
-        </div>
+        </header>
 
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-surface-200 flex items-center gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg>
-                </div>
-                <div>
-                    <p class="text-xs font-semibold text-surface-500 uppercase tracking-wider">Entregas</p>
-                    <p id="entregasHoyCount" class="text-2xl font-extrabold text-surface-900 leading-none mt-1">0</p>
-                </div>
-            </div>
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-surface-200 flex items-center gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg>
-                </div>
-                <div>
-                    <p class="text-xs font-semibold text-surface-500 uppercase tracking-wider">Retornos</p>
-                    <p id="retornosHoyCount" class="text-2xl font-extrabold text-surface-900 leading-none mt-1">0</p>
-                </div>
-            </div>
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-surface-200 flex items-center gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/></svg>
-                </div>
-                <div>
-                    <p class="text-xs font-semibold text-surface-500 uppercase tracking-wider">Total operaciones</p>
-                    <p id="totalHoyCount" class="text-2xl font-extrabold text-surface-900 leading-none mt-1">0</p>
-                </div>
-            </div>
-        </div>
+        <!-- ============================ KPIs (filtran al clic) ============================ -->
+        <section class="lg-rise lg-d1 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5 mt-7" aria-label="Resumen de operaciones">
+            <button type="button" class="lg-card lg-kpi" :aria-pressed="scope === 'todos'" @click="irA('todos')">
+                <svg class="lg-kpi__ray w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg>
+                <span class="lg-kpi__top">
+                    <span class="lg-kpi__icon lg-kpi__icon--accent">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"/></svg>
+                    </span>
+                    <span class="lg-label">Operaciones</span>
+                </span>
+                <span class="lg-kpi__value lg-tabular" x-text="num(stats.totalOps)">0</span>
+                <span class="lg-kpi__sub">Entregas + retornos en agenda</span>
+            </button>
 
-        <!-- Main Content Grid: Calendar + Sidebar -->
-        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <button type="button" class="lg-card lg-kpi" :aria-pressed="scope === 'hoy'" @click="irA('hoy')">
+                <svg class="lg-kpi__ray w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                <span class="lg-kpi__top">
+                    <span class="lg-kpi__icon lg-kpi__icon--ent">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                    </span>
+                    <span class="lg-label">Hoy</span>
+                </span>
+                <span class="lg-kpi__value lg-tabular text-[color:var(--lg-ent)]" x-text="num(stats.totalHoy)">0</span>
+                <span class="lg-kpi__sub" x-text="num(stats.entregasHoy) + ' entregas · ' + num(stats.retornosHoy) + ' retornos'">0 entregas · 0 retornos</span>
+            </button>
 
-            <!-- Calendar (main, takes most space) -->
-            <section class="xl:col-span-8">
-                <div class="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden">
-                    <!-- Calendar toolbar -->
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 border-b border-surface-100">
-                        <div class="flex items-center gap-3">
-                            <h2 id="calendarTitle" class="text-lg font-extrabold text-surface-900 tracking-tight capitalize"></h2>
+            <button type="button" class="lg-card lg-kpi" :aria-pressed="scope === 'manana'" @click="irA('manana')">
+                <svg class="lg-kpi__ray w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="lg-kpi__top">
+                    <span class="lg-kpi__icon lg-kpi__icon--ret">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </span>
+                    <span class="lg-label">Mañana</span>
+                </span>
+                <span class="lg-kpi__value lg-tabular text-[color:var(--lg-ret)]" x-text="num(stats.manana)">0</span>
+                <span class="lg-kpi__sub">Preparar la ruta de mañana</span>
+            </button>
+
+            <button type="button" class="lg-card lg-kpi" :aria-pressed="scope === 'semana'" @click="irA('semana')">
+                <svg class="lg-kpi__ray w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                <span class="lg-kpi__top">
+                    <span class="lg-kpi__icon lg-kpi__icon--accent">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
+                    </span>
+                    <span class="lg-label">7 días</span>
+                </span>
+                <span class="lg-kpi__value lg-tabular" x-text="num(stats.semana)">0</span>
+                <span class="lg-kpi__sub">Planificación de la semana</span>
+            </button>
+
+            <button type="button" class="lg-card lg-kpi col-span-2 md:col-span-1" :aria-pressed="scope === 'atrasadas'" @click="irA('atrasadas')">
+                <svg class="lg-kpi__ray w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                <span class="lg-kpi__top">
+                    <span class="lg-kpi__icon lg-kpi__icon--stop">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                    </span>
+                    <span class="lg-label">Atrasadas</span>
+                </span>
+                <span class="lg-kpi__value lg-tabular" :class="stats.atrasadas > 0 ? 'text-[color:var(--lg-stop)]' : ''" x-text="num(stats.atrasadas)">0</span>
+                <span class="lg-kpi__sub" x-text="stats.atrasadas > 0 ? 'Requieren atención inmediata' : 'Todo al día'">Todo al día</span>
+            </button>
+        </section>
+        <!-- ============================ Cronograma + Manifiesto del día ============================ -->
+        <section class="lg-rise lg-d2 grid grid-cols-1 xl:grid-cols-12 gap-5 mt-6">
+
+            <!-- ── Cronograma mensual ── -->
+            <div class="lg-card xl:col-span-5 flex flex-col">
+                <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-[color:var(--lg-line)]">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="lg-tile lg-tile--sm">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="lg-label">Cronograma</p>
+                            <p class="text-sm font-black text-surface-900 dark:text-white capitalize leading-tight truncate" x-text="tituloMes"></p>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <button id="calPrev" type="button" class="w-9 h-9 rounded-lg border border-surface-200 bg-white hover:bg-surface-50 flex items-center justify-center text-surface-600 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" class="lg-dp__navbtn" @click="mesAnterior()" aria-label="Mes anterior">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                        </button>
+                        <button type="button" class="lg-dp__navbtn" @click="mesHoy()" title="Ir a hoy" aria-label="Ir a hoy">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                        </button>
+                        <button type="button" class="lg-dp__navbtn" @click="mesSiguiente()" aria-label="Mes siguiente">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="px-4 sm:px-5 py-4">
+                    <div class="lg-cal">
+                        <template x-for="d in diasSemana" :key="d">
+                            <span class="lg-cal__hd" x-text="d"></span>
+                        </template>
+                        <template x-for="c in calCeldas" :key="c.iso">
+                            <button type="button" class="lg-cal__cell"
+                                    :class="{ 'lg-cal__cell--out': c.fuera, 'lg-cal__cell--sel': c.iso === diaSel, 'lg-cal__cell--today': c.esHoy }"
+                                    @click="seleccionarDia(c.iso)"
+                                    :aria-label="etiquetaDia(c)">
+                                <span class="lg-cal__num" x-text="c.dia"></span>
+                                <span class="lg-cal__badges" x-show="c.e > 0 || c.r > 0">
+                                    <span class="lg-cal__badge lg-cal__badge--e" x-show="c.e > 0" x-text="'E' + c.e"></span>
+                                    <span class="lg-cal__badge lg-cal__badge--r" x-show="c.r > 0" x-text="'R' + c.r"></span>
+                                </span>
                             </button>
-                            <button id="calToday" type="button" class="px-4 py-2 rounded-lg border border-surface-200 bg-white hover:bg-surface-50 text-xs font-bold text-surface-700 transition-colors">
-                                Hoy
+                        </template>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-[color:var(--lg-line)]">
+                        <div class="flex items-center gap-3.5">
+                            <span class="flex items-center gap-1.5 text-[11px] font-bold text-surface-500 dark:text-surface-400">
+                                <span class="lg-dot" style="color:var(--lg-ent)"></span> Entregas
+                            </span>
+                            <span class="flex items-center gap-1.5 text-[11px] font-bold text-surface-500 dark:text-surface-400">
+                                <span class="lg-dot" style="color:var(--lg-ret)"></span> Retornos
+                            </span>
+                        </div>
+                        <span class="text-[11px] font-bold text-surface-400 lg-tabular">
+                            <span x-text="num(opsMes.e)"></span>E · <span x-text="num(opsMes.r)"></span>R este mes
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Manifiesto del día ── -->
+            <div class="lg-card xl:col-span-7 flex flex-col">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-b border-[color:var(--lg-line)]">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="lg-tile lg-tile--sm lg-tile--ent">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="lg-label">Manifiesto del día</p>
+                            <p class="text-sm font-black text-surface-900 dark:text-white capitalize leading-tight truncate" x-text="fechaLarga(diaSel)"></p>
+                        </div>
+                        <span class="lg-pill lg-pill-mute ml-1 shrink-0" x-text="num(opsDia.length) + ' ops'"></span>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="hidden md:flex items-center gap-3 mr-1">
+                            <span class="flex items-center gap-1.5 text-[11px] font-bold text-surface-500 dark:text-surface-400">
+                                <span class="lg-dot" style="color:var(--lg-ent)"></span> <span x-text="num(diaResumen.e) + ' entregas'"></span>
+                            </span>
+                            <span class="flex items-center gap-1.5 text-[11px] font-bold text-surface-500 dark:text-surface-400">
+                                <span class="lg-dot" style="color:var(--lg-ret)"></span> <span x-text="num(diaResumen.r) + ' retornos'"></span>
+                            </span>
+                        </span>
+                        <button type="button" class="lg-btn lg-btn-ghost" @click="abrirRuta(diaSel)">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625A1.125 1.125 0 004.5 3.375v17.25a1.125 1.125 0 001.125 1.125h12.75a1.125 1.125 0 001.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+                            Hoja de ruta
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 sm:p-5">
+                    <template x-if="opsDia.length === 0">
+                        <div class="flex flex-col items-center justify-center text-center py-14 px-6">
+                            <div class="w-14 h-14 rounded-2xl bg-[color:var(--lg-tint)] border border-[color:var(--lg-line)] flex items-center justify-center text-surface-400 mb-4">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            </div>
+                            <h3 class="text-sm font-black text-surface-900 dark:text-white">Sin operaciones este día</h3>
+                            <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-1.5 max-w-xs">Elige otro día en el cronograma o revisa el manifiesto general de operaciones.</p>
+                        </div>
+                    </template>
+
+                    <div class="space-y-2.5 max-h-[34rem] overflow-y-auto lg-scroll pr-1" x-show="opsDia.length > 0">
+                        <template x-for="op in opsDia" :key="op.id">
+                            <button type="button" class="lg-op" @click="abrirFicha(op)">
+                                <span class="lg-op__time">
+                                    <span class="lg-op__hh" x-text="op.hora || '—'"></span>
+                                    <span class="lg-op__tipo" :class="'lg-op__tipo--' + op.tipo" x-text="op.tipo"></span>
+                                </span>
+                                <span class="lg-op__rail" :class="'lg-op__rail--' + op.tipo"></span>
+                                <span class="block min-w-0">
+                                    <span class="flex items-center gap-2">
+                                        <span class="text-sm font-black text-surface-900 dark:text-white truncate" x-text="op.cliente"></span>
+                                        <span class="lg-mono text-[10px] font-bold text-surface-400 shrink-0" x-text="'#' + op.ref"></span>
+                                    </span>
+                                    <span class="flex items-center gap-2 mt-1 text-[11px] font-semibold text-surface-500 dark:text-surface-400">
+                                        <span class="truncate max-w-[16rem]" x-text="op.direccion || 'Dirección por confirmar'"></span>
+                                        <span class="shrink-0 text-surface-300">·</span>
+                                        <span class="shrink-0" x-text="num(op.itemsTotal) + ' ' + plural(op.itemsTotal, 'ítem', 'ítems')"></span>
+                                    </span>
+                                </span>
+                                <span class="flex items-center gap-2 shrink-0">
+                                    <span class="lg-pill" :class="claseEstado(op.estado)" x-text="etiquetaEstado(op.estado)"></span>
+                                    <svg class="w-4 h-4 text-surface-300" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                </span>
                             </button>
-                            <button id="calNext" type="button" class="w-9 h-9 rounded-lg border border-surface-200 bg-white hover:bg-surface-50 flex items-center justify-center text-surface-600 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
-                            </button>
-                            <div class="ml-2 inline-flex items-center p-1 rounded-lg border border-surface-200 bg-surface-50">
-                                <button id="viewCal" type="button" onclick="toggleView('cal')" class="px-3 py-1.5 rounded-md text-[11px] font-bold bg-white text-surface-900 shadow-sm border border-surface-200 transition-all">Mes</button>
-                                <button id="viewList" type="button" onclick="toggleView('list')" class="px-3 py-1.5 rounded-md text-[11px] font-bold text-surface-500 hover:text-surface-700 transition-all">Lista</button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- ============================ Manifiesto general ============================ -->
+        <section class="lg-card lg-rise lg-d3 mt-5">
+            <div class="flex flex-col gap-4 px-5 sm:px-6 py-5 border-b border-[color:var(--lg-line)]">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3.5">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2.5">
+                            <h2 class="text-base font-black text-surface-900 dark:text-white tracking-tight">Manifiesto general</h2>
+                            <span class="lg-pill lg-pill-accent" x-show="scope !== 'todos'" x-cloak x-text="scopeLabel"></span>
+                        </div>
+                        <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-1">
+                            <span x-text="num(totalFiltrado)"></span>
+                            <span x-text="plural(totalFiltrado, 'operación', 'operaciones')"></span> · haz clic en una fila para abrir la ficha
+                        </p>
+                    </div>
+                    <div class="lg-seg shrink-0" role="tablist" aria-label="Tipo de operación">
+                        <button type="button" class="lg-seg__btn" role="tab" :aria-selected="tipo === 'todas'" @click="setTipo('todas')">
+                            Todas <span class="lg-seg__count" x-text="num(conteos.todas)"></span>
+                        </button>
+                        <button type="button" class="lg-seg__btn" role="tab" :aria-selected="tipo === 'entrega'" @click="setTipo('entrega')">
+                            <span class="lg-dot" style="color:var(--lg-ent)"></span> Entregas <span class="lg-seg__count" x-text="num(conteos.entrega)"></span>
+                        </button>
+                        <button type="button" class="lg-seg__btn" role="tab" :aria-selected="tipo === 'retorno'" @click="setTipo('retorno')">
+                            <span class="lg-dot" style="color:var(--lg-ret)"></span> Retornos <span class="lg-seg__count" x-text="num(conteos.retorno)"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5">
+                    <!-- Búsqueda -->
+                    <div class="relative flex-1 sm:max-w-xs">
+                        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                        <input type="text" x-model="q" @input="onFilterChange()" class="lg-field lg-field-pl lg-field-pr"
+                               placeholder="Buscar cliente, referencia o dirección…" aria-label="Buscar operaciones">
+                        <button type="button" x-show="q" x-cloak @click="q=''; onFilterChange()"
+                                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-700" aria-label="Limpiar búsqueda">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Estado -->
+                    <div class="relative lg-fld-wrap">
+                        <button type="button" data-lgpop="estado" class="lg-field lg-dd"
+                                :class="{ 'lg-field--open': estadoOpen }" @click="toggleEstado()"
+                                :aria-expanded="estadoOpen" aria-haspopup="listbox">
+                            <svg class="lg-dd__lead" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="estadoActual.icon"/></svg>
+                            <span class="lg-dd__val" x-text="estadoActual.label"></span>
+                            <svg class="lg-dd__caret" :class="{ 'lg-dd__caret--open': estadoOpen }" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                        </button>
+                        <div x-show="estadoOpen" x-cloak x-ref="estadoMenu" class="lg-pop lg-pop--menu" role="listbox" tabindex="-1"
+                             aria-label="Filtrar por estado" @keydown.arrow-down.prevent="moverEstado(1)" @keydown.arrow-up.prevent="moverEstado(-1)" @keydown.enter.prevent="elegirEstado(estadoIdx)">
+                            <template x-for="(o, i) in estadoOpciones" :key="o.key">
+                                <button type="button" class="lg-opt" :class="{ 'lg-opt--active': i === estadoIdx, 'lg-opt--sel': estado === o.key }"
+                                        role="option" :aria-selected="estado === o.key" @click="elegirEstado(i)" @mousemove="estadoIdx = i">
+                                    <span class="lg-opt__ic"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="o.icon"/></svg></span>
+                                    <span class="lg-opt__body">
+                                        <span class="lg-opt__label" x-text="o.label"></span>
+                                        <span class="lg-opt__desc" x-text="o.desc"></span>
+                                    </span>
+                                    <span class="lg-opt__count lg-tabular" x-text="num(o.count)"></span>
+                                    <svg class="lg-opt__check" x-show="estado === o.key" x-cloak fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Orden -->
+                    <div class="relative lg-fld-wrap">
+                        <button type="button" data-lgpop="orden" class="lg-field lg-dd"
+                                :class="{ 'lg-field--open': ordenOpen }" @click="toggleOrden()"
+                                :aria-expanded="ordenOpen" aria-haspopup="listbox">
+                            <svg class="lg-dd__lead" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="ordenActual.icon"/></svg>
+                            <span class="lg-dd__val" x-text="ordenActual.label"></span>
+                            <svg class="lg-dd__caret" :class="{ 'lg-dd__caret--open': ordenOpen }" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                        </button>
+                        <div x-show="ordenOpen" x-cloak x-ref="ordenMenu" class="lg-pop lg-pop--menu" role="listbox" tabindex="-1"
+                             aria-label="Ordenar operaciones" @keydown.arrow-down.prevent="moverOrden(1)" @keydown.arrow-up.prevent="moverOrden(-1)" @keydown.enter.prevent="elegirOrden(ordenIdx)">
+                            <template x-for="(o, i) in ordenOpciones" :key="o.key">
+                                <button type="button" class="lg-opt" :class="{ 'lg-opt--active': i === ordenIdx, 'lg-opt--sel': orden === o.key }"
+                                        role="option" :aria-selected="orden === o.key" @click="elegirOrden(i)" @mousemove="ordenIdx = i">
+                                    <span class="lg-opt__ic"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="o.icon"/></svg></span>
+                                    <span class="lg-opt__body">
+                                        <span class="lg-opt__label" x-text="o.label"></span>
+                                        <span class="lg-opt__desc" x-text="o.desc"></span>
+                                    </span>
+                                    <svg class="lg-opt__check" x-show="orden === o.key" x-cloak fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Fechas (DateRangePicker) -->
+                    <div class="relative lg-fld-wrap">
+                        <button type="button" data-lgpop="fecha" class="lg-field lg-dd"
+                                :class="{ 'lg-field--open': fechaOpen }" @click="toggleFecha()"
+                                :aria-expanded="fechaOpen" aria-haspopup="dialog">
+                            <svg class="lg-dd__lead" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                            <span class="lg-dd__val" x-text="rangoLabel"></span>
+                            <svg class="lg-dd__caret" :class="{ 'lg-dd__caret--open': fechaOpen }" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                        </button>
+                        <div x-show="fechaOpen" x-cloak x-ref="fechaPop" class="lg-pop lg-dp" role="dialog" aria-label="Filtrar por fechas">
+                            <div class="lg-dp__presets">
+                                <template x-for="p in presetsFecha" :key="p.key">
+                                    <button type="button" class="lg-dp__preset" @click="aplicarPreset(p.key)" x-text="p.label"></button>
+                                </template>
+                            </div>
+                            <div class="lg-dp__nav">
+                                <button type="button" class="lg-dp__navbtn" @click="dpMesAnterior()" aria-label="Mes anterior">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                                </button>
+                                <button type="button" class="lg-dp__navbtn" @click="dpMesSiguiente()" aria-label="Mes siguiente">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                </button>
+                            </div>
+                            <div class="lg-dp__months">
+                                <template x-for="m in dpMeses" :key="m.key">
+                                    <div>
+                                        <p class="lg-dp__mtitle" x-text="m.titulo"></p>
+                                        <div class="lg-dp__grid">
+                                            <template x-for="d in diasSemana" :key="'h' + d">
+                                                <span class="lg-dp__hd" x-text="d.charAt(0)"></span>
+                                            </template>
+                                            <template x-for="c in m.celdas" :key="c.iso">
+                                                <button type="button" class="lg-dp__day" :class="dpClase(c)"
+                                                        @click="dpElegir(c.iso)" @mouseenter="hoverISO = c.iso" @mouseleave="hoverISO = ''"
+                                                        :aria-label="c.iso" x-text="c.dia"></button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="lg-dp__foot">
+                                <span class="lg-dp__sel">
+                                    <template x-if="desde || hasta">
+                                        <span><b x-text="desde ? fechaCorta(desde) : '···'"></b> → <b x-text="hasta ? fechaCorta(hasta) : '···'"></b></span>
+                                    </template>
+                                    <template x-if="!desde && !hasta">
+                                        <span>Selecciona una fecha o un rango</span>
+                                    </template>
+                                </span>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="lg-btn lg-btn-ghost !py-2" @click="limpiarFechas()">Limpiar</button>
+                                    <button type="button" class="lg-btn lg-btn-accent !py-2" @click="cerrarFecha()">Listo</button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <!-- Calendar body -->
-                    <div id="calendar" class="custom-calendar"></div>
-                </div>
-            </section>
 
-            <!-- Side Panel: Day Operations -->
-            <section class="xl:col-span-4">
-                <div class="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden sticky top-6">
-                    <div class="px-5 py-4 border-b border-surface-100">
-                        <div class="flex items-center justify-between mb-3">
-                            <h2 class="text-sm font-extrabold text-surface-900 tracking-tight">Agenda del día</h2>
-                            <div class="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider">
-                                <span class="flex items-center gap-1.5 text-blue-600"><span class="w-2 h-2 rounded-full bg-blue-600"></span>Entrega</span>
-                                <span class="flex items-center gap-1.5 text-amber-500"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Retorno</span>
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                            <input id="logisticaDate" type="date" class="h-9 w-full rounded-lg border border-surface-200 px-3 text-xs font-semibold text-surface-800 bg-surface-50 focus:outline-none focus:ring-2 focus:ring-furent-500/20 focus:border-furent-500 transition-all" />
-                            <div class="grid grid-cols-2 gap-2">
-                                <select id="logisticaTipoFiltro" class="h-9 rounded-lg border border-surface-200 px-3 text-xs font-semibold text-surface-800 bg-surface-50 focus:outline-none focus:ring-2 focus:ring-furent-500/20 focus:border-furent-500 transition-all">
-                                    <option value="todos">Todos</option>
-                                    <option value="entregas">Entregas</option>
-                                    <option value="retornos">Retornos</option>
-                                </select>
-                                <input id="logisticaSearch" type="text" placeholder="Buscar..." class="h-9 rounded-lg border border-surface-200 px-3 text-xs font-semibold text-surface-700 bg-surface-50 focus:outline-none focus:ring-2 focus:ring-furent-500/20 focus:border-furent-500 transition-all" />
-                            </div>
-                        </div>
-                    </div>
-                    <div id="todayOperations" class="max-h-[calc(100vh-380px)] overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
-                        <div class="text-center py-12">
-                            <div class="w-8 h-8 rounded-full border-2 border-surface-300 border-t-surface-800 animate-spin mx-auto mb-3"></div>
-                            <p class="text-[11px] font-bold text-surface-400 uppercase tracking-widest">Cargando agenda...</p>
-                        </div>
-                    </div>
+                    <!-- Limpiar -->
+                    <button type="button" x-show="hayFiltros" x-cloak @click="limpiarFiltros()" class="lg-btn lg-btn-ghost !py-2.5 shrink-0">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        Limpiar
+                    </button>
                 </div>
-            </section>
-        </div>
-    </div>
-
-    <!-- ============================== -->
-    <!-- EVENT DETAILS DIALOG           -->
-    <!-- ============================== -->
-    <el-dialog>
-      <dialog id="eventDialog" aria-labelledby="eventDialog-title" class="fixed inset-0 size-auto max-h-none max-w-none overflow-y-auto bg-transparent backdrop:bg-transparent focus:outline-none">
-        <el-dialog-backdrop class="fixed inset-0 bg-surface-950/40 backdrop-blur-sm transition-opacity data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in"></el-dialog-backdrop>
-        <div tabindex="0" class="flex min-h-full items-center justify-center p-4 focus:outline-none">
-          <el-dialog-panel class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl border border-surface-100 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-closed:sm:translate-y-0 data-closed:sm:scale-95 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:w-full sm:max-w-2xl">
-            <!-- Header (colored) -->
-            <div id="eventDialog-header" class="px-6 py-5 relative">
-              <button type="button" onclick="closeEventDialog()" class="absolute top-4 right-4 z-10 w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-              <div class="flex items-center justify-between pr-10">
-                <div>
-                  <p class="text-[10px] font-bold uppercase tracking-[0.15em] text-white/70">Operación logística</p>
-                  <h3 id="eventDialog-title" class="text-xl font-extrabold text-white mt-1"></h3>
-                  <p id="eventDialog-client" class="text-sm text-white/90 font-medium mt-1"></p>
-                </div>
-                <div class="text-right">
-                  <p class="text-[10px] font-bold uppercase tracking-[0.15em] text-white/70">Fecha</p>
-                  <p id="eventDialog-date" class="text-sm font-bold text-white mt-1"></p>
-                </div>
-              </div>
             </div>
-            <!-- Body -->
-            <div class="p-6 space-y-4 max-h-[65vh] overflow-y-auto custom-scrollbar">
-              <!-- Client + Reservation -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div class="rounded-xl border border-surface-200 p-4 bg-surface-50/50">
-                  <div class="flex items-center gap-2 mb-2">
-                    <svg class="w-4 h-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-surface-400">Cliente</p>
-                  </div>
-                  <p id="eventDialog-clientName" class="text-sm font-bold text-surface-900"></p>
-                  <p id="eventDialog-clientEmail" class="text-xs text-surface-500 mt-1"></p>
-                  <p id="eventDialog-clientPhone" class="text-xs text-surface-500"></p>
+            <!-- Estado vacío global -->
+            <template x-if="sinDatos">
+                <div class="flex flex-col items-center justify-center text-center py-20 px-6">
+                    <div class="lg-tile lg-tile--lg mb-5">
+                        <svg fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg>
+                    </div>
+                    <h3 class="text-lg font-black text-surface-900 dark:text-white">Aún no hay operaciones</h3>
+                    <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-1.5 max-w-sm">
+                        Cuando confirmes reservas aparecerán aquí sus entregas y retornos, listos para organizar la ruta.
+                    </p>
+                    <a class="lg-btn lg-btn-ghost mt-6" href="/admin/reservas">Ir a Reservas</a>
                 </div>
-                <div class="rounded-xl border border-surface-200 p-4 bg-surface-50/50">
-                  <div class="flex items-center gap-2 mb-2">
-                    <svg class="w-4 h-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z"/></svg>
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-surface-400">Reserva</p>
-                  </div>
-                  <p id="eventDialog-reservaId" class="text-xs font-bold text-surface-900 font-mono"></p>
-                  <p id="eventDialog-reservaEstado" class="text-xs text-surface-500 mt-1"></p>
-                  <p id="eventDialog-reservaHora" class="text-xs text-surface-500 hidden"></p>
+            </template>
+
+            <!-- Sin resultados -->
+            <template x-if="!sinDatos && filtradas.length === 0">
+                <div class="flex flex-col items-center justify-center text-center py-20 px-6">
+                    <div class="w-16 h-16 rounded-2xl bg-[color:var(--lg-tint)] border border-[color:var(--lg-line)] flex items-center justify-center text-surface-400 mb-5">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                    </div>
+                    <h3 class="text-lg font-black text-surface-900 dark:text-white" x-text="sinResTitulo"></h3>
+                    <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-1.5 max-w-sm" x-text="sinResTexto"></p>
+                    <button type="button" class="lg-btn lg-btn-ghost mt-6" @click="limpiarFiltros()" x-show="hayFiltros" x-cloak>Limpiar filtros</button>
                 </div>
-              </div>
-              <!-- Address -->
-              <div class="rounded-xl border border-surface-200 p-4">
-                <div class="flex items-center justify-between mb-1">
-                  <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-surface-400">Dirección</p>
-                  </div>
-                  <a id="eventDialog-mapsLink" href="#" target="_blank" class="text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider hidden">Abrir mapa ↗</a>
-                </div>
-                <p id="eventDialog-address" class="text-sm font-semibold text-surface-800"></p>
-              </div>
-              <!-- Notes -->
-              <div class="rounded-xl border border-surface-200 p-4">
-                <div class="flex items-center gap-2 mb-1">
-                  <svg class="w-4 h-4 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
-                  <p class="text-[10px] font-bold uppercase tracking-widest text-surface-400">Notas</p>
-                </div>
-                <p id="eventDialog-notes" class="text-sm text-surface-600 whitespace-pre-line"></p>
-              </div>
-              <!-- Items table -->
-              <div class="rounded-xl border border-surface-200 overflow-hidden">
-                <table class="w-full">
-                  <thead class="bg-surface-50">
-                    <tr>
-                      <th class="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-surface-400">Producto</th>
-                      <th class="px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-widest text-surface-400">Cant.</th>
-                    </tr>
-                  </thead>
-                  <tbody id="eventDialog-items"></tbody>
+            </template>
+
+            <!-- Tabla -->
+            <div class="overflow-x-auto lg-scroll" x-show="!sinDatos && filtradas.length > 0" x-cloak>
+                <table class="w-full min-w-[48rem]">
+                    <thead>
+                        <tr class="border-b border-[color:var(--lg-line)]">
+                            <th class="lg-th pl-5 sm:pl-6">Fecha</th>
+                            <th class="lg-th">Operación</th>
+                            <th class="lg-th">Cliente</th>
+                            <th class="lg-th hidden md:table-cell">Destino</th>
+                            <th class="lg-th hidden xl:table-cell">Ítems</th>
+                            <th class="lg-th">Estado</th>
+                            <th class="lg-th hidden sm:table-cell">Pago</th>
+                            <th class="lg-th text-right pr-5 sm:pr-6">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="op in paginadas" :key="op.id">
+                            <tr class="lg-row lg-row-line" tabindex="0" @click="abrirFicha(op)" @keydown.enter.prevent="abrirFicha(op)">
+                                <td class="lg-td pl-5 sm:pl-6">
+                                    <p class="font-bold text-surface-900 dark:text-white" x-text="fechaCorta(op.fecha)"></p>
+                                    <p class="text-[11px] font-semibold text-surface-400" x-text="op.hora || 'Sin hora'"></p>
+                                </td>
+                                <td class="lg-td">
+                                    <span class="lg-pill" :class="op.tipo === 'entrega' ? 'lg-pill-info' : 'lg-pill-warn'">
+                                        <span class="lg-dot"></span><span x-text="op.tipo"></span>
+                                    </span>
+                                    <p class="lg-mono text-[10px] font-bold text-surface-400 mt-1" x-text="'#' + op.ref"></p>
+                                </td>
+                                <td class="lg-td">
+                                    <p class="font-bold text-surface-900 dark:text-white truncate max-w-[12rem]" x-text="op.cliente"></p>
+                                    <p class="text-[11px] font-semibold text-surface-400 truncate max-w-[12rem]" x-text="op.telefono || op.email || '—'"></p>
+                                </td>
+                                <td class="lg-td hidden md:table-cell"><span class="block truncate max-w-[14rem]" x-text="op.direccion || '—'"></span></td>
+                                <td class="lg-td hidden xl:table-cell lg-tabular" x-text="num(op.itemsTotal)"></td>
+                                <td class="lg-td"><span class="lg-pill" :class="claseEstado(op.estado)" x-text="etiquetaEstado(op.estado)"></span></td>
+                                <td class="lg-td hidden sm:table-cell"><span class="lg-pill" :class="clasePago(op.estadoPago)" x-text="etiquetaPago(op.estadoPago)"></span></td>
+                                <td class="lg-td text-right pr-5 sm:pr-6 lg-tabular font-bold text-surface-900 dark:text-white" x-text="money(op.total)"></td>
+                            </tr>
+                        </template>
+                    </tbody>
                 </table>
-              </div>
             </div>
-            <!-- Footer -->
-            <div class="bg-surface-50/50 px-6 py-4 flex justify-end gap-2.5 border-t border-surface-100">
-              <button type="button" onclick="closeEventDialog()" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-white border border-surface-200 text-surface-700 hover:bg-surface-50 transition-colors">Cerrar</button>
-              <a id="eventDialog-waBtn" href="#" target="_blank" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#1fa952] text-white hover:bg-[#15803d] transition-colors hidden inline-flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.174.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.174-.008-.372-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
-                WhatsApp
-              </a>
-            </div>
-          </el-dialog-panel>
-        </div>
-      </dialog>
-    </el-dialog>
 
-    <!-- ============================== -->
-    <!-- ROUTE SHEET EXPORT DIALOG      -->
-    <!-- ============================== -->
-    <el-dialog>
-      <dialog id="routeDialog" aria-labelledby="routeDialog-title" class="fixed inset-0 size-auto max-h-none max-w-none overflow-y-auto bg-transparent backdrop:bg-transparent focus:outline-none">
-        <el-dialog-backdrop class="fixed inset-0 bg-surface-950/40 backdrop-blur-sm transition-opacity data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in"></el-dialog-backdrop>
-        <div tabindex="0" class="flex min-h-full items-center justify-center p-4 focus:outline-none">
-          <el-dialog-panel class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl border border-surface-100 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-closed:sm:translate-y-0 data-closed:sm:scale-95 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:w-full sm:max-w-md">
-            <div class="px-6 pt-8 pb-2">
-              <div class="flex items-start gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-surface-100 flex items-center justify-center flex-shrink-0">
-                  <svg class="w-6 h-6 text-surface-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+            <!-- Paginación -->
+            <div x-show="!sinDatos && totalFiltrado > 0" x-cloak class="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 sm:px-6 py-4 border-t border-[color:var(--lg-line)]">
+                <p class="text-xs font-semibold text-surface-500 dark:text-surface-400">
+                    Mostrando <span class="font-black text-surface-900 dark:text-white" x-text="rangoInicio"></span>–<span class="font-black text-surface-900 dark:text-white" x-text="rangoFin"></span>
+                    de <span class="font-black text-surface-900 dark:text-white" x-text="num(totalFiltrado)"></span>
+                </p>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" class="lg-btn lg-btn-ghost lg-btn-icon" :disabled="page <= 1" @click="page--; syncUrl()" aria-label="Página anterior">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                    </button>
+                    <template x-for="n in paginas" :key="n">
+                        <button type="button" class="lg-btn lg-btn-icon min-w-[2.4rem]"
+                                :class="n === page ? 'lg-btn-dark' : 'lg-btn-ghost'"
+                                @click="page = n; syncUrl()" x-text="n"></button>
+                    </template>
+                    <button type="button" class="lg-btn lg-btn-ghost lg-btn-icon" :disabled="page >= totalPaginas" @click="page++; syncUrl()" aria-label="Página siguiente">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                    </button>
                 </div>
-                <div>
-                  <h3 id="routeDialog-title" class="text-lg font-extrabold text-surface-900">Exportar hoja de ruta</h3>
-                  <p class="text-sm text-surface-500 mt-1">Selecciona la fecha operativa para generar el PDF con todas las operaciones programadas.</p>
-                </div>
-              </div>
-              <div class="mt-6">
-                <label class="block text-xs font-bold text-surface-700 mb-2">Fecha</label>
-                <input id="routeDialog-date" type="date" class="h-11 w-full rounded-xl border border-surface-200 px-4 text-sm font-semibold text-surface-800 bg-surface-50 focus:outline-none focus:ring-2 focus:ring-furent-500/20 focus:border-furent-500 transition-all" />
-                <p id="routeDialog-error" class="text-xs text-red-600 font-semibold mt-2 hidden">Debes seleccionar una fecha válida</p>
-              </div>
             </div>
-            <div class="bg-surface-50/50 px-6 py-4 mt-4 flex sm:flex-row-reverse gap-2.5 border-t border-surface-100">
-              <button type="button" onclick="confirmRouteExport()" class="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xs font-bold bg-surface-900 text-white hover:bg-surface-800 transition-colors">Exportar PDF</button>
-              <button type="button" onclick="closeRouteDialog()" class="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xs font-bold bg-white border border-surface-200 text-surface-700 hover:bg-surface-50 transition-colors">Cancelar</button>
-            </div>
-          </el-dialog-panel>
-        </div>
-      </dialog>
-    </el-dialog>
-
-    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/es.js"></script>
-
-    <style>
-        /* Custom scrollbar */
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 9999px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
-
-        /* ============================== */
-        /* FULLCALENDAR — TAILWIND STYLE  */
-        /* ============================== */
-        .custom-calendar { font-family: 'Outfit', sans-serif !important; }
-
-        /* Hide default toolbar (we built our own) */
-        .custom-calendar .fc-toolbar { display: none !important; }
-
-        /* Table / Grid */
-        .custom-calendar .fc-scrollgrid { border: none !important; }
-        .custom-calendar .fc-scrollgrid td,
-        .custom-calendar .fc-scrollgrid th { border-color: #f4f4f5 !important; }
-
-        /* Day header (Mon, Tue, Wed...) */
-        .custom-calendar .fc-col-header-cell {
-            background: #fff !important;
-            border-bottom: 1px solid #e4e4e7 !important;
-            border-left: none !important;
-            border-right: none !important;
-            border-top: none !important;
-        }
-        .custom-calendar .fc-col-header-cell-cushion {
-            color: #71717a !important;
-            font-size: 0.75rem !important;
-            font-weight: 600 !important;
-            text-transform: capitalize !important;
-            letter-spacing: 0.02em !important;
-            padding: 0.75rem 0 !important;
-            text-decoration: none !important;
-        }
-
-        /* Day cells */
-        .custom-calendar .fc-daygrid-day {
-            border-color: #f4f4f5 !important;
-            min-height: 6.5rem !important;
-            transition: background 0.15s;
-        }
-        .custom-calendar .fc-daygrid-day:hover {
-            background: #fafafa !important;
-        }
-        .custom-calendar .fc-daygrid-day-top {
-            padding: 0.4rem 0.5rem 0 !important;
-        }
-        .custom-calendar .fc-daygrid-day-number {
-            color: #27272a !important;
-            font-weight: 600 !important;
-            font-size: 0.8rem !important;
-            text-decoration: none !important;
-            width: 1.75rem;
-            height: 1.75rem;
-            display: flex !important;
-            align-items: center;
-            justify-content: center;
-            border-radius: 0.5rem !important;
-        }
-
-        /* Today highlight */
-        .custom-calendar .fc-day-today {
-            background: #fff !important;
-        }
-        .custom-calendar .fc-day-today .fc-daygrid-day-number {
-            background: #6366f1 !important;
-            color: #fff !important;
-            border-radius: 0.5rem !important;
-        }
-
-        /* Other month days */
-        .custom-calendar .fc-day-other .fc-daygrid-day-number {
-            color: #d4d4d8 !important;
-        }
-
-        /* Weekend day numbers in red */
-        .custom-calendar .fc-day-sat .fc-daygrid-day-number,
-        .custom-calendar .fc-day-sun .fc-daygrid-day-number {
-            color: #ef4444 !important;
-        }
-        .custom-calendar .fc-day-other.fc-day-sat .fc-daygrid-day-number,
-        .custom-calendar .fc-day-other.fc-day-sun .fc-daygrid-day-number {
-            color: #fca5a5 !important;
-        }
-
-        /* Events */
-        .custom-calendar .fc-event {
-            border: none !important;
-            border-radius: 0.375rem !important;
-            padding: 2px 6px !important;
-            margin: 1px 4px !important;
-            font-size: 0.7rem !important;
-            font-weight: 600 !important;
-            cursor: pointer;
-            transition: opacity 0.15s;
-        }
-        .custom-calendar .fc-event:hover {
-            opacity: 0.85;
-        }
-        .custom-calendar .fc-daygrid-event-dot {
-            display: none !important;
-        }
-
-        /* More link */
-        .custom-calendar .fc-daygrid-more-link {
-            font-size: 0.68rem !important;
-            font-weight: 700 !important;
-            color: #6366f1 !important;
-            padding: 2px 6px !important;
-        }
-
-        /* List view */
-        .custom-calendar .fc-list-day-cushion {
-            background: #fafafa !important;
-            border-color: #f4f4f5 !important;
-        }
-        .custom-calendar .fc-list-event-title {
-            font-weight: 600 !important;
-            font-size: 0.8rem !important;
-        }
-        .custom-calendar .fc-list-event-time {
-            color: #71717a !important;
-            font-size: 0.75rem !important;
-        }
-        .custom-calendar .fc-list-event:hover td {
-            background: #f8fafc !important;
-        }
-
-        /* Outer border cleanup */
-        .custom-calendar .fc-scrollgrid-section > * {
-            border: none !important;
-        }
-        .custom-calendar table {
-            border: none !important;
-        }
-
-        /* Dialog animation overrides */
-        dialog[open] { animation: dialogShow 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        dialog.closing { animation: dialogHide 0.2s cubic-bezier(0.7, 0, 0.84, 0) forwards; }
-        @keyframes dialogShow { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes dialogHide { from { opacity: 1; } to { opacity: 0; } }
-
-        /* Dark mode calendar overrides */
-        html.dark .custom-calendar .fc-col-header-cell { background: #18181b !important; border-bottom-color: #27272a !important; }
-        html.dark .custom-calendar .fc-col-header-cell-cushion { color: #71717a !important; }
-        html.dark .custom-calendar .fc-daygrid-day { border-color: #1e1e22 !important; }
-        html.dark .custom-calendar .fc-daygrid-day:hover { background: #1e1e22 !important; }
-        html.dark .custom-calendar .fc-daygrid-day-number { color: #a1a1aa !important; }
-        html.dark .custom-calendar .fc-day-today { background: #111113 !important; }
-        html.dark .custom-calendar .fc-day-today .fc-daygrid-day-number { background: #6366f1 !important; color: #fff !important; }
-        html.dark .custom-calendar .fc-day-other .fc-daygrid-day-number { color: #3f3f46 !important; }
-        html.dark .custom-calendar .fc-scrollgrid td,
-        html.dark .custom-calendar .fc-scrollgrid th { border-color: #1e1e22 !important; }
-        html.dark .custom-calendar .fc-list-day-cushion { background: #111113 !important; border-color: #27272a !important; }
-        html.dark .custom-calendar .fc-list-event:hover td { background: #1e1e22 !important; }
-    </style>
-
-    <script th:inline="javascript">
-        let calendar;
-        let allCalendarEvents = [];
-
-        function toDateKey(date) {
-            const d = new Date(date);
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${day}`;
-        }
-
-        function escapeHtml(value) {
-            return String(value ?? '').replace(/[&<>"']/g, function(char) {
-                const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-                return map[char];
-            });
-        }
-
-        function normalizeText(value) {
-            return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        }
-
-        function getLocalToday() {
-            const now = new Date();
-            return toDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
-        }
-
-        function updateCalendarTitle() {
-            const titleEl = document.getElementById('calendarTitle');
-            if (calendar && titleEl) {
-                titleEl.textContent = calendar.view.title;
-            }
-        }
-
-        function buildEventDetailsModal(event) {
-            const r = event.extendedProps.reservation || {};
-            const isEntrega = event.extendedProps.type === 'entrega';
-            const typeName = isEntrega ? 'Entrega' : 'Retorno';
-            const date = event.start ? event.start.toLocaleDateString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
-            const mapsUrl = r.direccionEvento ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.direccionEvento)}` : null;
-            const waPhone = r.usuarioTelefono ? r.usuarioTelefono.replace(/[^0-9+]/g, '') : '';
-            const waUrl = waPhone ? `https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(`Hola ${r.usuarioNombre || ''}, te contactamos de logística Furent respecto a tu reserva.`)}` : null;
-            const items = Array.isArray(r.items) ? r.items : [];
-
-            // Populate dialog fields
-            const header = document.getElementById('eventDialog-header');
-            header.className = `px-6 py-5 relative ${isEntrega ? 'bg-blue-600' : 'bg-amber-500'}`;
-            document.getElementById('eventDialog-title').textContent = typeName;
-            document.getElementById('eventDialog-client').textContent = r.usuarioNombre || 'Cliente no identificado';
-            document.getElementById('eventDialog-date').textContent = date;
-
-            document.getElementById('eventDialog-clientName').textContent = r.usuarioNombre || 'Sin nombre';
-            document.getElementById('eventDialog-clientEmail').textContent = r.usuarioEmail || 'Sin email';
-            document.getElementById('eventDialog-clientPhone').textContent = r.usuarioTelefono || 'Sin teléfono';
-
-            document.getElementById('eventDialog-reservaId').textContent = r.id || '-';
-            document.getElementById('eventDialog-reservaEstado').textContent = 'Estado: ' + (r.estado || '-');
-            const horaEl = document.getElementById('eventDialog-reservaHora');
-            if (isEntrega && r.horaEntrega) {
-                horaEl.textContent = 'Hora preferida: ' + r.horaEntrega;
-                horaEl.classList.remove('hidden');
-            } else {
-                horaEl.classList.add('hidden');
-            }
-
-            document.getElementById('eventDialog-address').textContent = r.direccionEvento || 'Dirección no disponible';
-            const mapsLink = document.getElementById('eventDialog-mapsLink');
-            if (mapsUrl) {
-                mapsLink.href = mapsUrl;
-                mapsLink.classList.remove('hidden');
-            } else {
-                mapsLink.classList.add('hidden');
-            }
-
-            document.getElementById('eventDialog-notes').textContent = r.notasEvento || 'Sin notas operativas';
-
-            // Items table
-            const tbody = document.getElementById('eventDialog-items');
-            if (items.length > 0) {
-                tbody.innerHTML = items.map(i => `
-                    <tr class="border-b last:border-b-0 border-surface-100">
-                        <td class="px-4 py-2.5 text-xs font-bold text-surface-800">${escapeHtml(i.productoNombre || 'Producto')}</td>
-                        <td class="px-4 py-2.5 text-center text-xs font-extrabold text-surface-900">${escapeHtml(i.cantidad || 0)}</td>
-                    </tr>
-                `).join('');
-            } else {
-                tbody.innerHTML = '<tr><td colspan="2" class="px-4 py-5 text-center text-xs font-semibold text-surface-400">Sin inventario registrado</td></tr>';
-            }
-
-            // WhatsApp button
-            const waBtn = document.getElementById('eventDialog-waBtn');
-            if (waUrl) {
-                waBtn.href = waUrl;
-                waBtn.classList.remove('hidden');
-            } else {
-                waBtn.classList.add('hidden');
-            }
-
-            // Show dialog
-            const dialog = document.getElementById('eventDialog');
-            dialog.showModal();
-        }
-
-        function closeEventDialog() {
-            const dialog = document.getElementById('eventDialog');
-            dialog.classList.add('closing');
-            setTimeout(() => { dialog.close(); dialog.classList.remove('closing'); }, 200);
-        }
-
-        function getFilteredEvents(events, dateKey, filterType, searchTerm) {
-            return events.filter(function(event) {
-                const eventDate = event.start ? toDateKey(event.start) : '';
-                if (eventDate !== dateKey) return false;
-                if (filterType === 'entregas' && event.extendedProps.type !== 'entrega') return false;
-                if (filterType === 'retornos' && event.extendedProps.type !== 'recogida') return false;
-                if (!searchTerm) return true;
-                const r = event.extendedProps.reservation || {};
-                const searchText = [
-                    r.usuarioNombre || '',
-                    r.direccionEvento || '',
-                    r.id || '',
-                    r.usuarioTelefono || ''
-                ].map(normalizeText).join(' ');
-                return searchText.includes(searchTerm);
-            });
-        }
-
-        function renderTodayOperations(events) {
-            const container = document.getElementById('todayOperations');
-            const dateInput = document.getElementById('logisticaDate');
-            const tipoSelect = document.getElementById('logisticaTipoFiltro');
-            const searchInput = document.getElementById('logisticaSearch');
-            const targetDate = dateInput && dateInput.value ? dateInput.value : getLocalToday();
-            const type = tipoSelect ? tipoSelect.value : 'todos';
-            const search = normalizeText(searchInput ? searchInput.value : '');
-            const filtered = getFilteredEvents(events, targetDate, type, search);
-            const baseOfDay = events.filter(function(event) {
-                return event.start && toDateKey(event.start) === targetDate;
-            });
-            const entregas = baseOfDay.filter(function(event) { return event.extendedProps.type === 'entrega'; }).length;
-            const retornos = baseOfDay.filter(function(event) { return event.extendedProps.type === 'recogida'; }).length;
-            const total = baseOfDay.length;
-
-            document.getElementById('entregasHoyCount').textContent = entregas;
-            document.getElementById('retornosHoyCount').textContent = retornos;
-            document.getElementById('totalHoyCount').textContent = total;
-
-            if (!container) return;
-
-            if (filtered.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-14">
-                        <svg class="w-10 h-10 text-surface-200 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008z"/></svg>
-                        <p class="text-xs font-bold text-surface-400">Sin operaciones programadas</p>
-                        <p class="text-[11px] text-surface-300 mt-1">Selecciona otra fecha o modifica los filtros</p>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = '';
-            filtered.forEach(function(event) {
-                const r = event.extendedProps.reservation || {};
-                const isEntrega = event.extendedProps.type === 'entrega';
-                const colorDot = isEntrega ? 'bg-blue-600' : 'bg-amber-500';
-                const typeText = isEntrega ? 'Entrega' : 'Retorno';
-                const typeBg = isEntrega ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700';
-                const dateText = event.start ? event.start.toLocaleDateString('es-CO', { weekday: 'short', day: '2-digit', month: 'short' }) : '';
-                const timeBadge = isEntrega && r.horaEntrega
-                    ? `<span class="text-[10px] font-bold text-surface-500">${escapeHtml(r.horaEntrega)}</span>`
-                    : '';
-
-                const card = `
-                    <button type="button" onclick="openEventDetails('${escapeHtml(event.id)}')" class="w-full text-left rounded-xl border border-surface-100 bg-white p-3.5 hover:border-surface-300 hover:shadow-sm transition-all group">
-                        <div class="flex items-start gap-3">
-                            <span class="w-1 self-stretch rounded-full ${colorDot} flex-shrink-0 mt-0.5"></span>
-                            <div class="min-w-0 flex-1">
-                                <div class="flex items-center justify-between gap-2">
-                                    <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${typeBg}">${typeText}</span>
-                                    <div class="flex items-center gap-2">
-                                        ${timeBadge}
-                                        <span class="text-[10px] font-semibold text-surface-400">${escapeHtml(dateText)}</span>
+        </section>
+        <!-- ═══════════════════════════════════════════════════════════════
+             MODAL · Ficha de operación
+             ═══════════════════════════════════════════════════════════════ -->
+        <dialog id="lg-ficha" class="lg-modal fixed inset-0 z-[80] overflow-y-auto" @close="ficha = null">
+            <div class="lg-modal__card w-[min(48rem,94vw)] max-h-[92vh] flex flex-col overflow-hidden my-[4vh] mx-auto">
+                <template x-if="ficha">
+                    <div class="flex flex-col min-h-0 max-h-[92vh]">
+                        <header class="flex items-start justify-between gap-4 px-6 py-5 border-b border-[color:var(--lg-line)]">
+                            <div class="flex items-start gap-3.5 min-w-0">
+                                <div class="lg-tile lg-tile--lg shrink-0" :class="ficha.tipo === 'entrega' ? 'lg-tile--ent' : 'lg-tile--ret'">
+                                    <svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath(ficha.tipo === 'entrega' ? 'truck' : 'return')"/></svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <span class="lg-label" x-text="ficha.tipo === 'entrega' ? 'Entrega programada' : 'Retorno programado'"></span>
+                                    <h2 class="text-xl font-black text-surface-900 dark:text-white truncate mt-1" x-text="ficha.cliente"></h2>
+                                    <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                                        <span class="lg-pill lg-pill-accent lg-mono" x-text="'#' + ficha.ref"></span>
+                                        <span class="lg-pill" :class="claseEstado(ficha.estado)" x-text="etiquetaEstado(ficha.estado)"></span>
+                                        <span class="lg-pill" :class="clasePago(ficha.estadoPago)" x-text="etiquetaPago(ficha.estadoPago)"></span>
                                     </div>
                                 </div>
-                                <h3 class="text-sm font-bold text-surface-900 truncate mt-1.5">${escapeHtml(r.usuarioNombre || 'Cliente')}</h3>
-                                <p class="text-xs text-surface-500 truncate mt-0.5">${escapeHtml(r.direccionEvento || 'Dirección pendiente')}</p>
                             </div>
-                            <svg class="w-4 h-4 text-surface-300 group-hover:text-surface-500 flex-shrink-0 mt-1 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                            <button type="button" class="lg-btn lg-btn-ghost lg-btn-icon" @click="cerrarFicha()" aria-label="Cerrar ficha">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </header>
+
+                        <div class="overflow-y-auto lg-scroll px-6 py-5 space-y-5">
+                            <!-- Operación -->
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div class="rounded-2xl border border-[color:var(--lg-line-2)] bg-[color:var(--lg-tint)] p-3.5">
+                                    <p class="lg-label">Fecha</p>
+                                    <p class="text-sm font-black text-[color:var(--lg-ink)] mt-1.5 capitalize" x-text="fechaLarga(ficha.fecha)"></p>
+                                </div>
+                                <div class="rounded-2xl border border-[color:var(--lg-line-2)] bg-[color:var(--lg-tint)] p-3.5">
+                                    <p class="lg-label">Hora</p>
+                                    <p class="text-sm font-black text-[color:var(--lg-ink)] mt-1.5" x-text="ficha.hora || 'Por definir'"></p>
+                                </div>
+                                <div class="rounded-2xl border border-[color:var(--lg-line-2)] bg-[color:var(--lg-tint)] p-3.5">
+                                    <p class="lg-label">Operación</p>
+                                    <p class="text-sm font-black mt-1.5 capitalize" :class="ficha.tipo === 'entrega' ? 'text-[color:var(--lg-ent)]' : 'text-[color:var(--lg-ret)]'" x-text="ficha.tipo"></p>
+                                </div>
+                                <div class="rounded-2xl border border-[color:var(--lg-line-2)] bg-[color:var(--lg-tint)] p-3.5">
+                                    <p class="lg-label">Evento</p>
+                                    <p class="text-sm font-black text-[color:var(--lg-ink)] mt-1.5 truncate" x-text="ficha.tipoEvento || '—'"></p>
+                                </div>
+                            </div>
+
+                            <!-- Contacto y destino -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <p class="lg-label mb-2.5">Contacto</p>
+                                    <dl class="lg-dl">
+                                        <dt>Cliente</dt><dd x-text="ficha.cliente"></dd>
+                                        <dt>Teléfono</dt>
+                                        <dd>
+                                            <template x-if="ficha.telefono"><a class="text-[color:var(--lg-accent-strong)] hover:underline" :href="'tel:' + ficha.telefono" x-text="ficha.telefono"></a></template>
+                                            <template x-if="!ficha.telefono"><span class="text-surface-400">—</span></template>
+                                        </dd>
+                                        <dt>Correo</dt>
+                                        <dd>
+                                            <template x-if="ficha.email"><a class="text-[color:var(--lg-accent-strong)] hover:underline break-all" :href="'mailto:' + ficha.email" x-text="ficha.email"></a></template>
+                                            <template x-if="!ficha.email"><span class="text-surface-400">—</span></template>
+                                        </dd>
+                                    </dl>
+                                </div>
+                                <div>
+                                    <p class="lg-label mb-2.5">Destino</p>
+                                    <p class="text-sm font-semibold text-[color:var(--lg-ink)] leading-relaxed" x-text="ficha.direccion || 'Dirección por confirmar'"></p>
+                                    <template x-if="ficha.notas">
+                                        <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-2.5 leading-relaxed">
+                                            <span class="lg-label block mb-1">Notas</span>
+                                            <span x-text="ficha.notas"></span>
+                                        </p>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Mobiliario -->
+                            <div class="lg-section">
+                                <div class="flex items-center justify-between mb-2.5">
+                                    <p class="lg-label">Mobiliario (<span x-text="num(ficha.itemsTotal)"></span> ítems)</p>
+                                    <span class="text-[11px] font-bold text-surface-400" x-text="plural((ficha.items || []).length, 'referencia', 'referencias')"></span>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <template x-for="(it, i) in (ficha.items || [])" :key="i">
+                                        <div class="lg-item">
+                                            <span class="lg-tile lg-tile--sm" style="width:1.9rem;height:1.9rem;border-radius:.55rem">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath('box')"/></svg>
+                                            </span>
+                                            <span class="text-sm font-bold text-[color:var(--lg-ink)] truncate flex-1" x-text="it.nombre"></span>
+                                            <span class="lg-pill lg-pill-mute shrink-0" x-text="'×' + num(it.cantidad)"></span>
+                                        </div>
+                                    </template>
+                                    <template x-if="!(ficha.items || []).length">
+                                        <p class="text-sm font-medium text-surface-400 sm:col-span-2">Sin mobiliario registrado en esta operación.</p>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Pago -->
+                            <div class="lg-section">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="lg-label">Pago</p>
+                                    <span class="lg-pill" :class="clasePago(ficha.estadoPago)" x-text="etiquetaPago(ficha.estadoPago)"></span>
+                                </div>
+                                <div class="lg-paybar mb-3">
+                                    <div class="lg-payfill" :class="ficha.pctPagado >= 100 ? 'lg-payfill--ok' : ''" :style="'width:' + Math.min(100, Math.max(0, ficha.pctPagado || 0)) + '%'"></div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <p class="lg-label">Total</p>
+                                        <p class="text-base font-black text-[color:var(--lg-ink)] mt-1 lg-tabular" x-text="money(ficha.total)"></p>
+                                    </div>
+                                    <div>
+                                        <p class="lg-label">Abonado</p>
+                                        <p class="text-base font-black text-[color:var(--lg-ok)] mt-1 lg-tabular" x-text="money(ficha.abonado)"></p>
+                                    </div>
+                                    <div>
+                                        <p class="lg-label">Saldo</p>
+                                        <p class="text-base font-black mt-1 lg-tabular" :class="ficha.saldo > 0 ? 'text-[color:var(--lg-stop)]' : 'text-[color:var(--lg-ink)]'" x-text="money(ficha.saldo)"></p>
+                                    </div>
+                                </div>
+                                <p class="text-[11px] font-semibold text-surface-400 mt-2.5">
+                                    <span x-text="'Método: ' + (ficha.metodoPago || 'No especificado')"></span>
+                                </p>
+                            </div>
                         </div>
-                    </button>
-                `;
-                container.insertAdjacentHTML('beforeend', card);
-            });
-        }
 
-        function toggleView(viewType) {
-            if (!calendar) return;
-            const btnList = document.getElementById('viewList');
-            const btnCal = document.getElementById('viewCal');
+                        <footer class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 border-t border-[color:var(--lg-line)] bg-[color:var(--lg-tint)]">
+                            <a class="lg-btn lg-btn-ghost" :href="'/admin/reservas?q=' + encodeURIComponent(ficha.ref)">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                                Abrir reserva
+                            </a>
+                            <div class="flex items-center gap-2 ml-auto">
+                                <button type="button" class="lg-btn lg-btn-ghost" @click="abrirRuta(ficha.fecha)">Hoja de ruta del día</button>
+                                <button type="button" class="lg-btn lg-btn-accent" @click="abrirEstado()">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                                    Cambiar estado
+                                </button>
+                            </div>
+                        </footer>
+                    </div>
+                </template>
+            </div>
+        </dialog>
+        <!-- ═══════════════════════════════════════════════════════════════
+             MODAL · Cambiar estado de la operación
+             ═══════════════════════════════════════════════════════════════ -->
+        <dialog id="lg-estado" class="lg-modal fixed inset-0 z-[90] overflow-y-auto">
+            <div class="lg-modal__card w-[min(36rem,94vw)] max-h-[90vh] my-[6vh] mx-auto overflow-hidden">
+                <form :action="ficha ? '/admin/logistica/estado/' + ficha.reservaId : '#'" method="post" class="flex flex-col max-h-[90vh]">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <input type="hidden" name="estado" :value="estadoNuevo">
 
-            if (viewType === 'list') {
-                calendar.changeView('listMonth');
-                btnList.classList.add('bg-white', 'text-surface-900', 'shadow-sm', 'border', 'border-surface-200');
-                btnList.classList.remove('text-surface-500');
-                btnCal.classList.remove('bg-white', 'text-surface-900', 'shadow-sm', 'border', 'border-surface-200');
-                btnCal.classList.add('text-surface-500');
-            } else {
-                calendar.changeView('dayGridMonth');
-                btnCal.classList.add('bg-white', 'text-surface-900', 'shadow-sm', 'border', 'border-surface-200');
-                btnCal.classList.remove('text-surface-500');
-                btnList.classList.remove('bg-white', 'text-surface-900', 'shadow-sm', 'border', 'border-surface-200');
-                btnList.classList.add('text-surface-500');
-            }
-            updateCalendarTitle();
-        }
+                    <header class="flex items-start justify-between gap-4 px-6 py-5 border-b border-[color:var(--lg-line)]">
+                        <div class="flex items-start gap-3">
+                            <span class="lg-tile lg-tile--md shrink-0">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath('refresh')"/></svg>
+                            </span>
+                            <div class="min-w-0">
+                                <span class="lg-label">Operación</span>
+                                <h2 class="text-lg font-black text-surface-900 dark:text-white mt-1">Cambiar estado</h2>
+                                <p class="text-xs font-medium text-surface-400 mt-0.5">
+                                    <span x-text="ficha ? ficha.cliente : ''"></span> ·
+                                    <span class="lg-mono" x-text="ficha ? ('#' + ficha.ref) : ''"></span>
+                                </p>
+                            </div>
+                        </div>
+                        <button type="button" class="lg-btn lg-btn-ghost lg-btn-icon" @click="cerrarEstado()" aria-label="Cerrar">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </header>
 
-        function openEventDetails(eventId) {
-            if (!calendar) return;
-            const event = calendar.getEventById(eventId);
-            if (!event) {
-                showToast('No fue posible cargar el detalle de la operación seleccionada.', 'warning');
-                return;
-            }
-            buildEventDetailsModal(event);
-        }
+                    <div class="overflow-y-auto lg-scroll px-6 py-5 space-y-5">
+                        <div class="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--lg-line-2)] bg-[color:var(--lg-tint)] px-4 py-3">
+                            <div>
+                                <p class="lg-label">Estado actual</p>
+                                <p class="text-sm font-black text-[color:var(--lg-ink)] mt-1" x-text="ficha ? etiquetaEstado(ficha.estado) : '—'"></p>
+                            </div>
+                            <span class="lg-pill lg-pill-mute" x-text="ficha ? ficha.tipo : ''"></span>
+                        </div>
 
-        function refreshToday(btn) {
-            if (btn) {
-                const icon = btn.querySelector('svg');
-                if (icon) icon.classList.add('animate-spin');
-            }
-            setTimeout(function() {
-                renderTodayOperations(allCalendarEvents);
-                if (btn) {
-                    const icon = btn.querySelector('svg');
-                    if (icon) icon.classList.remove('animate-spin');
-                }
-            }, 280);
-        }
+                        <div>
+                            <p class="lg-flabel">Nuevo estado</p>
+                            <div class="space-y-2">
+                                <template x-for="o in estadosForm" :key="o.key">
+                                    <button type="button" class="lg-estado" :class="{ 'lg-estado--on': estadoNuevo === o.key }"
+                                            @click="estadoNuevo = o.key" :aria-pressed="estadoNuevo === o.key ? 'true' : 'false'">
+                                        <span class="lg-estado__ic" :class="o.ic">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath(o.icon)"/></svg>
+                                        </span>
+                                        <span class="flex-1 min-w-0">
+                                            <span class="block text-sm font-black text-[color:var(--lg-ink)]" x-text="o.label"></span>
+                                            <span class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mt-0.5" x-text="o.desc"></span>
+                                        </span>
+                                        <svg class="w-4 h-4 shrink-0 mt-0.5" :class="estadoNuevo === o.key ? 'text-[color:var(--lg-accent)]' : 'text-transparent'" fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
 
-        function generateRouteSheet() {
-            const dateInput = document.getElementById('routeDialog-date');
-            dateInput.value = getLocalToday();
-            document.getElementById('routeDialog-error').classList.add('hidden');
-            document.getElementById('routeDialog').showModal();
-        }
+                        <div>
+                            <label class="lg-flabel" for="lg-nota">Nota interna <span class="normal-case font-semibold text-surface-400">(opcional)</span></label>
+                            <textarea id="lg-nota" name="nota" rows="2" maxlength="200" class="lg-finput resize-none"
+                                      placeholder="Ej. Entregado en recepción del salón, firma de la organizadora."></textarea>
+                            <p class="text-[11px] font-medium text-surface-400 mt-1.5">Se guarda en el historial de la reserva y el cliente recibe una notificación.</p>
+                        </div>
+                    </div>
 
-        function confirmRouteExport() {
-            const dateInput = document.getElementById('routeDialog-date');
-            const errorEl = document.getElementById('routeDialog-error');
-            if (!dateInput.value) {
-                errorEl.classList.remove('hidden');
-                return;
-            }
-            errorEl.classList.add('hidden');
-            closeRouteDialog();
-            window.location.href = '/admin/logistica/hoja-ruta?fecha=' + encodeURIComponent(dateInput.value);
-        }
+                    <footer class="flex items-center justify-between gap-3 px-6 py-4 border-t border-[color:var(--lg-line)] bg-[color:var(--lg-tint)]">
+                        <button type="button" class="lg-btn lg-btn-ghost" @click="cerrarEstado()">Cancelar</button>
+                        <button type="submit" class="lg-btn lg-btn-accent" :disabled="!estadoNuevo">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                            Confirmar cambio
+                        </button>
+                    </footer>
+                </form>
+            </div>
+        </dialog>
 
-        function closeRouteDialog() {
-            const dialog = document.getElementById('routeDialog');
-            dialog.classList.add('closing');
-            setTimeout(() => { dialog.close(); dialog.classList.remove('closing'); }, 200);
-        }
+        <!-- ═══════════════════════════════════════════════════════════════
+             MODAL · Exportar hoja de ruta
+             ═══════════════════════════════════════════════════════════════ -->
+        <dialog id="lg-ruta" class="lg-modal fixed inset-0 z-[90] overflow-y-auto">
+            <div class="lg-modal__card w-[min(42rem,94vw)] max-h-[90vh] my-[5vh] mx-auto overflow-hidden">
+                <div class="flex flex-col max-h-[90vh]">
+                    <header class="flex items-start justify-between gap-4 px-6 py-5 border-b border-[color:var(--lg-line)]">
+                        <div class="flex items-start gap-3">
+                            <span class="lg-tile lg-tile--md shrink-0">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath('file')"/></svg>
+                            </span>
+                            <div class="min-w-0">
+                                <span class="lg-label">Logística</span>
+                                <h2 class="text-lg font-black text-surface-900 dark:text-white mt-1">Exportar hoja de ruta</h2>
+                                <p class="text-xs font-medium text-surface-400 mt-0.5">Manifiesto imprimible con las entregas y retornos de un día.</p>
+                            </div>
+                        </div>
+                        <button type="button" class="lg-btn lg-btn-ghost lg-btn-icon" @click="cerrarRuta()" aria-label="Cerrar">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </header>
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const reservas = /*[[${reservas}]]*/ [];
-            const calendarEl = document.getElementById('calendar');
-            const dateInput = document.getElementById('logisticaDate');
-            const typeInput = document.getElementById('logisticaTipoFiltro');
-            const searchInput = document.getElementById('logisticaSearch');
+                    <div class="overflow-y-auto lg-scroll px-6 py-5 space-y-5">
+                        <div>
+                            <label class="lg-flabel" for="lg-ruta-fecha">Fecha de la ruta</label>
+                            <input id="lg-ruta-fecha" type="date" x-model="rutaFecha" class="lg-finput">
+                        </div>
 
-            if (!Array.isArray(reservas) || !calendarEl) {
-                showToast('Faltan datos para renderizar el calendario de operaciones.', 'error');
-                return;
-            }
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="rounded-2xl border border-[color:var(--lg-line-2)] bg-[color:var(--lg-tint)] p-4 flex items-center gap-3">
+                                <span class="lg-tile lg-tile--sm lg-tile--ent">
+                                    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath('truck')"/></svg>
+                                </span>
+                                <div>
+                                    <p class="text-lg font-black text-[color:var(--lg-ink)] leading-none lg-tabular" x-text="num(rutaResumen.e)"></p>
+                                    <p class="text-[11px] font-bold text-surface-400 mt-0.5">Entregas</p>
+                                </div>
+                            </div>
+                            <div class="rounded-2xl border border-[color:var(--lg-line-2)] bg-[color:var(--lg-tint)] p-4 flex items-center gap-3">
+                                <span class="lg-tile lg-tile--sm lg-tile--ret">
+                                    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath('return')"/></svg>
+                                </span>
+                                <div>
+                                    <p class="text-lg font-black text-[color:var(--lg-ink)] leading-none lg-tabular" x-text="num(rutaResumen.r)"></p>
+                                    <p class="text-[11px] font-bold text-surface-400 mt-0.5">Retornos</p>
+                                </div>
+                            </div>
+                        </div>
 
-            const events = [];
-            reservas.forEach(function(r) {
-                const title = r && r.usuarioNombre ? r.usuarioNombre : 'Reserva';
-                if (r && r.fechaInicio) {
-                    events.push({
-                        id: `${r.id || Math.random().toString(36).slice(2)}_delivery`,
-                        title: title,
-                        start: r.fechaInicio,
-                        backgroundColor: '#2563eb',
-                        textColor: '#ffffff',
-                        extendedProps: { type: 'entrega', reservation: r }
+                        <div>
+                            <p class="lg-label mb-2">Paradas (<span x-text="num(rutaOps.length)"></span>)</p>
+                            <div class="space-y-2 max-h-56 overflow-y-auto lg-scroll pr-1">
+                                <template x-for="op in rutaOps" :key="op.id">
+                                    <div class="lg-item">
+                                        <span class="lg-pill shrink-0" :class="op.tipo === 'entrega' ? 'lg-pill-info' : 'lg-pill-warn'">
+                                            <span class="lg-dot"></span><span x-text="op.hora || op.tipo"></span>
+                                        </span>
+                                        <span class="flex-1 min-w-0">
+                                            <span class="block text-sm font-bold text-[color:var(--lg-ink)] truncate" x-text="op.cliente"></span>
+                                            <span class="block text-[11px] font-medium text-surface-400 truncate" x-text="op.direccion || 'Dirección por confirmar'"></span>
+                                        </span>
+                                    </div>
+                                </template>
+                                <template x-if="rutaOps.length === 0">
+                                    <p class="text-sm font-medium text-surface-400 py-3 text-center">No hay operaciones en esta fecha.</p>
+                                </template>
+                            </div>
+                        </div>
+
+                        <p class="text-[11px] font-medium text-surface-400 leading-relaxed">
+                            El PDF incluye cliente, dirección, hora y mobiliario de cada parada del día seleccionado.
+                        </p>
+                    </div>
+
+                    <footer class="flex items-center justify-between gap-3 px-6 py-4 border-t border-[color:var(--lg-line)] bg-[color:var(--lg-tint)]">
+                        <button type="button" class="lg-btn lg-btn-ghost" @click="cerrarRuta()">Cancelar</button>
+                        <a class="lg-btn lg-btn-accent" :href="'/admin/logistica/hoja-ruta?fecha=' + rutaFecha" :aria-disabled="rutaOps.length === 0"
+                           :class="rutaOps.length === 0 ? 'pointer-events-none opacity-50' : ''">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                            Descargar PDF
+                        </a>
+                    </footer>
+                </div>
+            </div>
+        </dialog>
+        <script id="lg-data" type="application/json" th:utext="${logisticaJson}">{"hoy":"","stats":{},"ops":[]}</script>
+
+        <script>
+        // ═══════════════════════════════════════════════════════════════
+        // Logística · componente Alpine
+        // ═══════════════════════════════════════════════════════════════
+        const LG_ICON = {
+            list: 'M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5',
+            check: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+            truck: 'M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12',
+            return: 'M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3',
+            flag: 'M3 3v18m0-13.5h13.5l-3 4.5 3 4.5H3',
+            x: 'M6 18L18 6M6 6l12 12',
+            calendar: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5',
+            clock: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z',
+            user: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z',
+            box: 'M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z',
+            file: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+            refresh: 'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99'
+        };
+
+        function logisticaPage() {
+            return {
+                // Datos
+                hoy: '', stats: {}, ops: [],
+
+                // UI · filtros
+                q: '', scope: 'todos', tipo: 'todas', estado: 'todos', orden: 'fecha-asc',
+                estadoOpen: false, estadoIdx: 0, ordenOpen: false, ordenIdx: 0, fechaOpen: false,
+                page: 1, perPage: 10,
+
+                // Cronograma
+                calAnio: 0, calMes: 0, diaSel: '',
+
+                // DateRangePicker
+                desde: '', hasta: '', hoverISO: '', dpAnio: 0, dpMes: 0, dpNM: 2,
+
+                // Modales
+                ficha: null, estadoNuevo: 'ENTREGADA', rutaFecha: '',
+
+                init() {
+                    var raw = {};
+                    try { raw = JSON.parse(document.getElementById('lg-data').textContent || '{}'); } catch (e) { raw = {}; }
+                    this.hoy = raw.hoy || this.todayISO();
+                    this.stats = Object.assign({
+                        totalOps: 0, entregasHoy: 0, retornosHoy: 0, totalHoy: 0, manana: 0,
+                        semana: 0, atrasadas: 0, enCurso: 0, pendientes: 0, completadas: 0, totalReservas: 0
+                    }, raw.stats || {});
+                    this.ops = raw.ops || [];
+
+                    var qs = new URLSearchParams(location.search);
+                    if (qs.get('q')) this.q = qs.get('q');
+                    if (qs.get('scope')) this.scope = qs.get('scope');
+                    if (qs.get('tipo')) this.tipo = qs.get('tipo');
+                    if (qs.get('estado')) this.estado = qs.get('estado');
+                    if (qs.get('orden')) this.orden = qs.get('orden');
+                    if (qs.get('desde')) this.desde = qs.get('desde');
+                    if (qs.get('hasta')) this.hasta = qs.get('hasta');
+                    if (qs.get('dia')) this.diaSel = qs.get('dia');
+                    if (qs.get('page')) this.page = parseInt(qs.get('page'), 10) || 1;
+
+                    var base = this.parseISO(this.diaSel || this.hoy);
+                    this.calAnio = base.getFullYear();
+                    this.calMes = base.getMonth();
+                    this.dpAnio = base.getFullYear();
+                    this.dpMes = base.getMonth();
+                    if (!this.diaSel) this.diaSel = this.hoy;
+                    this.rutaFecha = this.diaSel;
+                    this.dpNM = this.mesesVisibles();
+
+                    this.normaliza();
+                    this.page = Math.min(Math.max(1, this.page), this.totalPaginas);
+                },
+
+                normaliza() {
+                    if (['todos', 'hoy', 'manana', 'semana', 'atrasadas'].indexOf(this.scope) === -1) this.scope = 'todos';
+                    if (['todas', 'entrega', 'retorno'].indexOf(this.tipo) === -1) this.tipo = 'todas';
+                    if (['todos', 'CONFIRMADA', 'ENTREGADA', 'COMPLETADA'].indexOf(this.estado) === -1) this.estado = 'todos';
+                    var okeys = this.ordenOpciones.map(function (o) { return o.key; });
+                    if (okeys.indexOf(this.orden) === -1) this.orden = 'fecha-asc';
+                },
+
+                // ── Fechas (utilidades) ──
+                todayISO() { return this.iso(new Date()); },
+                iso(d) { var m = String(d.getMonth() + 1).padStart(2, '0'); var dd = String(d.getDate()).padStart(2, '0'); return d.getFullYear() + '-' + m + '-' + dd; },
+                parseISO(s) { if (!s) return new Date(); var p = String(s).split('-'); return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)); },
+                sumaDias(s, n) { var d = this.parseISO(s); d.setDate(d.getDate() + n); return this.iso(d); },
+                finDeMes(s) { var d = this.parseISO(s); return this.iso(new Date(d.getFullYear(), d.getMonth() + 1, 0)); },
+                dow(d) { return (d.getDay() + 6) % 7; },
+                fechaLarga(iso) {
+                    if (!iso) return '';
+                    try { return new Date(iso + 'T00:00:00').toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' }); }
+                    catch (e) { return iso; }
+                },
+                fechaCorta(iso) {
+                    if (!iso) return '—';
+                    try { return new Date(iso + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }); }
+                    catch (e) { return iso; }
+                },
+                nombreMes(anio, mes) { return new Date(anio, mes, 1).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' }); },
+
+                get diasSemana() { return ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']; },
+                get tituloMes() { return this.nombreMes(this.calAnio, this.calMes); },
+
+                // ── Cronograma ──
+                get opsPorFecha() {
+                    var m = {};
+                    this.ops.forEach(function (op) {
+                        var k = op.fecha;
+                        if (!m[k]) m[k] = { e: 0, r: 0, total: 0 };
+                        if (op.tipo === 'entrega') m[k].e++; else m[k].r++;
+                        m[k].total++;
                     });
-                }
-                if (r && r.fechaFin) {
-                    events.push({
-                        id: `${r.id || Math.random().toString(36).slice(2)}_return`,
-                        title: title,
-                        start: r.fechaFin,
-                        backgroundColor: '#f59e0b',
-                        textColor: '#ffffff',
-                        extendedProps: { type: 'recogida', reservation: r }
+                    return m;
+                },
+                get calCeldas() {
+                    var mes = this.calMes;
+                    var inicio = new Date(this.calAnio, mes, 1 - this.dow(new Date(this.calAnio, mes, 1)));
+                    var mapa = this.opsPorFecha;
+                    var out = [];
+                    for (var i = 0; i < 42; i++) {
+                        var d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + i);
+                        var key = this.iso(d);
+                        var o = mapa[key];
+                        out.push({
+                            iso: key, dia: d.getDate(),
+                            esHoy: key === this.hoy,
+                            fuera: d.getMonth() !== mes || d.getFullYear() !== this.calAnio,
+                            e: o ? o.e : 0, r: o ? o.r : 0
+                        });
+                    }
+                    return out;
+                },
+                get opsMes() {
+                    var pre = this.calAnio + '-' + String(this.calMes + 1).padStart(2, '0');
+                    var e = 0, r = 0;
+                    this.ops.forEach(function (op) { if (String(op.fecha).indexOf(pre) === 0) { if (op.tipo === 'entrega') e++; else r++; } });
+                    return { e: e, r: r, total: e + r };
+                },
+                get opsDia() {
+                    var d = this.diaSel, self = this;
+                    return this.ops.filter(function (o) { return o.fecha === d; }).sort(function (a, b) { return self.ordenarPorHora(a, b); });
+                },
+                get diaResumen() {
+                    var e = 0, r = 0;
+                    this.opsDia.forEach(function (o) { if (o.tipo === 'entrega') e++; else r++; });
+                    return { e: e, r: r };
+                },
+                ordenarPorHora(a, b) {
+                    var ha = (a.hora || '').trim(), hb = (b.hora || '').trim();
+                    if (!ha && !hb) return 0;
+                    if (!ha) return 1;
+                    if (!hb) return -1;
+                    return ha.localeCompare(hb, 'es', { numeric: true });
+                },
+                mesAnterior() { var m = this.calMes - 1, a = this.calAnio; if (m < 0) { m = 11; a--; } this.calMes = m; this.calAnio = a; },
+                mesSiguiente() { var m = this.calMes + 1, a = this.calAnio; if (m > 11) { m = 0; a++; } this.calMes = m; this.calAnio = a; },
+                mesHoy() { var d = this.parseISO(this.hoy); this.calAnio = d.getFullYear(); this.calMes = d.getMonth(); this.diaSel = this.hoy; this.syncUrl(); },
+                seleccionarDia(iso) { this.diaSel = iso; this.rutaFecha = iso; this.syncUrl(); },
+                etiquetaDia(c) {
+                    var t = this.fechaLarga(c.iso);
+                    if (c.e || c.r) t += ' — ' + c.e + ' entregas, ' + c.r + ' retornos';
+                    return t;
+                },
+                // ── Filtros ──
+                get sinDatos() { return this.ops.length === 0; },
+                get scopeLabel() {
+                    var m = { hoy: 'Hoy', manana: 'Mañana', semana: 'Próximos 7 días', atrasadas: 'Atrasadas' };
+                    return m[this.scope] || '';
+                },
+                irA(destino) {
+                    this.scope = (['todos', 'hoy', 'manana', 'semana', 'atrasadas'].indexOf(destino) >= 0) ? destino : 'todos';
+                    this.page = 1;
+                    if (this.scope === 'hoy') this.enfocarFecha(this.hoy);
+                    if (this.scope === 'manana') this.enfocarFecha(this.sumaDias(this.hoy, 1));
+                    this.cerrarPopovers();
+                    this.syncUrl();
+                },
+                enfocarFecha(iso) {
+                    this.diaSel = iso;
+                    var d = this.parseISO(iso);
+                    this.calAnio = d.getFullYear();
+                    this.calMes = d.getMonth();
+                },
+                setTipo(t) { this.tipo = t; this.onFilterChange(); },
+                get conteos() {
+                    var s = this, e = 0, r = 0;
+                    this.ops.forEach(function (op) {
+                        if (!s.pasaFiltros(op, true)) return;
+                        if (op.tipo === 'entrega') e++; else r++;
                     });
+                    return { todas: e + r, entrega: e, retorno: r };
+                },
+                get hayFiltros() {
+                    return !!this.q || this.scope !== 'todos' || this.tipo !== 'todas' || this.estado !== 'todos'
+                        || this.orden !== 'fecha-asc' || !!this.desde || !!this.hasta;
+                },
+                limpiarFiltros() {
+                    this.q = ''; this.scope = 'todos'; this.tipo = 'todas'; this.estado = 'todos'; this.orden = 'fecha-asc';
+                    this.desde = ''; this.hasta = ''; this.hoverISO = '';
+                    this.estadoOpen = false; this.ordenOpen = false; this.fechaOpen = false;
+                    this.page = 1; this.syncUrl();
+                },
+                onFilterChange() { this.page = 1; this.syncUrl(); },
+
+                esAtrasada(op) { return !!op.fecha && op.fecha < this.hoy && op.estado !== 'COMPLETADA'; },
+                pasaScope(op) {
+                    if (this.scope === 'hoy') return op.fecha === this.hoy;
+                    if (this.scope === 'manana') return op.fecha === this.sumaDias(this.hoy, 1);
+                    if (this.scope === 'semana') return op.fecha >= this.hoy && op.fecha <= this.sumaDias(this.hoy, 6);
+                    if (this.scope === 'atrasadas') return this.esAtrasada(op);
+                    return true;
+                },
+                pasaFiltros(op, ignorarTipo) {
+                    if (!this.pasaScope(op)) return false;
+                    if (!ignorarTipo && this.tipo !== 'todas' && op.tipo !== this.tipo) return false;
+                    if (this.estado !== 'todos' && op.estado !== this.estado) return false;
+                    if (this.desde && op.fecha < this.desde) return false;
+                    if (this.hasta && op.fecha > this.hasta) return false;
+                    if (this.q) {
+                        var items = (op.items || []).map(function (i) { return i.nombre; }).join(' ');
+                        var hay = (op.cliente + ' ' + op.ref + ' ' + (op.direccion || '') + ' ' + (op.email || '') + ' '
+                            + (op.telefono || '') + ' ' + (op.tipoEvento || '') + ' ' + op.tipo + ' ' + items).toLowerCase();
+                        if (hay.indexOf(this.q.trim().toLowerCase()) === -1) return false;
+                    }
+                    return true;
+                },
+                get filtradas() {
+                    var self = this;
+                    var out = this.ops.filter(function (op) { return self.pasaFiltros(op, false); });
+                    var orden = this.orden;
+                    out.sort(function (a, b) {
+                        if (orden === 'cliente') return String(a.cliente).localeCompare(String(b.cliente), 'es');
+                        if (orden === 'tipo') {
+                            if (a.tipo !== b.tipo) return a.tipo === 'entrega' ? -1 : 1;
+                            if (a.fecha !== b.fecha) return a.fecha < b.fecha ? -1 : 1;
+                            return self.ordenarPorHora(a, b);
+                        }
+                        if (orden === 'fecha-desc') {
+                            if (a.fecha !== b.fecha) return a.fecha < b.fecha ? 1 : -1;
+                            return self.ordenarPorHora(a, b);
+                        }
+                        if (a.fecha !== b.fecha) return a.fecha < b.fecha ? -1 : 1;
+                        return self.ordenarPorHora(a, b);
+                    });
+                    return out;
+                },
+                get totalFiltrado() { return this.filtradas.length; },
+                get totalPaginas() { return Math.max(1, Math.ceil(this.totalFiltrado / this.perPage)); },
+                get paginadas() {
+                    var start = (Math.min(this.page, this.totalPaginas) - 1) * this.perPage;
+                    return this.filtradas.slice(start, start + this.perPage);
+                },
+                get rangoInicio() { return this.totalFiltrado === 0 ? 0 : (Math.min(this.page, this.totalPaginas) - 1) * this.perPage + 1; },
+                get rangoFin() { return Math.min(this.totalFiltrado, Math.min(this.page, this.totalPaginas) * this.perPage); },
+                get paginas() {
+                    var t = this.totalPaginas, p = Math.min(this.page, t), out = [];
+                    if (t <= 7) { for (var i = 1; i <= t; i++) out.push(i); return out; }
+                    var start = Math.max(1, p - 2), end = Math.min(t, start + 4);
+                    start = Math.max(1, end - 4);
+                    for (var j = start; j <= end; j++) out.push(j);
+                    return out;
+                },
+                get sinResTitulo() { return this.scope !== 'todos' ? 'Nada por aquí' : 'Sin coincidencias'; },
+                get sinResTexto() {
+                    if (this.scope !== 'todos') return 'No hay operaciones que coincidan con el rango de fechas o los filtros activos.';
+                    return 'Ninguna operación coincide con la búsqueda o los filtros aplicados.';
+                },
+
+                // ── Dropdown: estado ──
+                contarEstado(k) {
+                    var s = this;
+                    return this.ops.filter(function (op) {
+                        if (!s.pasaScope(op)) return false;
+                        if (s.tipo !== 'todas' && op.tipo !== s.tipo) return false;
+                        return k === 'todos' || op.estado === k;
+                    }).length;
+                },
+                get estadoOpciones() {
+                    var self = this;
+                    var opts = [
+                        { key: 'todos', label: 'Todos los estados', desc: 'Sin filtrar', icon: LG_ICON.list },
+                        { key: 'CONFIRMADA', label: 'Confirmada', desc: 'Aún sin entregar', icon: LG_ICON.check },
+                        { key: 'ENTREGADA', label: 'Entregada', desc: 'En poder del cliente', icon: LG_ICON.truck },
+                        { key: 'COMPLETADA', label: 'Completada', desc: 'Devuelta y cerrada', icon: LG_ICON.flag }
+                    ];
+                    opts.forEach(function (o) { o.count = self.contarEstado(o.key); });
+                    return opts;
+                },
+                get estadoActual() {
+                    var k = this.estado;
+                    var f = this.estadoOpciones.filter(function (o) { return o.key === k; });
+                    return f.length ? f[0] : this.estadoOpciones[0];
+                },
+                toggleEstado() {
+                    if (this.estadoOpen) { this.estadoOpen = false; return; }
+                    this.cerrarPopovers(); this.estadoOpen = true;
+                    var self = this;
+                    var i = this.estadoOpciones.map(function (o) { return o.key; }).indexOf(this.estado);
+                    this.estadoIdx = i < 0 ? 0 : i;
+                    this.$nextTick(function () { if (self.$refs.estadoMenu) self.$refs.estadoMenu.focus(); });
+                },
+                elegirEstado(i) {
+                    var o = this.estadoOpciones[i]; if (!o) return;
+                    this.estado = o.key; this.estadoOpen = false; this.onFilterChange();
+                },
+                moverEstado(dir) { var n = this.estadoOpciones.length; this.estadoIdx = (this.estadoIdx + dir + n) % n; },
+
+                // ── Dropdown: orden ──
+                get ordenOpciones() {
+                    return [
+                        { key: 'fecha-asc', label: 'Próximas primero', desc: 'Fecha ascendente', icon: LG_ICON.calendar },
+                        { key: 'fecha-desc', label: 'Más recientes', desc: 'Fecha descendente', icon: LG_ICON.clock },
+                        { key: 'cliente', label: 'Cliente (A–Z)', desc: 'Orden alfabético', icon: LG_ICON.user },
+                        { key: 'tipo', label: 'Tipo de operación', desc: 'Entregas y luego retornos', icon: LG_ICON.truck }
+                    ];
+                },
+                get ordenActual() {
+                    var k = this.orden;
+                    var f = this.ordenOpciones.filter(function (o) { return o.key === k; });
+                    return f.length ? f[0] : this.ordenOpciones[0];
+                },
+                toggleOrden() {
+                    if (this.ordenOpen) { this.ordenOpen = false; return; }
+                    this.cerrarPopovers(); this.ordenOpen = true;
+                    var self = this;
+                    var i = this.ordenOpciones.map(function (o) { return o.key; }).indexOf(this.orden);
+                    this.ordenIdx = i < 0 ? 0 : i;
+                    this.$nextTick(function () { if (self.$refs.ordenMenu) self.$refs.ordenMenu.focus(); });
+                },
+                elegirOrden(i) {
+                    var o = this.ordenOpciones[i]; if (!o) return;
+                    this.orden = o.key; this.ordenOpen = false; this.onFilterChange();
+                },
+                moverOrden(dir) { var n = this.ordenOpciones.length; this.ordenIdx = (this.ordenIdx + dir + n) % n; },
+
+                // ── DateRangePicker ──
+                mesesVisibles() { return (window.matchMedia && window.matchMedia('(min-width: 640px)').matches) ? 2 : 1; },
+                onResize() { if (this.fechaOpen) this.dpNM = this.mesesVisibles(); },
+                get presetsFecha() {
+                    return [
+                        { key: 'hoy', label: 'Hoy' }, { key: 'manana', label: 'Mañana' },
+                        { key: 'semana', label: 'Próximos 7 días' }, { key: 'mes', label: 'Este mes' },
+                        { key: 'proximo', label: 'Mes próximo' }
+                    ];
+                },
+                toggleFecha() { this.fechaOpen ? this.cerrarFecha() : this.abrirFecha(); },
+                abrirFecha() {
+                    this.estadoOpen = false; this.ordenOpen = false;
+                    var base = this.desde || this.hasta || this.diaSel || this.hoy;
+                    var d = this.parseISO(base);
+                    this.dpAnio = d.getFullYear(); this.dpMes = d.getMonth();
+                    this.dpNM = this.mesesVisibles();
+                    this.fechaOpen = true;
+                },
+                cerrarFecha() { this.fechaOpen = false; this.hoverISO = ''; },
+                limpiarFechas() { this.desde = ''; this.hasta = ''; this.hoverISO = ''; this.onFilterChange(); },
+                dpMesAnterior() { var m = this.dpMes - 1, a = this.dpAnio; if (m < 0) { m = 11; a--; } this.dpMes = m; this.dpAnio = a; },
+                dpMesSiguiente() { var m = this.dpMes + 1, a = this.dpAnio; if (m > 11) { m = 0; a++; } this.dpMes = m; this.dpAnio = a; },
+                get dpMeses() {
+                    var out = [], n = this.dpNM || this.mesesVisibles();
+                    for (var i = 0; i < n; i++) {
+                        var d = new Date(this.dpAnio, this.dpMes + i, 1);
+                        out.push(this.mesSel(d.getFullYear(), d.getMonth()));
+                    }
+                    return out;
+                },
+                mesSel(anio, mes) {
+                    var inicio = new Date(anio, mes, 1 - this.dow(new Date(anio, mes, 1)));
+                    var celdas = [];
+                    for (var i = 0; i < 42; i++) {
+                        var d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + i);
+                        celdas.push({ iso: this.iso(d), dia: d.getDate(), fuera: d.getMonth() !== mes || d.getFullYear() !== anio });
+                    }
+                    return { key: anio + '-' + mes, titulo: this.nombreMes(anio, mes), celdas: celdas };
+                },
+                dpClase(c) {
+                    var ini = this.desde;
+                    var fin = this.hasta || (this.desde && this.hoverISO ? this.hoverISO : '');
+                    if (ini && fin && ini > fin) { var t = ini; ini = fin; fin = t; }
+                    return {
+                        'lg-dp__day--out': c.fuera,
+                        'lg-dp__day--today': c.iso === this.hoy,
+                        'lg-dp__day--range': !!(ini && fin && c.iso > ini && c.iso < fin),
+                        'lg-dp__day--edge': !!(ini && (c.iso === ini || c.iso === fin))
+                    };
+                },
+                dpElegir(iso) {
+                    if (!this.desde || (this.desde && this.hasta)) {
+                        this.desde = iso; this.hasta = ''; this.onFilterChange(); return;
+                    }
+                    if (iso < this.desde) { this.hasta = this.desde; this.desde = iso; }
+                    else { this.hasta = iso; }
+                    this.onFilterChange();
+                },
+                aplicarPreset(k) {
+                    var h = this.hoy;
+                    if (k === 'hoy') { this.desde = h; this.hasta = h; }
+                    else if (k === 'manana') { var m = this.sumaDias(h, 1); this.desde = m; this.hasta = m; }
+                    else if (k === 'semana') { this.desde = h; this.hasta = this.sumaDias(h, 6); }
+                    else if (k === 'mes') { this.desde = h.substring(0, 8) + '01'; this.hasta = this.finDeMes(h); }
+                    else if (k === 'proximo') { var n = this.iso(new Date(this.parseISO(this.finDeMes(h)).getFullYear(), this.parseISO(this.finDeMes(h)).getMonth() + 1, 1)); this.desde = n; this.hasta = this.finDeMes(n); }
+                    this.onFilterChange();
+                },
+                get rangoLabel() {
+                    if (this.desde && this.hasta) return this.fechaCorta(this.desde) + ' → ' + this.fechaCorta(this.hasta);
+                    if (this.desde) return 'Desde ' + this.fechaCorta(this.desde);
+                    if (this.hasta) return 'Hasta ' + this.fechaCorta(this.hasta);
+                    return 'Cualquier fecha';
+                },
+
+                cerrarPopovers(ev) {
+                    if (ev && ev.target && ev.target.closest && (ev.target.closest('.lg-pop') || ev.target.closest('[data-lgpop]'))) return;
+                    this.estadoOpen = false; this.ordenOpen = false; this.fechaOpen = false; this.hoverISO = '';
+                },
+
+                // ── Modales ──
+                abrirFicha(op) {
+                    this.ficha = op;
+                    var d = document.getElementById('lg-ficha');
+                    if (d && !d.open) d.showModal();
+                },
+                cerrarFicha() { var d = document.getElementById('lg-ficha'); if (d && d.open) d.close(); },
+                abrirEstado() {
+                    if (!this.ficha) return;
+                    this.estadoNuevo = this.ficha.tipo === 'entrega' ? 'ENTREGADA' : 'COMPLETADA';
+                    var d = document.getElementById('lg-estado');
+                    if (d && !d.open) d.showModal();
+                },
+                cerrarEstado() { var d = document.getElementById('lg-estado'); if (d && d.open) d.close(); },
+                get estadosForm() {
+                    return [
+                        { key: 'CONFIRMADA', label: 'Confirmar', desc: 'La reserva queda confirmada, aún sin entregar.', icon: 'check', ic: 'lg-estado__ic--ok' },
+                        { key: 'ENTREGADA', label: 'Marcar entregada', desc: 'El mobiliario salió hacia el evento.', icon: 'truck', ic: 'lg-estado__ic--ent' },
+                        { key: 'COMPLETADA', label: 'Marcar completada', desc: 'El mobiliario fue devuelto y la reserva se cierra.', icon: 'flag', ic: 'lg-estado__ic--ret' },
+                        { key: 'CANCELADA', label: 'Cancelar reserva', desc: 'Cancela la operación por completo.', icon: 'x', ic: 'lg-estado__ic--stop' }
+                    ];
+                },
+                abrirRuta(fecha) {
+                    this.rutaFecha = fecha || this.diaSel || this.hoy;
+                    var f = document.getElementById('lg-ficha'); if (f && f.open) f.close();
+                    var d = document.getElementById('lg-ruta');
+                    if (d && !d.open) d.showModal();
+                },
+                cerrarRuta() { var d = document.getElementById('lg-ruta'); if (d && d.open) d.close(); },
+                get rutaOps() {
+                    var f = this.rutaFecha, self = this;
+                    return this.ops.filter(function (o) { return o.fecha === f; }).sort(function (a, b) { return self.ordenarPorHora(a, b); });
+                },
+                get rutaResumen() {
+                    var e = 0, r = 0;
+                    this.rutaOps.forEach(function (o) { if (o.tipo === 'entrega') e++; else r++; });
+                    return { e: e, r: r };
+                },
+                imprimirDia() { this.diaSel = this.diaSel || this.hoy; window.print(); },
+
+                // ── Etiquetas ──
+                etiquetaEstado(e) {
+                    var m = { PENDIENTE: 'Pendiente', CONFIRMADA: 'Confirmada', ENTREGADA: 'Entregada', COMPLETADA: 'Completada', CANCELADA: 'Cancelada' };
+                    return m[e] || e || '—';
+                },
+                claseEstado(e) {
+                    if (e === 'COMPLETADA') return 'lg-pill-ok';
+                    if (e === 'ENTREGADA') return 'lg-pill-info';
+                    if (e === 'CANCELADA') return 'lg-pill-stop';
+                    return 'lg-pill-warn';
+                },
+                etiquetaPago(p) {
+                    var m = { SIN_PAGO: 'Sin pago', ANTICIPO: 'Anticipo', PARCIAL: 'Parcial', PAGADO: 'Pagado' };
+                    return m[p] || String(p || 'SIN_PAGO').replace(/_/g, ' ');
+                },
+                clasePago(p) {
+                    if (p === 'PAGADO') return 'lg-pill-ok';
+                    if (p === 'PARCIAL' || p === 'ANTICIPO') return 'lg-pill-warn';
+                    return 'lg-pill-mute';
+                },
+
+                // ── Helpers ──
+                iconPath(k) { return LG_ICON[k] || LG_ICON.list; },
+                plural(n, s, p) { return (Number(n) || 0) === 1 ? s : p; },
+                num(v) { return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(v) || 0); },
+                money(v) { return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(v) || 0); },
+
+                // ── URL ──
+                syncUrl() {
+                    var p = new URLSearchParams();
+                    if (this.q) p.set('q', this.q);
+                    if (this.scope !== 'todos') p.set('scope', this.scope);
+                    if (this.tipo !== 'todas') p.set('tipo', this.tipo);
+                    if (this.estado !== 'todos') p.set('estado', this.estado);
+                    if (this.orden !== 'fecha-asc') p.set('orden', this.orden);
+                    if (this.desde) p.set('desde', this.desde);
+                    if (this.hasta) p.set('hasta', this.hasta);
+                    if (this.diaSel && this.diaSel !== this.hoy) p.set('dia', this.diaSel);
+                    if (this.page > 1) p.set('page', this.page);
+                    var s = p.toString();
+                    try { history.replaceState(null, '', location.pathname + (s ? '?' + s : '')); } catch (e) { /* file:// */ }
                 }
-            });
-
-            calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                locale: 'es',
-                height: 'auto',
-                contentHeight: 'auto',
-                headerToolbar: false,
-                buttonText: { today: 'Hoy' },
-                events: events,
-                dayMaxEvents: 3,
-                firstDay: 1,
-                moreLinkContent: function(args) {
-                    return '+' + args.num + ' más';
-                },
-                eventContent: function(arg) {
-                    const isEntrega = arg.event.extendedProps.type === 'entrega';
-                    const time = isEntrega && arg.event.extendedProps.reservation?.horaEntrega
-                        ? arg.event.extendedProps.reservation.horaEntrega
-                        : '';
-                    return { html: `<div class="truncate px-0.5 flex items-center gap-1"><span class="truncate">${escapeHtml(arg.event.title)}</span>${time ? `<span class="opacity-70 text-[0.6rem] flex-shrink-0">${escapeHtml(time)}</span>` : ''}</div>` };
-                },
-                eventDidMount: function(info) {
-                    const type = info.event.extendedProps.type === 'entrega' ? 'Entrega' : 'Retorno';
-                    info.el.setAttribute('title', `${type}: ${info.event.title}`);
-                },
-                eventClick: function(info) {
-                    buildEventDetailsModal(info.event);
-                },
-                datesSet: function() {
-                    updateCalendarTitle();
-                }
-            });
-            calendar.render();
-            allCalendarEvents = calendar.getEvents();
-
-            // Custom navigation buttons
-            document.getElementById('calPrev').addEventListener('click', function() { calendar.prev(); updateCalendarTitle(); });
-            document.getElementById('calNext').addEventListener('click', function() { calendar.next(); updateCalendarTitle(); });
-            document.getElementById('calToday').addEventListener('click', function() { calendar.today(); updateCalendarTitle(); });
-
-            updateCalendarTitle();
-
-            if (dateInput) dateInput.value = getLocalToday();
-            if (dateInput) dateInput.addEventListener('change', function() { renderTodayOperations(allCalendarEvents); });
-            if (typeInput) typeInput.addEventListener('change', function() { renderTodayOperations(allCalendarEvents); });
-            if (searchInput) searchInput.addEventListener('input', function() { renderTodayOperations(allCalendarEvents); });
-
-            renderTodayOperations(allCalendarEvents);
-        });
-    </script>
+            };
+        }
+        </script>
+    </div>
 </main>
 </body>
 </html>
