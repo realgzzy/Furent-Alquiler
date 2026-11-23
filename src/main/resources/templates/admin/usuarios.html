@@ -1,631 +1,1689 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/admin-layout :: layout(~{::title}, ~{::main}, 'usuarios')}">
 <head>
-    <title>Usuarios — Furent Admin</title>
+    <title>Directorio de Usuarios — Furent Admin</title>
 </head>
 <body>
-    <main>
-        <div class="px-10 py-8 max-w-[90rem] mx-auto relative font-['Outfit']" x-data="{ 
-            filterDropdownInfo: false, 
-            selectedRole: 'ALL', 
-            selectedStatus: 'ALL', 
-            sortDate: 'NEWEST',
-            
-            openDetailsModal: false,
-            loadingDetails: false,
-            details: null,
+<main>
+    <!-- ============================================================
+         Usuarios · directorio de la comunidad
+         Identidad Furent: base zinc, una sola tinta de acento (#E07A3A).
+         KPIs que filtran al clic, roster con búsqueda, segmentos de rol,
+         dropdowns heroUI (estado/orden), selector de rango de fechas y
+         fichas con pestañas. Acciones: rol, acceso, notas y baja.
+         ============================================================ -->
+    <div class="us-scope px-5 sm:px-8 lg:px-10 py-8 pb-20 max-w-[94rem] mx-auto"
+         x-data="usuariosPage()" x-init="init()" x-cloak
+         @pointerdown.window="cerrarPopovers($event)" @keydown.escape.window="cerrarPopovers()" @resize.window="onResize()">
 
-            updateFilters() { window.applyTableAdvancedFilters(this.selectedRole, this.selectedStatus); }, 
-            sortUsers() { window.sortTableByDate(this.sortDate); },
-
-            openRoleModal: false,
-            roleModalUserId: null,
-            roleModalRole: null,
-            roleModalSaving: false,
-
-            showRoleModal(id, role) {
-                this.roleModalUserId = id;
-                this.roleModalRole = role;
-                this.openRoleModal = true;
-            },
-
-            async saveRole() {
-                this.roleModalSaving = true;
-                try {
-                    const header = document.querySelector('meta[name=\'_csrf_header\']').content;
-                    const token = document.querySelector('meta[name=\'_csrf\']').content;
-                    const res = await fetch(`/admin/usuarios/rol/${this.roleModalUserId}?role=${this.roleModalRole}`, {
-                        method: 'POST',
-                        headers: { [header]: token }
-                    });
-                    if (res.ok) window.location.reload();
-                    else alert('Error al sincronizar rol');
-                } catch(e) {
-                    alert('Error en conexión');
-                } finally {
-                    this.roleModalSaving = false;
-                }
-            },
-
-            async fetchUserDetails(id) {
-                this.loadingDetails = true;
-                this.openDetailsModal = true;
-                this.details = null;
-                try {
-                    const res = await fetch(`/admin/usuarios/detalles/${id}`);
-                    this.details = await res.json();
-                } catch (e) {
-                    console.error('Error fetching details', e);
-                } finally {
-                    this.loadingDetails = false;
-                }
+        <style>
+            .us-scope {
+                --us-accent: #E07A3A;
+                --us-accent-strong: #C2630F;
+                --us-accent-soft: #FFF7F0;
+                --us-accent-line: #FED7AA;
+                --us-ink: #18181b;
+                --us-ink-2: #52525b;
+                --us-mute: #71717a;
+                --us-faint: #a1a1aa;
+                --us-line: #f4f4f5;
+                --us-line-2: #e4e4e7;
+                --us-card: #ffffff;
+                --us-hover: #fafafa;
+                --us-tint: #fafafa;
+                --us-ring: rgba(224, 122, 58, .1);
+                --us-ok: #16a34a;
+                --us-ok-soft: #f0fdf4;
+                --us-ok-line: #bbf7d0;
+                --us-stop: #dc2626;
+                --us-stop-soft: #fef2f2;
+                --us-stop-line: #fecaca;
+                --us-info: #2563eb;
+                --us-info-soft: #eff6ff;
+                --us-info-line: #bfdbfe;
+                --us-warn: #d97706;
+                --us-warn-soft: #fffbeb;
+                --us-warn-line: #fde68a;
             }
-        }">
-            
-            <div class="flex items-center justify-between mb-8">
-                <div>
-                    <h1 class="text-3xl font-black tracking-tight text-surface-900 leading-none">Directorio de Usuarios</h1>
-                    <p class="text-sm font-medium text-surface-500 mt-2">Administra los clientes y sus niveles de acceso.</p>
-                    <p class="text-xs font-bold text-surface-400 mt-1" th:text="${'Total usuarios: ' + totalUsuarios + ' | Mostrando página ' + (currentPage + 1) + ' de ' + (totalPages == 0 ? 1 : totalPages)}">Total usuarios: 0</p>
+            html.dark .us-scope {
+                --us-accent-soft: rgba(224, 122, 58, .14);
+                --us-accent-line: rgba(224, 122, 58, .32);
+                --us-ink: #fafafa;
+                --us-ink-2: #a1a1aa;
+                --us-mute: #71717a;
+                --us-faint: #52525b;
+                --us-line: #1c1c20;
+                --us-line-2: #27272a;
+                --us-card: #131316;
+                --us-hover: #1a1a1e;
+                --us-tint: #17171a;
+                --us-ok: #4ade80;
+                --us-ok-soft: rgba(22, 163, 74, .16);
+                --us-ok-line: rgba(22, 163, 74, .32);
+                --us-stop: #f87171;
+                --us-stop-soft: rgba(220, 38, 38, .16);
+                --us-stop-line: rgba(220, 38, 38, .34);
+                --us-info: #60a5fa;
+                --us-info-soft: rgba(37, 99, 235, .16);
+                --us-info-line: rgba(37, 99, 235, .34);
+                --us-warn: #fbbf24;
+                --us-warn-soft: rgba(217, 119, 6, .16);
+                --us-warn-line: rgba(217, 119, 6, .34);
+            }
+
+            .us-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .13em; color: var(--us-faint); }
+            .us-tabular { font-variant-numeric: tabular-nums; }
+            .us-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+            /* Entrada escalonada */
+            .us-rise { animation: usRise .5s cubic-bezier(.16, 1, .3, 1) both; }
+            .us-d1 { animation-delay: .04s; } .us-d2 { animation-delay: .1s; } .us-d3 { animation-delay: .16s; }
+            @keyframes usRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+            .us-card { background: var(--us-card); border: 1px solid var(--us-line); border-radius: 1rem; }
+
+            /* KPIs (clic = filtro) */
+            .us-kpi { position: relative; overflow: hidden; width: 100%; text-align: left; padding: 1.05rem 1.15rem; cursor: pointer;
+                      display: flex; flex-direction: column; transition: border-color .16s ease, transform .16s ease, background-color .16s ease; }
+            .us-kpi:hover { border-color: var(--us-line-2); transform: translateY(-1px); }
+            .us-kpi:focus-visible { outline: 2px solid var(--us-accent); outline-offset: 2px; }
+            .us-kpi[aria-pressed="true"] { border-color: var(--us-accent-line); background: var(--us-accent-soft); }
+            .us-kpi__ray { position: absolute; right: 1rem; top: 1.25rem; color: var(--us-line-2); opacity: .9; pointer-events: none; }
+            .us-kpi__top { display: flex; align-items: center; gap: .55rem; }
+            .us-kpi__icon { display: inline-flex; align-items: center; justify-content: center; width: 2.05rem; height: 2.05rem; border-radius: .65rem;
+                            background: var(--us-tint); color: var(--us-ink-2); flex-shrink: 0; }
+            .us-kpi__icon--accent { background: var(--us-accent-soft); color: var(--us-accent); }
+            .us-kpi__icon--ok { background: var(--us-ok-soft); color: var(--us-ok); }
+            .us-kpi__icon--stop { background: var(--us-stop-soft); color: var(--us-stop); }
+            .us-kpi__icon--info { background: var(--us-info-soft); color: var(--us-info); }
+            .us-kpi__icon--warn { background: var(--us-warn-soft); color: var(--us-warn); }
+            .us-kpi__value { font-size: 1.7rem; line-height: 1; font-weight: 900; letter-spacing: -.025em; color: var(--us-ink); margin-top: .75rem; }
+            .us-kpi__sub { font-size: .72rem; font-weight: 600; color: var(--us-mute); margin-top: .4rem; }
+
+            /* Segmentos */
+            .us-seg { display: inline-flex; padding: .22rem; border-radius: .8rem; background: #f4f4f5; gap: .22rem; }
+            .us-seg__btn { display: inline-flex; align-items: center; gap: .45rem; padding: .5rem .85rem; border-radius: .62rem;
+                           font-size: .72rem; font-weight: 800; letter-spacing: .02em; color: #52525b; transition: all .14s ease; white-space: nowrap; }
+            .us-seg__btn:hover { color: #18181b; }
+            .us-seg__btn:focus-visible { outline: 2px solid var(--us-accent); outline-offset: 2px; }
+            .us-seg__btn[aria-selected="true"] { background: #fff; color: #18181b; box-shadow: 0 1px 2px rgba(0, 0, 0, .07); }
+            .us-seg__count { font-size: .62rem; font-weight: 900; padding: .1rem .4rem; border-radius: .45rem; background: var(--us-line-2); color: var(--us-ink-2); }
+            .us-seg__btn[aria-selected="true"] .us-seg__count { background: var(--us-accent-soft); color: var(--us-accent-strong); }
+            html.dark .us-seg { background: #1c1c20; }
+            html.dark .us-seg__btn { color: #a1a1aa; }
+            html.dark .us-seg__btn:hover { color: #fff; }
+            html.dark .us-seg__btn[aria-selected="true"] { background: #27272a; color: #fff; box-shadow: none; }
+            html.dark .us-seg__count { background: #3f3f46; color: #d4d4d8; }
+            html.dark .us-seg__btn[aria-selected="true"] .us-seg__count { background: rgba(224, 122, 58, .2); color: #f0b483; }
+
+            /* Píldoras */
+            .us-pill { display: inline-flex; align-items: center; gap: .32rem; padding: .2rem .58rem; border-radius: .5rem;
+                       font-size: .63rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+                       border: 1px solid transparent; white-space: nowrap; }
+            .us-dot { width: .4rem; height: .4rem; border-radius: 9999px; background: currentColor; flex-shrink: 0; }
+            .us-pill-ok { background: var(--us-ok-soft); color: #15803d; border-color: var(--us-ok-line); }
+            .us-pill-warn { background: var(--us-warn-soft); color: #b45309; border-color: var(--us-warn-line); }
+            .us-pill-stop { background: var(--us-stop-soft); color: #b91c1c; border-color: var(--us-stop-line); }
+            .us-pill-info { background: var(--us-info-soft); color: #1d4ed8; border-color: var(--us-info-line); }
+            .us-pill-mute { background: var(--us-line); color: var(--us-ink-2); border-color: var(--us-line-2); }
+            .us-pill-accent { background: var(--us-accent-soft); color: var(--us-accent-strong); border-color: var(--us-accent-line); }
+            html.dark .us-pill-ok { color: #4ade80; }
+            html.dark .us-pill-warn { color: #fbbf24; }
+            html.dark .us-pill-stop { color: #f87171; }
+            html.dark .us-pill-info { color: #93c5fd; }
+            html.dark .us-pill-mute { background: rgba(113, 113, 122, .16); color: #a1a1aa; border-color: rgba(113, 113, 122, .3); }
+            html.dark .us-pill-accent { color: #FDBA74; }
+
+            /* Botones */
+            .us-btn { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; padding: .6rem .95rem; border-radius: .75rem;
+                      font-size: .72rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; cursor: pointer;
+                      transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .14s ease; white-space: nowrap; }
+            .us-btn:active { transform: scale(.975); }
+            .us-btn:focus-visible { outline: 2px solid var(--us-accent); outline-offset: 2px; }
+            .us-btn:disabled { opacity: .5; cursor: not-allowed; }
+            .us-btn-accent { background: var(--us-accent); color: #fff; }
+            .us-btn-accent:hover { background: var(--us-accent-strong); }
+            .us-btn-dark { background: #18181b; color: #fff; }
+            .us-btn-dark:hover { background: #000; }
+            .us-btn-ghost { background: var(--us-card); border: 1px solid var(--us-line-2); color: var(--us-ink-2); }
+            .us-btn-ghost:hover { border-color: var(--us-faint); color: var(--us-ink); }
+            .us-btn-soft { background: var(--us-accent-soft); border: 1px solid var(--us-accent-line); color: var(--us-accent-strong); }
+            .us-btn-soft:hover { background: #FFEDD5; }
+            .us-btn-danger { background: var(--us-stop-soft); border: 1px solid var(--us-stop-line); color: var(--us-stop); }
+            .us-btn-danger:hover { filter: brightness(.97); }
+            .us-btn-icon { padding: .6rem; }
+            html.dark .us-btn-dark { background: #fafafa; color: #18181b; }
+            html.dark .us-btn-dark:hover { background: #fff; }
+            html.dark .us-btn-ghost { background: #18181b; border-color: #27272a; color: #d4d4d8; }
+            html.dark .us-btn-ghost:hover { border-color: #3f3f46; color: #fff; }
+            html.dark .us-btn-soft { background: rgba(224, 122, 58, .14); border-color: rgba(224, 122, 58, .32); color: #FDBA74; }
+            html.dark .us-btn-soft:hover { background: rgba(224, 122, 58, .22); }
+            html.dark .us-btn-danger { background: rgba(220, 38, 38, .16); border-color: rgba(220, 38, 38, .34); color: #f87171; }
+
+            /* Campos */
+            .us-field { width: 100%; border-radius: .75rem; border: 1px solid var(--us-line-2); background: var(--us-tint);
+                        padding: .6rem .8rem; font-size: .82rem; font-weight: 600; color: var(--us-ink);
+                        transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+            .us-field::placeholder { color: var(--us-faint); font-weight: 500; }
+            .us-field:focus { outline: none; border-color: #FDBA74; background: var(--us-card); box-shadow: 0 0 0 4px var(--us-ring); }
+            .us-field-pl { padding-left: 2.3rem; }
+            .us-field-pr { padding-right: 2.2rem; }
+            .us-field--open { border-color: #FDBA74; background: var(--us-card); box-shadow: 0 0 0 4px var(--us-ring); }
+            .us-fld-wrap { min-width: 12rem; }
+
+            /* Disparadores dropdown */
+            .us-dd { display: flex; align-items: center; gap: .5rem; width: 100%; padding-left: .8rem; padding-right: .8rem; cursor: pointer; text-align: left; }
+            .us-dd__lead { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--us-ink-2); }
+            .us-dd__val { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35; font-weight: 700; color: var(--us-ink); }
+            .us-dd__caret { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--us-faint); transition: transform .16s ease; }
+            .us-dd__caret--open { transform: rotate(180deg); }
+
+            /* Popovers */
+            .us-pop { position: absolute; top: calc(100% + .5rem); z-index: 60; background: var(--us-card);
+                      border: 1px solid var(--us-line-2); border-radius: 1rem;
+                      box-shadow: 0 18px 44px -14px rgba(24, 24, 27, .24), 0 4px 12px -6px rgba(24, 24, 27, .12);
+                      animation: usPop .16s cubic-bezier(.16, 1, .3, 1) both; }
+            html.dark .us-pop { box-shadow: 0 18px 44px -14px rgba(0, 0, 0, .72); }
+            .us-pop--menu { right: 0; left: auto; width: max-content; min-width: 15rem; max-width: 22rem; padding: .35rem;
+                            max-height: 22rem; overflow-y: auto; }
+            @media (max-width: 639px) { .us-pop--menu { left: 0; right: 0; width: auto; max-width: none; } }
+
+            /* Opciones */
+            .us-opt { display: flex; align-items: center; gap: .65rem; width: 100%; text-align: left; padding: .5rem .55rem;
+                      border-radius: .7rem; transition: background-color .12s ease; }
+            .us-opt--active { background: var(--us-hover); }
+            .us-opt__ic { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem;
+                          border-radius: .6rem; background: var(--us-tint); color: var(--us-ink-2); flex-shrink: 0; }
+            .us-opt--sel .us-opt__ic { background: var(--us-accent-soft); color: var(--us-accent); }
+            .us-opt__body { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+            .us-opt__label { font-size: .8rem; font-weight: 700; color: var(--us-ink); }
+            .us-opt__desc { font-size: .66rem; font-weight: 500; color: var(--us-mute); }
+            .us-opt__count { font-size: .66rem; font-weight: 800; color: var(--us-faint); margin-left: auto; padding-left: .5rem; }
+            .us-opt__check { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--us-accent); }
+            .us-opt[aria-selected="true"] { background: var(--us-accent-soft); }
+            html.dark .us-opt[aria-selected="true"] { background: rgba(224, 122, 58, .12); }
+
+            /* Placa de icono */
+            .us-tile { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+                       border-radius: .85rem; background: var(--us-accent-soft); color: var(--us-accent);
+                       border: 1px solid var(--us-accent-line); }
+            .us-tile svg { width: 55%; height: 55%; }
+            .us-tile--sm { width: 2.5rem; height: 2.5rem; border-radius: .7rem; }
+            .us-tile--md { width: 3.15rem; height: 3.15rem; }
+            .us-tile--lg { width: 4rem; height: 4rem; border-radius: 1rem; }
+            .us-tile--ok { background: var(--us-ok-soft); border-color: var(--us-ok-line); color: var(--us-ok); }
+            .us-tile--stop { background: var(--us-stop-soft); border-color: var(--us-stop-line); color: var(--us-stop); }
+            .us-tile--info { background: var(--us-info-soft); border-color: var(--us-info-line); color: var(--us-info); }
+            .us-tile--warn { background: var(--us-warn-soft); border-color: var(--us-warn-line); color: var(--us-warn); }
+            .us-tile--ink { background: var(--us-ink); border-color: var(--us-ink); color: #fff; }
+            html.dark .us-tile--ink { background: var(--us-ink); color: #18181b; }
+
+            /* Avatar de iniciales */
+            .us-ava { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+                      width: 2.75rem; height: 2.75rem; border-radius: .85rem; font-weight: 900; letter-spacing: -.01em;
+                      background: var(--us-accent-soft); color: var(--us-accent-strong); border: 1px solid var(--us-accent-line); }
+            .us-ava--lg { width: 4.25rem; height: 4.25rem; border-radius: 1.15rem; font-size: 1.5rem; }
+            .us-ava--staff { background: var(--us-ink); color: #fff; border-color: var(--us-ink); }
+            html.dark .us-ava--staff { color: #18181b; }
+            .us-ava--off { background: var(--us-line); color: var(--us-mute); border-color: var(--us-line-2); }
+
+            /* Tabla */
+            .us-th { font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--us-faint);
+                     text-align: left; padding: .7rem 1rem; white-space: nowrap; }
+            .us-td { padding: .7rem 1rem; font-size: .82rem; color: var(--us-ink-2); vertical-align: middle; }
+            .us-row { transition: background-color .15s ease; cursor: pointer; }
+            .us-row:hover { background: var(--us-hover); }
+            .us-row:focus-visible { outline: 2px solid var(--us-accent); outline-offset: -2px; }
+            .us-row-line { border-bottom: 1px solid var(--us-line); }
+            .us-row-line:last-child { border-bottom: 0; }
+
+            /* Lista de definición */
+            .us-dl { display: grid; grid-template-columns: auto 1fr; gap: .55rem 1rem; align-items: baseline; }
+            .us-dl dt { font-size: .68rem; font-weight: 700; color: var(--us-faint); white-space: nowrap; }
+            .us-dl dd { font-size: .82rem; font-weight: 600; color: var(--us-ink); text-align: right; word-break: break-word; }
+
+            /* Filas clave-valor */
+            .us-kv { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .7rem .85rem;
+                     border-radius: .75rem; border: 1px solid var(--us-line); background: var(--us-tint); }
+            .us-kv__k { font-size: .72rem; font-weight: 700; color: var(--us-mute); }
+            .us-kv__v { font-size: .82rem; font-weight: 800; color: var(--us-ink); text-align: right; }
+
+            /* Pestañas */
+            .us-tabs { display: flex; gap: .3rem; border-bottom: 1px solid var(--us-line); overflow-x: auto; }
+            .us-tab { position: relative; padding: .7rem 1rem; font-size: .74rem; font-weight: 800; letter-spacing: .02em;
+                      color: var(--us-mute); white-space: nowrap; transition: color .14s ease; }
+            .us-tab:hover { color: var(--us-ink); }
+            .us-tab:focus-visible { outline: 2px solid var(--us-accent); outline-offset: -2px; }
+            .us-tab--on { color: var(--us-accent-strong); }
+            .us-tab--on::after { content: ''; position: absolute; left: .5rem; right: .5rem; bottom: -1px; height: 2px; border-radius: 9999px; background: var(--us-accent); }
+
+            /* Tarjeta estadística */
+            .us-statmini { border-radius: 1rem; border: 1px solid var(--us-line-2); background: var(--us-tint); padding: 1rem; text-align: center; }
+            .us-statmini__v { font-size: 1.6rem; line-height: 1; font-weight: 900; letter-spacing: -.02em; color: var(--us-ink); }
+            .us-statmini--accent { background: var(--us-accent-soft); border-color: var(--us-accent-line); }
+            .us-statmini--accent .us-statmini__v { color: var(--us-accent-strong); }
+
+            /* Modal nativo */
+            .us-modal { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; }
+            .us-modal::backdrop { background: rgba(24, 24, 27, .55); backdrop-filter: blur(4px); }
+            html.dark .us-modal::backdrop { background: rgba(0, 0, 0, .7); }
+            .us-modal[open] .us-modal__card { animation: usPop .24s cubic-bezier(.16, 1, .3, 1) both; }
+            .us-modal__body { background: var(--us-tint); }
+            html.dark .us-modal__body { background: #0f0f11; }
+            .us-modal:focus, .us-modal:focus-visible { outline: none; }
+            .us-modal__card:focus, .us-modal__card:focus-visible { outline: none; }
+            @keyframes usPop { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+            .us-modal__card { background: var(--us-card); border: 1px solid var(--us-line-2); border-radius: 1.25rem;
+                              box-shadow: 0 30px 80px -30px rgba(24, 24, 27, .5); }
+            .us-scroll { scrollbar-width: thin; }
+            .us-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+            .us-scroll::-webkit-scrollbar-thumb { background: var(--us-line-2); border-radius: 9999px; }
+            .us-scroll::-webkit-scrollbar-track { background: transparent; }
+
+            /* Formularios del modal */
+            .us-flabel { display: block; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; color: var(--us-faint); margin-bottom: .45rem; }
+            .us-finput { width: 100%; border-radius: .75rem; border: 1px solid var(--us-line-2); background: var(--us-tint);
+                         padding: .68rem .85rem; font-size: .85rem; font-weight: 600; color: var(--us-ink); transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+            .us-finput::placeholder { color: var(--us-faint); font-weight: 500; }
+            .us-finput:focus { outline: none; border-color: #FDBA74; background: var(--us-card); box-shadow: 0 0 0 4px var(--us-ring); }
+            .us-section { padding-top: 1.1rem; margin-top: 1.1rem; border-top: 1px solid var(--us-line); }
+            .us-finput[type="date"] { color-scheme: light; }
+            html.dark .us-finput[type="date"] { color-scheme: dark; }
+
+            /* Selector de tarjeta (radios) */
+            .us-choice { display: flex; align-items: flex-start; gap: .7rem; width: 100%; text-align: left; padding: .8rem .85rem;
+                         border-radius: .85rem; border: 1px solid var(--us-line-2); background: var(--us-card);
+                         transition: border-color .14s ease, background-color .14s ease, box-shadow .14s ease; }
+            .us-choice:hover { border-color: var(--us-faint); }
+            .us-choice:focus-visible { outline: 2px solid var(--us-accent); outline-offset: 2px; }
+            .us-choice--on { border-color: var(--us-accent); background: var(--us-accent-soft); box-shadow: 0 0 0 3px var(--us-ring); }
+            .us-choice__ic { display: inline-flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem; border-radius: .6rem;
+                             background: var(--us-tint); color: var(--us-ink-2); flex-shrink: 0; }
+            .us-choice--on .us-choice__ic { background: var(--us-card); color: var(--us-accent); }
+            .us-choice__ic--ok { background: var(--us-ok-soft); color: var(--us-ok); }
+            .us-choice__ic--stop { background: var(--us-stop-soft); color: var(--us-stop); }
+            .us-choice__ic--warn { background: var(--us-warn-soft); color: var(--us-warn); }
+
+            /* Selector de fecha (DateRangePicker heroUI-style) */
+            .us-dp { right: 0; left: auto; width: min(40rem, 92vw); padding: 1rem; }
+            .us-dp__presets { display: flex; flex-wrap: wrap; gap: .4rem; padding: .1rem .35rem .7rem; }
+            .us-dp__preset { font-size: .68rem; font-weight: 800; padding: .4rem .7rem; border-radius: .6rem; border: 1px solid var(--us-line-2);
+                             background: var(--us-tint); color: var(--us-ink-2); transition: all .14s ease; }
+            .us-dp__preset:hover { border-color: var(--us-accent-line); color: var(--us-accent-strong); background: var(--us-accent-soft); }
+            .us-dp__nav { display: flex; align-items: center; justify-content: space-between; padding: .1rem .2rem .5rem; }
+            .us-dp__navbtn { width: 2rem; height: 2rem; display: inline-flex; align-items: center; justify-content: center; border-radius: .6rem;
+                             border: 1px solid var(--us-line-2); background: var(--us-card); color: var(--us-ink-2); transition: all .14s ease; }
+            .us-dp__navbtn:hover { border-color: var(--us-faint); color: var(--us-ink); }
+            .us-dp__navbtn:disabled { opacity: .4; cursor: not-allowed; }
+            .us-dp__months { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+            @media (min-width: 640px) { .us-dp__months { grid-template-columns: 1fr 1fr; } }
+            .us-dp__mtitle { font-size: .78rem; font-weight: 800; color: var(--us-ink); text-align: center; text-transform: capitalize; }
+            .us-dp__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: .12rem; }
+            .us-dp__hd { font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--us-faint); text-align: center; padding: .3rem 0; }
+            .us-dp__day { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; border-radius: .6rem;
+                          font-size: .76rem; font-weight: 700; color: var(--us-ink-2); font-variant-numeric: tabular-nums;
+                          border: 1px solid transparent; transition: background-color .12s ease, color .12s ease, border-color .12s ease; }
+            .us-dp__day:hover { background: var(--us-hover); color: var(--us-ink); }
+            .us-dp__day:focus-visible { outline: 2px solid var(--us-accent); outline-offset: 1px; }
+            .us-dp__day--out { color: var(--us-faint); opacity: .55; }
+            .us-dp__day--today { border-color: var(--us-accent-line); color: var(--us-accent-strong); }
+            .us-dp__day--range { background: var(--us-accent-soft); color: var(--us-accent-strong); border-radius: 0; }
+            .us-dp__day--edge { background: var(--us-accent); color: #fff; }
+            .us-dp__day--edge:hover { background: var(--us-accent-strong); color: #fff; }
+            .us-dp__foot { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding-top: .8rem; margin-top: .6rem; border-top: 1px solid var(--us-line); }
+            .us-dp__sel { font-size: .74rem; font-weight: 700; color: var(--us-ink-2); }
+            .us-dp__sel b { color: var(--us-ink); }
+
+            @media (prefers-reduced-motion: reduce) {
+                .us-rise { animation: none !important; opacity: 1 !important; transform: none !important; }
+                .us-modal[open] .us-modal__card, .us-pop { animation: none !important; }
+                .us-row, .us-seg__btn, .us-dd__caret, .us-kpi, .us-btn, .us-choice, .us-dp__day, .us-tab { transition: none !important; }
+                .us-kpi:hover { transform: none; }
+            }
+        </style>
+        <!-- ============================ Cabecera ============================ -->
+        <header class="us-rise flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div class="min-w-0">
+                <div class="flex items-center gap-2.5 mb-3 flex-wrap">
+                    <span class="us-label">Comunidad · Personas</span>
+                    <span class="block size-1 rounded-full bg-surface-300"></span>
+                    <span class="us-pill us-pill-ok">
+                        <span class="us-dot"></span>
+                        <span x-text="num(stats.activos) + ' activos'"></span>
+                    </span>
+                    <span class="us-pill" :class="stats.suspendidos > 0 ? 'us-pill-stop' : 'us-pill-mute'">
+                        <span class="us-dot"></span>
+                        <span x-text="stats.suspendidos > 0 ? (num(stats.suspendidos) + ' suspendidos') : 'Sin suspensiones'"></span>
+                    </span>
                 </div>
+                <h1 class="text-[2.1rem] leading-none font-black tracking-tight text-surface-900 dark:text-white">Directorio de Usuarios</h1>
+                <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-3 max-w-2xl">
+                    Gestiona la comunidad: perfiles, niveles de acceso y actividad. Abre la ficha de cada persona para ver su historial completo.
+                </p>
             </div>
+            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button type="button" class="us-btn us-btn-ghost" @click="location.reload()" aria-label="Actualizar directorio">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                    Actualizar
+                </button>
+                <a class="us-btn us-btn-dark" th:href="@{/admin/usuarios/export}" aria-label="Exportar directorio a CSV">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                    Exportar CSV
+                </a>
+            </div>
+        </header>
 
-            <!-- Main Table Panel -->
-            <div class="bg-white rounded-[2.5rem] shadow-glass border border-surface-100 overflow-visible relative z-10 flex flex-col pt-8">
-                
-                <!-- Toolbar with Search and Filters -->
-                <div class="px-10 pb-8 flex flex-col lg:flex-row items-center justify-between gap-6 border-b border-surface-50">
-                    <div class="relative w-full lg:max-w-md">
-                        <svg class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-surface-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-                        <input id="userSearchInputBox" type="text" placeholder="Buscar por nombre, email o ID..." class="w-full pl-12 pr-4 py-4 bg-surface-50/50 border border-transparent rounded-2xl text-sm font-bold text-surface-900 focus:outline-none focus:ring-4 focus:ring-furent-500/5 focus:border-furent-200 focus:bg-white transition-all shadow-sm">
+        <!-- ============================ KPIs (filtran al clic) ============================ -->
+        <section class="us-rise us-d1 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5 mt-7" aria-label="Resumen de la comunidad">
+            <button type="button" class="us-card us-kpi" :aria-pressed="scope === 'todos'" @click="irA('todos')">
+                <svg class="us-kpi__ray w-7 h-7 hidden md:block" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+                <span class="us-kpi__top">
+                    <span class="us-kpi__icon us-kpi__icon--accent">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"/></svg>
+                    </span>
+                    <span class="us-label">Personas</span>
+                </span>
+                <span class="us-kpi__value us-tabular" x-text="num(stats.total)">0</span>
+                <span class="us-kpi__sub">Cuentas registradas</span>
+            </button>
+
+            <button type="button" class="us-card us-kpi" :aria-pressed="scope === 'activos'" @click="irA('activos')">
+                <svg class="us-kpi__ray w-7 h-7 hidden md:block" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="us-kpi__top">
+                    <span class="us-kpi__icon us-kpi__icon--ok">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                    </span>
+                    <span class="us-label">Activos</span>
+                </span>
+                <span class="us-kpi__value us-tabular text-[color:var(--us-ok)]" x-text="num(stats.activos)">0</span>
+                <span class="us-kpi__sub">Con acceso vigente</span>
+            </button>
+
+            <button type="button" class="us-card us-kpi" :aria-pressed="scope === 'suspendidos'" @click="irA('suspendidos')">
+                <svg class="us-kpi__ray w-7 h-7 hidden md:block" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                <span class="us-kpi__top">
+                    <span class="us-kpi__icon us-kpi__icon--stop">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                    </span>
+                    <span class="us-label">Suspendidos</span>
+                </span>
+                <span class="us-kpi__value us-tabular" :class="stats.suspendidos > 0 ? 'text-[color:var(--us-stop)]' : ''" x-text="num(stats.suspendidos)">0</span>
+                <span class="us-kpi__sub" x-text="stats.suspendidos > 0 ? 'Revisar sanciones' : 'Sin cuentas bloqueadas'">Sin cuentas bloqueadas</span>
+            </button>
+
+            <button type="button" class="us-card us-kpi" :aria-pressed="scope === 'equipo'" @click="irA('equipo')">
+                <svg class="us-kpi__ray w-7 h-7 hidden md:block" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
+                <span class="us-kpi__top">
+                    <span class="us-kpi__icon us-kpi__icon--info">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
+                    </span>
+                    <span class="us-label">Equipo</span>
+                </span>
+                <span class="us-kpi__value us-tabular text-[color:var(--us-info)]" x-text="num(stats.equipo)">0</span>
+                <span class="us-kpi__sub">Administradores y staff</span>
+            </button>
+
+            <button type="button" class="us-card us-kpi col-span-2 md:col-span-1" :aria-pressed="scope === 'nuevos'" @click="irA('nuevos')">
+                <svg class="us-kpi__ray w-7 h-7 hidden md:block" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                <span class="us-kpi__top">
+                    <span class="us-kpi__icon us-kpi__icon--warn">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                    </span>
+                    <span class="us-label">Nuevos</span>
+                </span>
+                <span class="us-kpi__value us-tabular text-[color:var(--us-warn)]" x-text="num(stats.nuevos)">0</span>
+                <span class="us-kpi__sub">En los últimos 30 días</span>
+            </button>
+        </section>
+
+        <!-- ============================ Directorio ============================ -->
+        <section class="us-card us-rise us-d2 mt-5">
+            <div class="flex flex-col gap-4 px-5 sm:px-6 py-5 border-b border-[color:var(--us-line)]">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3.5">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2.5">
+                            <h2 class="text-base font-black text-surface-900 dark:text-white tracking-tight">Roster de personas</h2>
+                            <span class="us-pill us-pill-accent" x-show="scope !== 'todos'" x-cloak x-text="scopeLabel"></span>
+                        </div>
+                        <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mt-1">
+                            <span x-text="num(totalFiltrado)"></span>
+                            <span x-text="plural(totalFiltrado, 'persona', 'personas')"></span> · haz clic en una fila para abrir su ficha
+                        </p>
                     </div>
-
-                    <div class="relative w-full lg:w-auto">
-                        <button @click="filterDropdownInfo = !filterDropdownInfo" class="w-full lg:w-auto flex items-center justify-between gap-3 px-6 py-4 bg-white border border-surface-200 rounded-2xl text-sm font-black text-surface-700 hover:border-surface-300 hover:bg-surface-50 transition-all shadow-sm active:scale-95">
-                            <span class="flex items-center gap-2.5">
-                                <svg class="size-5 text-surface-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"/></svg>
-                                Filtrar Resultados
-                            </span>
-                            <svg class="size-4 transition-transform duration-300" :class="filterDropdownInfo ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                    <div class="us-seg shrink-0" role="tablist" aria-label="Tipo de cuenta">
+                        <button type="button" class="us-seg__btn" role="tab" :aria-selected="rol === 'todos'" @click="setRol('todos')">
+                            Todas <span class="us-seg__count" x-text="num(conteos.todos)"></span>
                         </button>
+                        <button type="button" class="us-seg__btn" role="tab" :aria-selected="rol === 'USER'" @click="setRol('USER')">
+                            Clientes <span class="us-seg__count" x-text="num(conteos.clientes)"></span>
+                        </button>
+                        <button type="button" class="us-seg__btn" role="tab" :aria-selected="rol === 'EQUIPO'" @click="setRol('EQUIPO')">
+                            Equipo <span class="us-seg__count" x-text="num(conteos.equipo)"></span>
+                        </button>
+                    </div>
+                </div>
 
-                        <div x-show="filterDropdownInfo" @click.away="filterDropdownInfo = false" x-transition.opacity class="absolute right-0 z-[100] mt-3 w-72 bg-white rounded-[2rem] shadow-2xl border border-surface-100 overflow-hidden py-4" style="display: none;">
-                            <div class="px-6 py-2 border-b border-surface-50">
-                                <p class="text-[10px] font-black text-surface-400 uppercase tracking-widest mb-4">Credencial</p>
-                                <div class="space-y-1 mb-4">
-                                    <template x-for="r in [{v:'ALL', n:'Todos'}, {v:'ADMIN', n:'Staff (Admin)'}, {v:'USER', n:'Cliente'}]">
-                                        <button @click="selectedRole = r.v; updateFilters()" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between" :class="selectedRole === r.v ? 'bg-furent-50 text-furent-600' : 'text-surface-700 hover:bg-surface-50'">
-                                            <span x-text="r.n"></span>
-                                            <div x-show="selectedRole === r.v" class="size-1.5 rounded-full bg-furent-500 shadow-[0_0_8px_rgba(224,122,58,0.6)]"></div>
-                                        </button>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:flex xl:flex-wrap xl:items-center gap-2.5">
+                    <!-- Búsqueda -->
+                    <div class="relative sm:col-span-2 md:col-span-3 xl:flex-1 xl:max-w-xs">
+                        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                        <input type="text" x-model="q" @input="onFilterChange()" class="us-field us-field-pl us-field-pr"
+                               placeholder="Buscar por nombre, correo o teléfono..." aria-label="Buscar usuarios">
+                        <button type="button" x-show="q" x-cloak @click="q=''; onFilterChange()"
+                                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-700" aria-label="Limpiar búsqueda">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Estado -->
+                    <div class="relative us-fld-wrap">
+                        <button type="button" data-ugpop="estado" class="us-field us-dd"
+                                :class="{ 'us-field--open': estadoOpen }" @click="toggleEstado()"
+                                :aria-expanded="estadoOpen" aria-haspopup="listbox">
+                            <svg class="us-dd__lead" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="estadoActual.icon"/></svg>
+                            <span class="us-dd__val" x-text="estadoActual.label"></span>
+                            <svg class="us-dd__caret" :class="{ 'us-dd__caret--open': estadoOpen }" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                        </button>
+                        <div x-show="estadoOpen" x-cloak x-ref="estadoMenu" data-ugpop class="us-pop us-pop--menu" role="listbox" tabindex="-1"
+                             aria-label="Filtrar por estado" @keydown.arrow-down.prevent="moverEstado(1)" @keydown.arrow-up.prevent="moverEstado(-1)" @keydown.enter.prevent="elegirEstado(estadoIdx)">
+                            <template x-for="(o, i) in estadoOpciones" :key="o.key">
+                                <button type="button" class="us-opt" :class="{ 'us-opt--active': i === estadoIdx, 'us-opt--sel': estado === o.key }"
+                                        role="option" :aria-selected="estado === o.key" @click="elegirEstado(i)" @mousemove="estadoIdx = i">
+                                    <span class="us-opt__ic"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="o.icon"/></svg></span>
+                                    <span class="us-opt__body">
+                                        <span class="us-opt__label" x-text="o.label"></span>
+                                        <span class="us-opt__desc" x-text="o.desc"></span>
+                                    </span>
+                                    <span class="us-opt__count us-tabular" x-text="num(o.count)"></span>
+                                    <svg class="us-opt__check" x-show="estado === o.key" x-cloak fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Orden -->
+                    <div class="relative us-fld-wrap">
+                        <button type="button" data-ugpop="orden" class="us-field us-dd"
+                                :class="{ 'us-field--open': ordenOpen }" @click="toggleOrden()"
+                                :aria-expanded="ordenOpen" aria-haspopup="listbox">
+                            <svg class="us-dd__lead" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="ordenActual.icon"/></svg>
+                            <span class="us-dd__val" x-text="ordenActual.label"></span>
+                            <svg class="us-dd__caret" :class="{ 'us-dd__caret--open': ordenOpen }" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                        </button>
+                        <div x-show="ordenOpen" x-cloak x-ref="ordenMenu" data-ugpop class="us-pop us-pop--menu" role="listbox" tabindex="-1"
+                             aria-label="Ordenar usuarios" @keydown.arrow-down.prevent="moverOrden(1)" @keydown.arrow-up.prevent="moverOrden(-1)" @keydown.enter.prevent="elegirOrden(ordenIdx)">
+                            <template x-for="(o, i) in ordenOpciones" :key="o.key">
+                                <button type="button" class="us-opt" :class="{ 'us-opt--active': i === ordenIdx, 'us-opt--sel': orden === o.key }"
+                                        role="option" :aria-selected="orden === o.key" @click="elegirOrden(i)" @mousemove="ordenIdx = i">
+                                    <span class="us-opt__ic"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="o.icon"/></svg></span>
+                                    <span class="us-opt__body">
+                                        <span class="us-opt__label" x-text="o.label"></span>
+                                        <span class="us-opt__desc" x-text="o.desc"></span>
+                                    </span>
+                                    <svg class="us-opt__check" x-show="orden === o.key" x-cloak fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Fechas (DateRangePicker) -->
+                    <div class="relative us-fld-wrap">
+                        <button type="button" data-ugpop="fecha" class="us-field us-dd"
+                                :class="{ 'us-field--open': fechaOpen }" @click="toggleFecha()"
+                                :aria-expanded="fechaOpen" aria-haspopup="dialog">
+                            <svg class="us-dd__lead" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                            <span class="us-dd__val" x-text="rangoLabel"></span>
+                            <svg class="us-dd__caret" :class="{ 'us-dd__caret--open': fechaOpen }" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                        </button>
+                        <div x-show="fechaOpen" x-cloak x-ref="fechaPop" data-ugpop class="us-pop us-dp" role="dialog" aria-label="Filtrar por fecha de registro">
+                            <div class="us-dp__presets">
+                                <template x-for="p in presetsFecha" :key="p.key">
+                                    <button type="button" class="us-dp__preset" @click="aplicarPreset(p.key)" x-text="p.label"></button>
+                                </template>
+                            </div>
+                            <div class="us-dp__nav">
+                                <button type="button" class="us-dp__navbtn" @click="dpMesAnterior()" aria-label="Mes anterior">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                                </button>
+                                <button type="button" class="us-dp__navbtn" @click="dpMesSiguiente()" aria-label="Mes siguiente">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                </button>
+                            </div>
+                            <div class="us-dp__months">
+                                <template x-for="m in dpMeses" :key="m.key">
+                                    <div>
+                                        <p class="us-dp__mtitle" x-text="m.titulo"></p>
+                                        <div class="us-dp__grid">
+                                            <template x-for="d in diasSemana" :key="'h' + d">
+                                                <span class="us-dp__hd" x-text="d.charAt(0)"></span>
+                                            </template>
+                                            <template x-for="c in m.celdas" :key="c.iso">
+                                                <button type="button" class="us-dp__day" :class="dpClase(c)"
+                                                        @click="dpElegir(c.iso)" @mouseenter="hoverISO = c.iso" @mouseleave="hoverISO = ''"
+                                                        :aria-label="c.iso" x-text="c.dia"></button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="us-dp__foot">
+                                <span class="us-dp__sel">
+                                    <template x-if="desde || hasta">
+                                        <span><b x-text="desde ? fechaCorta(desde) : '···'"></b> → <b x-text="hasta ? fechaCorta(hasta) : '···'"></b></span>
                                     </template>
+                                    <template x-if="!desde && !hasta">
+                                        <span>Selecciona una fecha o un rango</span>
+                                    </template>
+                                </span>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="us-btn us-btn-ghost !py-2" @click="limpiarFechas()">Limpiar</button>
+                                    <button type="button" class="us-btn us-btn-accent !py-2" @click="cerrarFecha()">Listo</button>
                                 </div>
-                            </div>
-                            <div class="px-6 py-6 border-b border-surface-50">
-                                <p class="text-[10px] font-black text-surface-400 uppercase tracking-widest mb-4">Estado</p>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <button @click="selectedStatus = 'ACTIVO'; updateFilters()" class="px-4 py-2.5 rounded-xl text-xs font-bold border transition-all" :class="selectedStatus === 'ACTIVO' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-surface-50 border-transparent text-surface-500'">Activos</button>
-                                    <button @click="selectedStatus = 'SUSPENDIDO'; updateFilters()" class="px-4 py-2.5 rounded-xl text-xs font-bold border transition-all" :class="selectedStatus === 'SUSPENDIDO' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-surface-50 border-transparent text-surface-500'">Baneados</button>
-                                </div>
-                            </div>
-                            <div class="px-6 py-4 pt-6">
-                                <button @click="selectedRole = 'ALL'; selectedStatus = 'ALL'; updateFilters(); filterDropdownInfo = false;" class="w-full py-3 rounded-xl bg-surface-900 text-white text-[11px] font-black uppercase tracking-widest hover:bg-surface-800 transition-colors">Limpiar Filtros</button>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="overflow-x-auto">
-                    <table id="tablaUsuarios" class="w-full text-left border-collapse whitespace-nowrap">
-                        <thead class="bg-surface-50/50 border-b border-surface-100">
-                            <tr>
-                                <th class="px-10 py-6 text-[11px] font-black uppercase tracking-widest text-surface-400">Cuenta de Usuario</th>
-                                <th class="px-6 py-6 text-[11px] font-black uppercase tracking-widest text-surface-400">Contacto</th>
-                                <th class="px-6 py-6 text-[11px] font-black uppercase tracking-widest text-surface-400 text-center">Nivel</th>
-                                <th class="px-6 py-6 text-[11px] font-black uppercase tracking-widest text-surface-400">Estado</th>
-                                <th class="px-8 py-6 text-[11px] font-black uppercase tracking-widest text-surface-400 text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-surface-100/50">
-                            <tr th:each="u : ${usuarios}" class="usuario-fila group hover:bg-surface-50/40 transition-colors" th:data-search="${#strings.toLowerCase((u.nombre ?: '') + ' ' + (u.apellido ?: '') + ' ' + (u.email ?: ''))}" th:data-role="${u.role}" th:data-status="${u.activo ? 'ACTIVO' : 'SUSPENDIDO'}" th:data-date="${u.fechaCreacion != null ? #temporals.format(u.fechaCreacion, 'yyyyMMddHHmmss') : '00000000000000'}">
-                                <td class="px-10 py-5">
-                                    <div class="flex items-center gap-4">
-                                        <div class="size-12 rounded-[18px] bg-white border border-surface-200 shadow-sm flex items-center justify-center font-black text-surface-700" th:text="${u.nombre != null and u.nombre.length() > 0 ? #strings.substring(u.nombre,0,1) : 'U'}">U</div>
-                                        <div>
-                                            <p class="text-sm font-black text-surface-900 group-hover:text-furent-500 transition-colors leading-tight" th:text="${u.nombreCompleto ?: u.nombre}">Nombre</p>
-                                            <p class="text-[10px] font-bold text-surface-400 uppercase tracking-widest mt-1" th:text="${'ID: ' + #strings.substring(u.id, 0, 8)}">ID</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-5">
-                                    <div class="flex flex-col gap-1">
-                                        <p class="text-xs font-black text-surface-800" th:text="${u.email}">Email</p>
-                                        <p class="text-[10px] font-bold text-surface-400" th:text="${u.telefono ?: 'Sin teléfono'}">Tel</p>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-5 text-center">
-                                    <span class="inline-flex items-center justify-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm" th:classappend="${u.role == 'ADMIN' ? 'bg-furent-500 text-white shadow-furent-500/20' : 'bg-surface-100 text-surface-500'}" th:text="${u.role}">USER</span>
-                                </td>
-                                <td class="px-6 py-5">
-                                    <div class="flex items-center gap-2">
-                                        <div class="size-2 rounded-full" th:classappend="${u.activo ? 'bg-green-500 animate-pulse' : 'bg-red-500'}"></div>
-                                        <span class="text-[11px] font-black text-surface-700 uppercase" th:text="${u.activo ? 'Activo' : 'Suspendido'}">Activo</span>
-                                    </div>
-                                </td>
-                                <td class="px-8 py-5 text-right">
-                                    <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                                        <!-- NUEVO BOTÓN: VER INFO -->
-                                        <button th:data-id="${u.id}" @click="fetchUserDetails($el.dataset.id)" 
-                                            class="size-10 flex items-center justify-center bg-white border border-surface-100 rounded-[14px] text-surface-400 hover:text-blue-500 shadow-sm hover:shadow-md hover:border-blue-200 transition-all hover:scale-110 active:scale-95" title="Ver detalles extendidos">
-                                            <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.644C3.399 8.049 7.234 4.534 12 4.534c4.766 0 8.601 3.515 9.964 7.144a1.012 1.012 0 010 .644C20.6 15.95 16.766 19.466 12 19.466c-4.766 0-8.601-3.515-9.964-7.144z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                        </button>
-                                        
-                                        <button th:data-id="${u.id}" th:data-role="${u.role}" @click="showRoleModal($el.getAttribute('data-id'), $el.getAttribute('data-role'))" 
-                                            class="size-10 flex items-center justify-center bg-white border border-surface-100 rounded-[14px] text-surface-400 hover:text-furent-500 shadow-sm hover:shadow-md hover:border-furent-200 transition-all hover:scale-110 active:scale-95" title="Cambiar rol">
-                                            <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
-                                        </button>
-
-                                        <button th:data-id="${u.id}" th:data-activo="${u.activo}" onclick="toggleStatus(this.getAttribute('data-id'), this.getAttribute('data-activo') === 'true')" 
-                                            class="size-10 flex items-center justify-center bg-white border border-surface-100 rounded-[14px] shadow-sm hover:shadow-md transition-all hover:scale-110 active:scale-95" :class="$el.getAttribute('data-activo') === 'true' ? 'text-surface-400 hover:text-amber-500 hover:border-amber-200' : 'text-green-500 border-green-100 hover:bg-green-50'" th:title="${u.activo ? 'Suspender' : 'Activar'}">
-                                            <svg th:if="${u.activo}" class="size-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
-                                            <svg th:unless="${u.activo}" class="size-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div id="empty-state-filter" style="display: none;" class="px-10 py-32 text-center">
-                    <div class="size-20 bg-surface-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-surface-100 shadow-inner text-surface-200">
-                        <svg class="size-10" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
-                    </div>
-                    <h3 class="text-base font-black text-surface-900">Sin coincidencias</h3>
-                    <p class="text-sm font-medium text-surface-400 mt-2">Prueba cambiando los criterios de búsqueda o filtros.</p>
-                </div>
-
-                <div class="px-10 py-6 border-t border-surface-100 flex items-center justify-between gap-4 flex-wrap">
-                    <a th:if="${currentPage > 0}" th:href="@{/admin/usuarios(page=${currentPage - 1}, size=${pageSize})}" class="px-4 py-2 rounded-xl text-xs font-black border border-surface-200 text-surface-700 hover:bg-surface-50 transition-colors">Anterior</a>
-                    <span th:unless="${currentPage > 0}" class="px-4 py-2 rounded-xl text-xs font-black border border-surface-100 text-surface-300 cursor-not-allowed">Anterior</span>
-
-                    <div class="flex items-center gap-2 text-xs font-bold text-surface-500">
-                        <span th:text="${'Página ' + (currentPage + 1)}">Página 1</span>
-                        <span>/</span>
-                        <span th:text="${totalPages == 0 ? 1 : totalPages}">1</span>
-                    </div>
-
-                    <a th:if="${currentPage + 1 < totalPages}" th:href="@{/admin/usuarios(page=${currentPage + 1}, size=${pageSize})}" class="px-4 py-2 rounded-xl text-xs font-black border border-surface-200 text-surface-700 hover:bg-surface-50 transition-colors">Siguiente</a>
-                    <span th:unless="${currentPage + 1 < totalPages}" class="px-4 py-2 rounded-xl text-xs font-black border border-surface-100 text-surface-300 cursor-not-allowed">Siguiente</span>
+                    <!-- Limpiar -->
+                    <button type="button" x-show="hayFiltros" x-cloak @click="limpiarFiltros()" class="us-btn us-btn-ghost !py-2.5 shrink-0">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        Limpiar
+                    </button>
                 </div>
             </div>
-
-            <!-- MODAL DE DETALLES EXTENDIDOS (TailwindPlus Style) -->
-            <div x-show="openDetailsModal" x-transition.opacity class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-surface-950/40 backdrop-blur-sm" style="display: none;">
-                <div @click.away="openDetailsModal = false" class="bg-white rounded-[3.5rem] w-full max-w-4xl shadow-2xl border border-surface-100 overflow-hidden transform transition-all relative flex flex-col max-h-[90vh]">
-                    <!-- Close button -->
-                    <button @click="openDetailsModal = false" class="absolute right-8 top-8 z-50 p-3 bg-surface-50 text-surface-400 hover:text-surface-900 rounded-2xl transition-all hover:bg-surface-100">
-                        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-
-                    <!-- Loader -->
-                    <div x-show="loadingDetails" class="px-12 py-32 text-center h-full flex flex-col justify-center">
-                        <div class="size-14 border-4 border-furent-500/20 border-t-furent-500 rounded-full animate-spin mx-auto mb-6"></div>
-                        <p class="text-xs font-black text-surface-400 uppercase tracking-widest">Sincronizando expedientes...</p>
+            <!-- Estado vacío global -->
+            <template x-if="sinDatos">
+                <div class="flex flex-col items-center justify-center text-center py-20 px-6">
+                    <div class="us-tile us-tile--lg mb-5">
+                        <svg fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
                     </div>
+                    <h3 class="text-lg font-black text-surface-900 dark:text-white">Aún no hay personas</h3>
+                    <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-1.5 max-w-sm">
+                        Cuando los clientes se registren aparecerán aquí, listos para gestionar su acceso y actividad.
+                    </p>
+                </div>
+            </template>
 
-                    <!-- Content -->
-                    <div x-show="!loadingDetails && details" x-transition class="flex flex-col h-full overflow-hidden" x-data="{ 
-                        activeTab: 'perfil',
-                        get primaryAddress() { 
-                            if (details && details.user && details.user.direcciones && details.user.direcciones.length > 0) {
-                                return details.user.direcciones.find(d => d.predeterminada) || details.user.direcciones[0];
-                            }
-                            return null;
-                        }
-                    }">
-                        <!-- HEADER PROFILE -->
-                        <div class="p-8 pb-0 shrink-0">
-                            <div class="flex items-start gap-8 mb-8">
-                                <div class="size-24 rounded-[2.5rem] bg-gradient-to-br from-surface-100 to-surface-200 flex items-center justify-center text-4xl font-black text-surface-400 border-4 border-white shadow-xl shrink-0" x-text="details ? details.user.nombre.substring(0,1) : 'U'"></div>
-                                <div class="flex-1 pt-2">
-                                    <div class="flex items-center gap-3 mb-1">
-                                        <h3 class="text-3xl font-black text-surface-900 leading-tight" x-text="details ? (details.user.nombre + ' ' + (details.user.apellido || '')) : ''">Nombre Usuario</h3>
-                                        <span class="px-3 py-1 bg-furent-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest" x-text="details ? details.user.role : 'USER'">USER</span>
-                                    </div>
-                                    <div class="flex gap-4 mt-2">
-                                        <p class="text-sm font-bold text-surface-400 flex items-center gap-1">
-                                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" /></svg>
-                                            <span x-text="details ? details.user.email : ''"></span>
-                                        </p>
-                                        <p class="text-sm font-bold text-surface-400 flex items-center gap-1" x-show="details && details.user.telefono">
-                                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                                            <span x-text="details ? details.user.telefono : ''"></span>
-                                        </p>
-                                    </div>
+            <!-- Sin resultados -->
+            <template x-if="!sinDatos && filtradas.length === 0">
+                <div class="flex flex-col items-center justify-center text-center py-20 px-6">
+                    <div class="w-16 h-16 rounded-2xl bg-[color:var(--us-tint)] border border-[color:var(--us-line)] flex items-center justify-center text-surface-400 mb-5">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                    </div>
+                    <h3 class="text-lg font-black text-surface-900 dark:text-white" x-text="sinResTitulo"></h3>
+                    <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-1.5 max-w-sm" x-text="sinResTexto"></p>
+                    <button type="button" class="us-btn us-btn-ghost mt-6" @click="limpiarFiltros()" x-show="hayFiltros" x-cloak>Limpiar filtros</button>
+                </div>
+            </template>
 
-                                    <div class="flex items-center gap-4 mt-4">
-                                        <div class="flex items-center gap-2">
-                                            <div class="size-2 rounded-full" :class="details && details.user.activo ? 'bg-green-500' : 'bg-red-500'"></div>
-                                            <span class="text-[11px] font-black text-surface-600 uppercase tracking-wide" x-text="details && details.user.activo ? 'Cuenta Verificada' : 'Cuenta Suspendida'">Activo</span>
+            <!-- Tabla -->
+            <div class="overflow-x-auto us-scroll" x-show="!sinDatos && filtradas.length > 0" x-cloak>
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-[color:var(--us-line)]">
+                            <th class="us-th pl-5 sm:pl-6">Persona</th>
+                            <th class="us-th hidden xl:table-cell">Contacto</th>
+                            <th class="us-th hidden sm:table-cell">Nivel</th>
+                            <th class="us-th hidden sm:table-cell">Estado</th>
+                            <th class="us-th hidden lg:table-cell">Actividad</th>
+                            <th class="us-th hidden xl:table-cell">Último acceso</th>
+                            <th class="us-th text-right pr-5 sm:pr-6"><span class="sr-only">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="u in paginadas" :key="u.id">
+                            <tr class="us-row us-row-line" tabindex="0" @click="abrirFicha(u)" @keydown.enter.prevent="abrirFicha(u)">
+                                <td class="us-td pl-5 sm:pl-6">
+                                    <div class="flex items-center gap-3">
+                                        <span class="us-ava" :class="u.equipo ? 'us-ava--staff' : (u.suspendido ? 'us-ava--off' : '')" x-text="u.iniciales"></span>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-black text-surface-900 dark:text-white truncate max-w-[14rem]" x-text="u.nombreCompleto"></p>
+                                            <p class="text-[11px] font-semibold text-surface-400 truncate max-w-[14rem]" x-text="u.email"></p>
+                                            <div class="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
+                                                <span class="us-pill" :class="u.equipo ? 'us-pill-info' : 'us-pill-mute'" x-text="u.roleLabel"></span>
+                                                <span class="us-pill" :class="u.suspendido ? 'us-pill-stop' : 'us-pill-ok'">
+                                                    <span class="us-dot"></span><span x-text="u.suspendido ? 'Suspendido' : 'Activo'"></span>
+                                                </span>
+                                            </div>
                                         </div>
-                                        <span class="text-[11px] font-black text-surface-300 uppercase">|</span>
-                                        <span class="text-[11px] font-black text-surface-400 uppercase tracking-wide" x-text="details && details.user.ultimaSesion ? 'Visto: ' + new Date(details.user.ultimaSesion).toLocaleDateString('es-ES') : (details ? 'Registro: ' + new Date(details.user.fechaCreacion).toLocaleDateString('es-ES') : '')">Registro</span>
-                                        <span class="text-[11px] font-black text-surface-300 uppercase">|</span>
-                                        <span class="text-[11px] font-bold text-surface-400" x-text="details ? 'ID: ' + details.user.id : ''"></span>
+                                    </div>
+                                </td>
+                                <td class="us-td hidden xl:table-cell">
+                                    <p class="text-xs font-bold text-surface-700 dark:text-surface-300" x-text="u.telefono || 'Sin teléfono'"></p>
+                                    <p class="text-[11px] font-semibold text-surface-400 truncate max-w-[12rem]" x-text="u.ciudad || (u.direccionPrincipal && u.direccionPrincipal.ciudad) || u.pais || '—'"></p>
+                                </td>
+                                <td class="us-td hidden sm:table-cell">
+                                    <span class="us-pill" :class="u.equipo ? 'us-pill-info' : 'us-pill-mute'" x-text="u.roleLabel"></span>
+                                </td>
+                                <td class="us-td hidden sm:table-cell">
+                                    <span class="us-pill" :class="u.suspendido ? 'us-pill-stop' : 'us-pill-ok'">
+                                        <span class="us-dot"></span><span x-text="u.suspendido ? 'Suspendido' : 'Activo'"></span>
+                                    </span>
+                                </td>
+                                <td class="us-td hidden lg:table-cell">
+                                    <p class="text-xs font-bold text-surface-700 dark:text-surface-300"><span class="us-tabular" x-text="num(u.totalReservas)"></span> <span x-text="plural(u.totalReservas, 'reserva', 'reservas')"></span></p>
+                                    <p class="text-[11px] font-semibold text-surface-400 us-tabular" x-text="money(u.totalInvertido)"></p>
+                                </td>
+                                <td class="us-td hidden xl:table-cell">
+                                    <p class="text-xs font-semibold text-surface-500 dark:text-surface-400" x-text="u.ultimaSesion ? fechaRel(u.ultimaSesion) : 'Nunca'"></p>
+                                </td>
+                                <td class="us-td text-right pr-5 sm:pr-6">
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        <div class="hidden sm:flex items-center gap-1.5">
+                                            <button type="button" class="us-btn us-btn-ghost us-btn-icon" @click.stop="abrirRol(u)" :aria-label="'Cambiar rol de ' + u.nombreCompleto" title="Cambiar rol">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
+                                            </button>
+                                            <button type="button" class="us-btn us-btn-icon" :class="u.suspendido ? 'us-btn-soft' : 'us-btn-danger'" @click.stop="abrirAcceso(u)"
+                                                    :aria-label="(u.suspendido ? 'Restaurar acceso de ' : 'Suspender a ') + u.nombreCompleto" :title="u.suspendido ? 'Restaurar acceso' : 'Suspender'">
+                                                <svg x-show="!u.suspendido" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                                <svg x-show="u.suspendido" x-cloak class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            </button>
+                                        </div>
+                                        <svg class="w-4 h-4 text-surface-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginación -->
+            <div x-show="!sinDatos && totalFiltrado > 0" x-cloak class="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 sm:px-6 py-4 border-t border-[color:var(--us-line)]">
+                <p class="text-xs font-semibold text-surface-500 dark:text-surface-400">
+                    Mostrando <span class="font-black text-surface-900 dark:text-white" x-text="rangoInicio"></span>–<span class="font-black text-surface-900 dark:text-white" x-text="rangoFin"></span>
+                    de <span class="font-black text-surface-900 dark:text-white" x-text="num(totalFiltrado)"></span>
+                </p>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" class="us-btn us-btn-ghost us-btn-icon" :disabled="paginaSegura <= 1" @click="page = Math.max(1, paginaSegura - 1); syncUrl()" aria-label="Página anterior">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                    </button>
+                    <template x-for="n in paginas" :key="n">
+                        <button type="button" class="us-btn us-btn-icon min-w-[2.4rem]"
+                                :class="n === paginaSegura ? 'us-btn-dark' : 'us-btn-ghost'"
+                                @click="page = n; syncUrl()" x-text="n"></button>
+                    </template>
+                    <button type="button" class="us-btn us-btn-ghost us-btn-icon" :disabled="paginaSegura >= totalPaginas" @click="page = Math.min(totalPaginas, paginaSegura + 1); syncUrl()" aria-label="Página siguiente">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+        <!-- ═══════════════════════════════════════════════════════════════
+             MODAL · Ficha de usuario
+             ═══════════════════════════════════════════════════════════════ -->
+        <dialog id="us-ficha" class="us-modal fixed inset-0 z-[80] overflow-y-auto" @close="cerrarFicha()">
+            <div class="us-modal__card w-[min(52rem,94vw)] max-h-[92vh] flex flex-col overflow-hidden my-[4vh] mx-auto">
+                <template x-if="ficha">
+                    <div class="flex flex-col min-h-0 max-h-[92vh]">
+                        <header class="flex items-start justify-between gap-4 px-6 py-5 border-b border-[color:var(--us-line)]">
+                            <div class="flex items-start gap-3.5 min-w-0">
+                                <span class="us-ava us-ava--lg" :class="ficha.equipo ? 'us-ava--staff' : (ficha.suspendido ? 'us-ava--off' : '')" x-text="ficha.iniciales"></span>
+                                <div class="min-w-0 pt-0.5">
+                                    <span class="us-label" x-text="ficha.equipo ? 'Miembro del equipo' : 'Cliente'"></span>
+                                    <h2 class="text-xl font-black text-surface-900 dark:text-white truncate mt-1" x-text="ficha.nombreCompleto"></h2>
+                                    <div class="flex items-center gap-2 mt-2 flex-wrap">
+                                        <span class="us-pill" :class="ficha.equipo ? 'us-pill-info' : 'us-pill-mute'" x-text="ficha.roleLabel"></span>
+                                        <span class="us-pill" :class="ficha.suspendido ? 'us-pill-stop' : 'us-pill-ok'">
+                                            <span class="us-dot"></span><span x-text="ficha.suspendido ? 'Suspendido' : 'Activo'"></span>
+                                        </span>
+                                        <span class="us-pill us-pill-accent" x-show="ficha.nuevo" x-cloak>Nuevo</span>
+                                    </div>
+                                    <div class="flex items-center gap-3 mt-2.5 text-[11px] font-semibold text-surface-400 flex-wrap">
+                                        <span class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg><span x-text="ficha.email"></span></span>
+                                        <span class="flex items-center gap-1.5" x-show="ficha.telefono"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg><span x-text="ficha.telefono"></span></span>
+                                        <span class="us-mono">ID: <span x-text="shortId(ficha.id)"></span></span>
                                     </div>
                                 </div>
                             </div>
+                            <button type="button" class="us-btn us-btn-ghost us-btn-icon" @click="cerrarFicha()" aria-label="Cerrar ficha">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </header>
 
-                            <!-- TABS NAV -->
-                            <div class="flex items-center gap-6 border-b border-surface-100 px-2 overflow-x-auto no-scrollbar">
-                                <button @click="activeTab = 'perfil'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap" :class="activeTab === 'perfil' ? 'text-furent-500 border-b-2 border-furent-500' : 'text-surface-400 hover:text-surface-600'">Perfil Completo</button>
-                                <button @click="activeTab = 'actividad'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap" :class="activeTab === 'actividad' ? 'text-furent-500 border-b-2 border-furent-500' : 'text-surface-400 hover:text-surface-600'">Actividad y Estadísticas</button>
-                                <button @click="activeTab = 'config'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap" :class="activeTab === 'config' ? 'text-furent-500 border-b-2 border-furent-500' : 'text-surface-400 hover:text-surface-600'">Seguridad y Sanciones</button>
+                        <div class="px-6 bg-[color:var(--us-card)]">
+                            <div class="us-tabs" role="tablist">
+                                <button type="button" class="us-tab" :class="{ 'us-tab--on': tab === 'perfil' }" role="tab" :aria-selected="tab === 'perfil'" @click="tab = 'perfil'">Perfil</button>
+                                <button type="button" class="us-tab" :class="{ 'us-tab--on': tab === 'actividad' }" role="tab" :aria-selected="tab === 'actividad'" @click="tab = 'actividad'">Actividad y notas</button>
+                                <button type="button" class="us-tab" :class="{ 'us-tab--on': tab === 'seguridad' }" role="tab" :aria-selected="tab === 'seguridad'" @click="tab = 'seguridad'">Acceso y seguridad</button>
                             </div>
                         </div>
 
-                        <!-- TABS CONTENT -->
-                        <div class="p-8 overflow-y-auto no-scrollbar flex-1 bg-surface-50/50">
-                            
-                            <!-- TAB: PERFIL COMPLETO -->
-                            <div x-show="activeTab === 'perfil'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-6">
-                                <div class="grid grid-cols-2 gap-6">
-                                    <div class="bg-white p-6 rounded-[2rem] border border-surface-100 shadow-sm">
-                                        <h4 class="text-[10px] font-black text-surface-400 uppercase tracking-widest mb-4">Información Personal</h4>
-                                        <div class="space-y-4">
-                                            <div>
-                                                <p class="text-[10px] font-bold text-surface-400 uppercase">Documento</p>
-                                                <p class="text-sm font-black text-surface-900" x-text="details && details.user.documentoIdentidad ? ((details.user.tipoDocumento || '') + ' ' + details.user.documentoIdentidad) : 'No registrado'"></p>
-                                            </div>
-                                            <div>
-                                                <p class="text-[10px] font-bold text-surface-400 uppercase">Fecha de Nacimiento</p>
-                                                <p class="text-sm font-black text-surface-900" x-text="details && details.user.fechaNacimiento ? new Date(details.user.fechaNacimiento).toLocaleDateString('es-ES') : 'No registrada'"></p>
-                                            </div>
-                                            <div>
-                                                <p class="text-[10px] font-bold text-surface-400 uppercase">Género</p>
-                                                <p class="text-sm font-black text-surface-900" x-text="details && details.user.genero ? details.user.genero : 'No registrado'"></p>
-                                            </div>
-                                            <div>
-                                                <p class="text-[10px] font-bold text-surface-400 uppercase">Estado Civil</p>
-                                                <p class="text-sm font-black text-surface-900" x-text="details && details.user.estadoCivil ? details.user.estadoCivil : 'No registrado'"></p>
-                                            </div>
-                                        </div>
+                        <div class="overflow-y-auto us-scroll px-6 py-5 space-y-5 flex-1 us-modal__body">
+                            <!-- TAB: PERFIL -->
+                            <div x-show="tab === 'perfil'" class="space-y-5">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="us-card p-5">
+                                        <h4 class="us-label mb-3.5">Información personal</h4>
+                                        <dl class="us-dl">
+                                            <dt>Nombre</dt><dd x-text="ficha.nombreCompleto"></dd>
+                                            <dt>Documento</dt><dd x-text="ficha.documentoIdentidad ? ((ficha.tipoDocumento || '') + ' ' + ficha.documentoIdentidad) : 'No registrado'"></dd>
+                                            <dt>Nacimiento</dt><dd x-text="ficha.fechaNacimiento ? fechaLarga(ficha.fechaNacimiento) : 'No registrada'"></dd>
+                                            <dt>Género</dt><dd x-text="ficha.genero || 'No registrado'"></dd>
+                                            <dt>Estado civil</dt><dd x-text="ficha.estadoCivil || 'No registrado'"></dd>
+                                        </dl>
                                     </div>
-                                    <div class="bg-white p-6 rounded-[2rem] border border-surface-100 shadow-sm">
-                                        <h4 class="text-[10px] font-black text-surface-400 uppercase tracking-widest mb-4">Perfil Corporativo</h4>
-                                        <div class="space-y-4">
-                                            <div>
-                                                <p class="text-[10px] font-bold text-surface-400 uppercase">Empresa / Negocio</p>
-                                                <p class="text-sm font-black text-surface-900" x-text="details && details.user.empresa ? details.user.empresa : 'Independiente'"></p>
-                                            </div>
-                                            <div>
-                                                <p class="text-[10px] font-bold text-surface-400 uppercase">Cargo</p>
-                                                <p class="text-sm font-black text-surface-900" x-text="details && details.user.cargo ? details.user.cargo : 'N/A'"></p>
-                                            </div>
-                                            <div>
-                                                <p class="text-[10px] font-bold text-surface-400 uppercase">Se unió como cliente en</p>
-                                                <p class="text-sm font-black text-surface-900" x-text="details ? new Date(details.user.fechaCreacion).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }) : ''"></p>
-                                            </div>
-                                        </div>
+                                    <div class="us-card p-5">
+                                        <h4 class="us-label mb-3.5">Perfil corporativo</h4>
+                                        <dl class="us-dl">
+                                            <dt>Empresa</dt><dd x-text="ficha.empresa || 'Independiente'"></dd>
+                                            <dt>Cargo</dt><dd x-text="ficha.cargo || '—'"></dd>
+                                            <dt>Miembro desde</dt><dd x-text="ficha.creado ? fechaLarga(ficha.creado) : '—'"></dd>
+                                            <dt>Última sesión</dt><dd x-text="ficha.ultimaSesion ? fechaRel(ficha.ultimaSesion) : 'Nunca'"></dd>
+                                        </dl>
                                     </div>
                                 </div>
-                                <div class="bg-white p-6 rounded-[2rem] border border-surface-100 shadow-sm flex flex-col md:flex-row items-start gap-6">
-                                    <div class="size-12 rounded-[18px] bg-furent-50 text-furent-500 flex items-center justify-center shrink-0 border border-furent-100">
-                                        <svg class="size-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                <div class="us-card p-5">
+                                    <div class="flex items-center gap-2.5 mb-3.5">
+                                        <span class="us-tile us-tile--sm us-tile--accent" style="background:var(--us-accent-soft)">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+                                        </span>
+                                        <h4 class="us-label">Ubicación</h4>
+                                        <span class="us-pill us-pill-mute ml-auto" x-text="num(ficha.direccionesCount) + ' ' + plural(ficha.direccionesCount, 'dirección', 'direcciones')"></span>
                                     </div>
-                                    <div class="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
-                                        <div class="col-span-2">
-                                            <p class="text-[10px] font-bold text-surface-400 uppercase flex items-center justify-between">
-                                                <span>Dirección Completa</span>
-                                                <span x-show="primaryAddress && primaryAddress.predeterminada" class="px-2 py-0.5 bg-furent-50 text-furent-600 rounded-md text-[9px] font-black uppercase tracking-widest hidden sm:inline-block">Predeterminada</span>
-                                            </p>
-                                            <p class="text-sm font-black text-surface-900" x-text="primaryAddress ? primaryAddress.direccion : 'No registrada'"></p>
+                                    <template x-if="ficha.direccionPrincipal">
+                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                            <div class="col-span-2">
+                                                <p class="us-label mb-1">Dirección<span class="normal-case font-semibold text-surface-400" x-show="ficha.direccionPrincipal.predeterminada"> · predeterminada</span></p>
+                                                <p class="text-sm font-bold text-[color:var(--us-ink)]" x-text="ficha.direccionPrincipal.direccion || '—'"></p>
+                                            </div>
+                                            <div>
+                                                <p class="us-label mb-1">Ciudad</p>
+                                                <p class="text-sm font-bold text-[color:var(--us-ink)]" x-text="ficha.direccionPrincipal.ciudad || '—'"></p>
+                                            </div>
+                                            <div>
+                                                <p class="us-label mb-1">Estado / C.P.</p>
+                                                <p class="text-sm font-bold text-[color:var(--us-ink)]" x-text="(ficha.direccionPrincipal.estadoProvincia || '—') + (ficha.direccionPrincipal.codigoPostal ? ' (' + ficha.direccionPrincipal.codigoPostal + ')' : '')"></p>
+                                            </div>
+                                            <div class="col-span-2">
+                                                <p class="us-label mb-1">País</p>
+                                                <p class="text-sm font-bold text-[color:var(--us-ink)]" x-text="ficha.direccionPrincipal.pais || '—'"></p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p class="text-[10px] font-bold text-surface-400 uppercase">Ciudad</p>
-                                            <p class="text-sm font-black text-surface-900" x-text="primaryAddress ? primaryAddress.ciudad : 'N/A'"></p>
-                                        </div>
-                                        <div>
-                                            <p class="text-[10px] font-bold text-surface-400 uppercase">Estado / C.P.</p>
-                                            <p class="text-sm font-black text-surface-900" x-text="primaryAddress ? ((primaryAddress.estadoProvincia || '') + (primaryAddress.codigoPostal ? ' ('+primaryAddress.codigoPostal+')' : '')) : 'N/A'"></p>
-                                        </div>
-                                        <div class="col-span-2">
-                                            <p class="text-[10px] font-bold text-surface-400 uppercase">País</p>
-                                            <p class="text-sm font-black text-surface-900" x-text="primaryAddress ? primaryAddress.pais : 'N/A'"></p>
-                                        </div>
-                                    </div>
+                                    </template>
+                                    <template x-if="!ficha.direccionPrincipal">
+                                        <p class="text-sm font-medium text-surface-400" x-text="ficha.direccion || 'Sin dirección registrada.'"></p>
+                                    </template>
                                 </div>
                             </div>
 
                             <!-- TAB: ACTIVIDAD -->
-                            <div x-show="activeTab === 'actividad'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-6" style="display: none;">
-                                <!-- Stats Grid -->
-                                <div class="grid grid-cols-3 gap-6">
-                                    <div class="p-8 bg-white rounded-[2.5rem] border border-surface-100 text-center shadow-sm">
-                                        <p class="text-[10px] font-black text-surface-400 uppercase tracking-widest mb-2">Reservas Totales</p>
-                                        <p class="text-4xl font-black text-surface-900" x-text="details ? details.totalReservas : '0'">0</p>
+                            <div x-show="tab === 'actividad'" class="space-y-5">
+                                <div class="grid grid-cols-3 gap-4">
+                                    <div class="us-statmini">
+                                        <p class="us-label mb-2">Reservas</p>
+                                        <p class="us-statmini__v" x-text="num(ficha.totalReservas)"></p>
+                                        <p class="text-[11px] font-semibold text-surface-400 mt-1.5" x-text="num(ficha.reservasActivas) + ' ' + plural(ficha.reservasActivas, 'activa', 'activas')"></p>
                                     </div>
-                                    <div class="p-8 bg-white rounded-[2.5rem] border border-surface-100 text-center shadow-premium relative overflow-hidden transform scale-105 border-furent-200">
-                                        <div class="absolute inset-0 bg-furent-50/80 pointer-events-none"></div>
-                                        <p class="text-[10px] font-black text-furent-700 uppercase tracking-widest mb-2 relative z-10">Inversión (Pagos)</p>
-                                        <p class="text-4xl font-black text-furent-600 relative z-10" x-text="details ? '$' + details.totalInvertido.toLocaleString() : '$0'">$0</p>
+                                    <div class="us-statmini us-statmini--accent">
+                                        <p class="us-label mb-2">Inversión</p>
+                                        <p class="us-statmini__v" x-text="money(ficha.totalInvertido)"></p>
+                                        <p class="text-[11px] font-semibold text-surface-400 mt-1.5">Total facturado</p>
                                     </div>
-                                    <div class="p-8 bg-white rounded-[2.5rem] border border-surface-100 text-center shadow-sm">
-                                        <p class="text-[10px] font-black text-surface-400 uppercase tracking-widest mb-2">Favoritos ❤️</p>
-                                        <p class="text-4xl font-black text-surface-900" x-text="details ? details.favoritosCount : '0'">0</p>
+                                    <div class="us-statmini">
+                                        <p class="us-label mb-2">Favoritos</p>
+                                        <p class="us-statmini__v" x-text="num(ficha.favoritosCount)"></p>
+                                        <p class="text-[11px] font-semibold text-surface-400 mt-1.5">Ítems guardados</p>
                                     </div>
                                 </div>
-                                <!-- Notas Admin -->
-                                <div class="bg-yellow-50 p-6 sm:p-8 rounded-[2.5rem] border border-yellow-200 shadow-sm relative">
-                                    <div class="absolute top-8 right-8 text-yellow-500">
-                                        <svg class="size-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                <div class="us-card p-5">
+                                    <div class="flex items-center justify-between gap-3 mb-3">
+                                        <div class="flex items-center gap-2.5">
+                                            <span class="us-tile us-tile--sm us-tile--warn">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+                                            </span>
+                                            <h4 class="us-label">Notas internas</h4>
+                                        </div>
+                                        <span class="text-[11px] font-medium text-surface-400">Solo visibles para el equipo</span>
                                     </div>
-                                    <h4 class="text-[10px] font-black text-yellow-700 uppercase tracking-widest mb-3">Notas Administrativas Internas</h4>
-                                    <p class="text-sm font-medium text-yellow-900 whitespace-pre-line leading-relaxed" x-text="(details && details.user.notasAdmin) ? details.user.notasAdmin : 'No hay notas registradas para este usuario.'"></p>
+                                    <textarea x-model="notasEdit" rows="3" maxlength="600" class="us-finput resize-none"
+                                              placeholder="Ej. Cliente recurrente, prefiere entregas por la mañana..."></textarea>
+                                    <div class="flex items-center justify-between gap-3 mt-3">
+                                        <p class="text-[11px] font-medium text-surface-400">Se guardan en el expediente del usuario.</p>
+                                        <button type="button" class="us-btn us-btn-dark" @click="guardarNotas()" :disabled="guardandoNotas">
+                                            <svg x-show="!guardandoNotas" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                            <svg x-show="guardandoNotas" x-cloak class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                            <span x-text="guardandoNotas ? 'Guardando...' : 'Guardar notas'"></span>
+                                        </button>
+                                    </div>
                                 </div>
+                                <a class="us-btn us-btn-soft" :href="'/admin/reservas?q=' + encodeURIComponent(ficha.email)">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                                    Ver reservas de este cliente
+                                </a>
                             </div>
 
                             <!-- TAB: SEGURIDAD -->
-                            <div x-show="activeTab === 'config'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-6" style="display: none;">
-                                <!-- Sanciones (Solo visible si hubieron) -->
-                                <div x-show="details && (details.user.razonSuspension || !details.user.activo)" class="bg-red-50 p-6 sm:p-8 rounded-[2.5rem] border border-red-100 flex flex-col md:flex-row gap-6 items-start">
-                                    <div class="size-16 rounded-[1.5rem] bg-red-500 flex items-center justify-center text-white shadow-lg shadow-red-500/20 shrink-0">
-                                        <svg class="size-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                                    </div>
-                                    <div class="flex-1 w-full space-y-4">
-                                        <h4 class="text-lg font-black text-red-900">Historial de Sanción / Suspensión</h4>
-                                        <div class="grid grid-cols-2 gap-4 bg-white/50 p-5 rounded-2xl w-full">
-                                            <div class="col-span-2">
-                                                <p class="text-[10px] font-black text-red-800 uppercase tracking-widest mb-1">Motivo de Suspensión</p>
-                                                <p class="text-sm font-bold text-red-900" x-text="details && details.user.razonSuspension ? details.user.razonSuspension : 'N/A'"></p>
-                                            </div>
-                                            <div>
-                                                <p class="text-[10px] font-black text-red-800 uppercase tracking-widest mb-1">Estado</p>
-                                                <span class="px-3 py-1 bg-red-100 text-red-700 text-[10px] font-black uppercase rounded-lg shadow-sm" x-text="details && details.user.suspensionPermanente ? 'Bloqueo Permanente' : 'Temporal / Pendiente'"></span>
-                                            </div>
-                                            <div>
-                                                <p class="text-[10px] font-black text-red-800 uppercase tracking-widest mb-1">Fecha</p>
-                                                <p class="text-sm font-bold text-red-900" x-text="details && details.user.fechaInicioSuspension ? new Date(details.user.fechaInicioSuspension).toLocaleDateString('es-ES') : 'N/A'"></p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="grid grid-cols-2 gap-6">
-                                    <!-- Security -->
-                                    <div class="p-8 bg-blue-50/30 rounded-[2.5rem] border border-blue-100/50">
-                                        <div class="flex items-center gap-4 mb-6">
-                                            <div class="size-12 rounded-[1.2rem] bg-blue-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                                                <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
-                                            </div>
-                                            <h4 class="text-base font-black text-blue-900">Seguridad</h4>
-                                        </div>
-                                        <div class="space-y-4">
-                                            <div class="flex items-center justify-between p-4 bg-white/50 rounded-2xl border border-blue-100">
-                                                <span class="text-sm font-bold text-blue-800">MFA (2FA TOTP)</span>
-                                                <span class="px-3 py-1 rounded-xl text-[10px] font-black uppercase shadow-sm" :class="details && details.user.totpEnabled ? 'bg-green-100 text-green-700' : 'bg-surface-100 text-surface-400'" x-text="details && details.user.totpEnabled ? 'Habilitado' : 'Inactivo'"></span>
-                                            </div>
-                                            <div class="flex items-center justify-between p-4 bg-white/50 rounded-2xl border border-blue-100">
-                                                <span class="text-sm font-bold text-blue-800">Email Marketing</span>
-                                                <span class="px-3 py-1 rounded-xl text-[10px] font-black uppercase shadow-sm" :class="details && details.user.notificacionesEmail ? 'bg-blue-100 text-blue-700' : 'bg-surface-100 text-surface-400'" x-text="details && details.user.notificacionesEmail ? 'Suscrito' : 'Off'"></span>
+                            <div x-show="tab === 'seguridad'" class="space-y-5">
+                                <template x-if="ficha.suspendido">
+                                    <div class="rounded-2xl border p-5 flex flex-col sm:flex-row gap-5 items-start" style="background:var(--us-stop-soft); border-color:var(--us-stop-line)">
+                                        <span class="us-tile us-tile--md us-tile--stop shrink-0">
+                                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                                        </span>
+                                        <div class="flex-1 min-w-0 space-y-3">
+                                            <h4 class="text-base font-black text-surface-900 dark:text-white">Cuenta suspendida</h4>
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div class="sm:col-span-2">
+                                                    <p class="us-label mb-1">Motivo</p>
+                                                    <p class="text-sm font-bold text-surface-800 dark:text-surface-200" x-text="ficha.razonSuspension || 'No especificado'"></p>
+                                                </div>
+                                                <div>
+                                                    <p class="us-label mb-1">Tipo</p>
+                                                    <span class="us-pill us-pill-stop" x-text="ficha.suspensionPermanente ? 'Permanente' : 'Temporal'"></span>
+                                                </div>
+                                                <div>
+                                                    <p class="us-label mb-1">Vigencia</p>
+                                                    <p class="text-sm font-bold text-surface-800 dark:text-surface-200" x-text="ficha.fechaInicioSuspension ? (fechaLarga(ficha.fechaInicioSuspension) + (ficha.fechaFinSuspension ? ' → ' + fechaLarga(ficha.fechaFinSuspension) : '')) : 'Indefinida'"></p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-
-                                    <!-- Preferences -->
-                                    <div class="p-8 bg-surface-50 rounded-[2.5rem] border border-surface-100 flex flex-col justify-center items-center text-center">
-                                        <div class="size-12 rounded-[1.2rem] bg-surface-900 flex items-center justify-center text-white shadow-lg mb-6">
-                                            <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                </template>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="us-card p-5 space-y-3">
+                                        <h4 class="us-label mb-1">Seguridad</h4>
+                                        <div class="us-kv">
+                                            <span class="us-kv__k">Verificación 2FA</span>
+                                            <span class="us-pill" :class="ficha.totpEnabled ? 'us-pill-ok' : 'us-pill-mute'" x-text="ficha.totpEnabled ? 'Activa' : 'Inactiva'"></span>
                                         </div>
-                                        <h4 class="text-sm font-black text-surface-900 uppercase tracking-widest mb-4">Ajustes Plataforma</h4>
-                                        <div class="flex flex-wrap justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-surface-400">
-                                            <div class="px-4 py-2 bg-white rounded-xl border border-surface-100 shadow-sm" x-text="'Idioma: ' + (details ? details.user.idioma : 'es')"></div>
-                                            <div class="px-4 py-2 bg-white rounded-xl border border-surface-100 shadow-sm" x-text="'Moneda: ' + (details ? details.user.moneda : 'COP')"></div>
-                                            <div class="px-4 py-2 bg-white rounded-xl border border-surface-100 shadow-sm" x-text="'Tema: ' + (details ? details.user.apariencia : 'light')"></div>
+                                        <div class="us-kv">
+                                            <span class="us-kv__k">Notificaciones email</span>
+                                            <span class="us-pill" :class="ficha.notificacionesEmail ? 'us-pill-info' : 'us-pill-mute'" x-text="ficha.notificacionesEmail ? 'Suscrito' : 'Desactivado'"></span>
                                         </div>
+                                        <div class="us-kv">
+                                            <span class="us-kv__k">Método de acceso</span>
+                                            <span class="us-pill us-pill-mute capitalize" x-text="ficha.provider || 'local'"></span>
+                                        </div>
+                                    </div>
+                                    <div class="us-card p-5 space-y-3">
+                                        <h4 class="us-label mb-1">Preferencias</h4>
+                                        <div class="grid grid-cols-3 gap-2 text-center">
+                                            <div class="rounded-xl border border-[color:var(--us-line)] bg-[color:var(--us-tint)] py-3">
+                                                <p class="text-[10px] font-bold text-surface-400 uppercase">Idioma</p>
+                                                <p class="text-sm font-black text-[color:var(--us-ink)] mt-0.5 uppercase" x-text="ficha.idioma || 'es'"></p>
+                                            </div>
+                                            <div class="rounded-xl border border-[color:var(--us-line)] bg-[color:var(--us-tint)] py-3">
+                                                <p class="text-[10px] font-bold text-surface-400 uppercase">Moneda</p>
+                                                <p class="text-sm font-black text-[color:var(--us-ink)] mt-0.5 uppercase" x-text="ficha.moneda || 'COP'"></p>
+                                            </div>
+                                            <div class="rounded-xl border border-[color:var(--us-line)] bg-[color:var(--us-tint)] py-3">
+                                                <p class="text-[10px] font-bold text-surface-400 uppercase">Tema</p>
+                                                <p class="text-sm font-black text-[color:var(--us-ink)] mt-0.5 capitalize" x-text="ficha.apariencia || 'light'"></p>
+                                            </div>
+                                        </div>
+                                        <p class="text-[11px] font-medium text-surface-400">Registrado el <span class="font-bold" x-text="ficha.creado ? fechaLarga(ficha.creado) : '—'"></span>.</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
+                        <footer class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 border-t border-[color:var(--us-line)] bg-[color:var(--us-tint)]">
+                            <div class="flex items-center gap-2">
+                                <template x-if="!ficha.equipo">
+                                    <button type="button" class="us-btn us-btn-danger" @click="abrirEliminar(ficha)">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                        Eliminar
+                                    </button>
+                                </template>
+                            </div>
+                            <div class="flex items-center gap-2 sm:ml-auto">
+                                <button type="button" class="us-btn us-btn-ghost" @click="abrirRol(ficha)">Cambiar rol</button>
+                                <button type="button" class="us-btn us-btn-accent" @click="abrirAcceso(ficha)">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                                    <span x-text="ficha.suspendido ? 'Restaurar acceso' : 'Gestionar acceso'"></span>
+                                </button>
+                            </div>
+                        </footer>
                     </div>
+                </template>
+            </div>
+        </dialog>
+        <!-- ═══════════════════════════════════════════════════════════════
+             MODAL · Cambiar rol
+             ═══════════════════════════════════════════════════════════════ -->
+        <dialog id="us-rol" class="us-modal fixed inset-0 z-[90] overflow-y-auto">
+            <div class="us-modal__card w-[min(34rem,94vw)] max-h-[90vh] my-[6vh] mx-auto overflow-hidden">
+                <div class="flex flex-col max-h-[90vh]">
+                    <header class="flex items-start justify-between gap-4 px-6 py-5 border-b border-[color:var(--us-line)]">
+                        <div class="flex items-start gap-3">
+                            <span class="us-tile us-tile--md shrink-0">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
+                            </span>
+                            <div class="min-w-0">
+                                <span class="us-label">Nivel de acceso</span>
+                                <h2 class="text-lg font-black text-surface-900 dark:text-white mt-1">Cambiar rol</h2>
+                                <p class="text-xs font-medium text-surface-400 mt-0.5 truncate" x-text="ficha ? ficha.nombreCompleto : ''"></p>
+                            </div>
+                        </div>
+                        <button type="button" class="us-btn us-btn-ghost us-btn-icon" @click="cerrarRol()" aria-label="Cerrar">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </header>
+
+                    <div class="overflow-y-auto us-scroll px-6 py-5 space-y-4">
+                        <p class="us-flabel">Elegir nuevo rol</p>
+                        <template x-for="r in rolesForm" :key="r.key">
+                            <button type="button" class="us-choice" :class="{ 'us-choice--on': rolSel === r.key }"
+                                    @click="rolSel = r.key" :aria-pressed="rolSel === r.key ? 'true' : 'false'">
+                                <span class="us-choice__ic" :class="r.key === 'ADMIN' ? 'us-choice__ic--ok' : ''">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="r.icon"/></svg>
+                                </span>
+                                <span class="flex-1 min-w-0">
+                                    <span class="block text-sm font-black text-[color:var(--us-ink)]" x-text="r.label"></span>
+                                    <span class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mt-0.5" x-text="r.desc"></span>
+                                </span>
+                                <svg class="w-4 h-4 shrink-0 mt-0.5" :class="rolSel === r.key ? 'text-[color:var(--us-accent)]' : 'text-transparent'" fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                            </button>
+                        </template>
+                        <p class="text-[11px] font-medium text-surface-400">El <span class="font-bold text-surface-500 dark:text-surface-300">Administrador</span> accede al panel completo; el <span class="font-bold text-surface-500 dark:text-surface-300">Cliente</span> solo a la tienda y a sus reservas.</p>
+                    </div>
+
+                    <footer class="flex items-center justify-between gap-3 px-6 py-4 border-t border-[color:var(--us-line)] bg-[color:var(--us-tint)]">
+                        <button type="button" class="us-btn us-btn-ghost" @click="cerrarRol()">Cancelar</button>
+                        <button type="button" class="us-btn us-btn-accent" @click="guardarRol()" :disabled="guardandoRol || !rolSel || (ficha && rolSel === ficha.role)">
+                            <svg x-show="guardandoRol" x-cloak class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 0 12h4z"/></svg>
+                            <svg x-show="!guardandoRol" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                            <span x-text="guardandoRol ? 'Guardando...' : 'Aplicar rol'"></span>
+                        </button>
+                    </footer>
                 </div>
             </div>
+        </dialog>
 
-            <!-- MODAL DE CAMBIO DE ROL (TailwindPlus) -->
-            <div x-show="openRoleModal" x-transition.opacity class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-surface-950/40 backdrop-blur-sm" style="display: none;">
-                <div @click.away="openRoleModal = false" class="bg-white rounded-[3.5rem] w-full max-w-md shadow-2xl border border-surface-100 overflow-hidden transform transition-all relative">
-                    <!-- Close button -->
-                    <button @click="openRoleModal = false" :disabled="roleModalSaving" class="absolute right-8 top-8 z-50 p-3 bg-surface-50 text-surface-400 hover:text-surface-900 rounded-2xl transition-all hover:bg-surface-100 disabled:opacity-50">
-                        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-
-                    <div class="px-10 py-10 pt-12">
-                        <h2 class="text-surface-900 font-extrabold text-2xl mb-8 text-center tracking-tight">Gestión de Credencial</h2>
-
-                        <div class="space-y-6">
-                            <div class="flex items-center gap-4 p-5 bg-surface-50/50 rounded-3xl border border-surface-100 shadow-sm">
-                                <div class="w-14 h-14 bg-white rounded-2xl shadow-premium flex items-center justify-center text-furent-500 border border-furent-100 shrink-0">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
-                                </div>
-                                <div>
-                                    <p class="text-[10px] font-black text-surface-400 uppercase tracking-widest mb-0.5">Nivel de Seguridad</p>
-                                    <p class="text-sm font-bold text-surface-900 leading-tight">Modificar permisos de acceso</p>
-                                </div>
+        <!-- ═══════════════════════════════════════════════════════════════
+             MODAL · Gestionar acceso
+             ═══════════════════════════════════════════════════════════════ -->
+        <dialog id="us-acceso" class="us-modal fixed inset-0 z-[90] overflow-y-auto">
+            <div class="us-modal__card w-[min(36rem,94vw)] max-h-[90vh] my-[6vh] mx-auto overflow-hidden">
+                <div class="flex flex-col max-h-[90vh]">
+                    <header class="flex items-start justify-between gap-4 px-6 py-5 border-b border-[color:var(--us-line)]">
+                        <div class="flex items-start gap-3">
+                            <span class="us-tile us-tile--md shrink-0" :class="ficha && ficha.suspendido ? 'us-tile--ok' : 'us-tile--stop'">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="ficha && ficha.suspendido ? 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z' : 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636'"/></svg>
+                            </span>
+                            <div class="min-w-0">
+                                <span class="us-label">Gestión de cuenta</span>
+                                <h2 class="text-lg font-black text-surface-900 dark:text-white mt-1" x-text="ficha && ficha.suspendido ? 'Restaurar acceso' : 'Suspender acceso'"></h2>
+                                <p class="text-xs font-medium text-surface-400 mt-0.5 truncate" x-text="ficha ? (ficha.nombreCompleto + ' · ' + ficha.email) : ''"></p>
                             </div>
+                        </div>
+                        <button type="button" class="us-btn us-btn-ghost us-btn-icon" @click="cerrarAcceso()" aria-label="Cerrar">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </header>
 
+                    <div class="overflow-y-auto us-scroll px-6 py-5 space-y-5">
+                        <!-- Reactivar -->
+                        <template x-if="ficha && ficha.suspendido">
                             <div class="space-y-4">
-                                <label class="text-[10px] font-black text-surface-400 uppercase tracking-widest ml-1">Elegir nuevo rol</label>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <label class="relative flex items-center justify-center p-5 rounded-2xl border-2 cursor-pointer transition-all hover:bg-surface-50/80 group"
-                                           :class="roleModalRole === 'USER' ? 'border-furent-500 bg-furent-50/40 shadow-sm' : 'border-surface-100 bg-white'">
-                                        <input type="radio" value="USER" x-model="roleModalRole" class="sr-only" :disabled="roleModalSaving">
-                                        <div class="text-center">
-                                            <p class="text-sm font-bold transition-colors" :class="roleModalRole === 'USER' ? 'text-furent-600' : 'text-surface-900 group-hover:text-surface-700'">Cliente</p>
-                                            <p class="text-[10px] text-surface-400 uppercase font-black tracking-widest mt-0.5">USER</p>
-                                        </div>
-                                    </label>
-                                    <label class="relative flex items-center justify-center p-5 rounded-2xl border-2 cursor-pointer transition-all hover:bg-surface-50/80 group"
-                                           :class="roleModalRole === 'ADMIN' ? 'border-furent-500 bg-furent-50/40 shadow-sm' : 'border-surface-100 bg-white'">
-                                        <input type="radio" value="ADMIN" x-model="roleModalRole" class="sr-only" :disabled="roleModalSaving">
-                                        <div class="text-center">
-                                            <p class="text-sm font-bold transition-colors" :class="roleModalRole === 'ADMIN' ? 'text-furent-600' : 'text-surface-900 group-hover:text-surface-700'">Admin</p>
-                                            <p class="text-[10px] text-surface-400 uppercase font-black tracking-widest mt-0.5">ADMIN</p>
-                                        </div>
-                                    </label>
+                                <div class="rounded-2xl border border-[color:var(--us-line-2)] bg-[color:var(--us-tint)] p-4">
+                                    <p class="us-label mb-1">Suspensión vigente</p>
+                                    <p class="text-sm font-bold text-[color:var(--us-ink)]" x-text="ficha.razonSuspension || 'No especificada'"></p>
+                                    <p class="text-[11px] font-medium text-surface-400 mt-1.5" x-text="ficha.suspensionPermanente ? 'Bloqueo permanente' : (ficha.fechaFinSuspension ? 'Hasta ' + fechaLarga(ficha.fechaFinSuspension) : 'Indefinida')"></p>
+                                </div>
+                                <div class="rounded-2xl border p-4 flex items-start gap-3" style="background:var(--us-ok-soft); border-color:var(--us-ok-line)">
+                                    <span class="us-tile us-tile--sm us-tile--ok shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></span>
+                                    <p class="text-sm font-medium text-surface-700 dark:text-surface-300">Al reactivar, la cuenta recupera el acceso de inmediato y se borra el historial de sanción.</p>
                                 </div>
                             </div>
+                        </template>
 
-                            <div class="flex items-center gap-3 pt-6 mt-6 border-t border-surface-50">
-                                <button @click="saveRole()" :disabled="roleModalSaving" class="flex-1 rounded-[1.25rem] text-sm font-black px-6 py-4 bg-surface-900 text-white hover:bg-surface-800 transition-all active:scale-95 disabled:opacity-70 disabled:active:scale-100 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-surface-900/20">
-                                    <svg x-show="roleModalSaving" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    <span x-text="roleModalSaving ? 'Sincronizando...' : 'Aplicar Credencial'"></span>
-                                </button>
-                                <button @click="openRoleModal = false" :disabled="roleModalSaving" class="rounded-[1.25rem] text-sm font-black px-6 py-4 bg-surface-50 text-surface-400 hover:text-surface-600 hover:bg-surface-100 transition-all border-none disabled:opacity-50">
-                                    Cancelar
-                                </button>
+                        <!-- Suspender -->
+                        <template x-if="ficha && !ficha.suspendido">
+                            <div class="space-y-5">
+                                <div>
+                                    <label class="us-flabel" for="us-razon">Motivo de la suspensión</label>
+                                    <textarea id="us-razon" x-model="accesoRazon" rows="2" maxlength="300" class="us-finput resize-none"
+                                              placeholder="Ej. Pago pendiente, incumplimiento de términos..."></textarea>
+                                </div>
+                                <div>
+                                    <p class="us-flabel">Duración</p>
+                                    <div class="space-y-2">
+                                        <template x-for="t in tiposAcceso" :key="t.key">
+                                            <button type="button" class="us-choice" :class="{ 'us-choice--on': accesoTipo === t.key }"
+                                                    @click="setAccesoTipo(t.key)" :aria-pressed="accesoTipo === t.key ? 'true' : 'false'">
+                                                <span class="us-choice__ic" :class="t.ic">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="t.icon"/></svg>
+                                                </span>
+                                                <span class="flex-1 min-w-0">
+                                                    <span class="block text-sm font-black text-[color:var(--us-ink)]" x-text="t.label"></span>
+                                                    <span class="block text-[11px] font-medium text-surface-500 dark:text-surface-400 mt-0.5" x-text="t.desc"></span>
+                                                </span>
+                                                <svg class="w-4 h-4 shrink-0 mt-0.5" :class="accesoTipo === t.key ? 'text-[color:var(--us-accent)]' : 'text-transparent'" fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                                <div x-show="accesoTipo === 'fecha'" x-cloak class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="us-flabel" for="us-fini">Desde</label>
+                                        <input id="us-fini" type="date" x-model="accesoInicio" class="us-finput">
+                                    </div>
+                                    <div>
+                                        <label class="us-flabel" for="us-ffin">Hasta</label>
+                                        <input id="us-ffin" type="date" x-model="accesoFin" class="us-finput">
+                                    </div>
+                                </div>
+                                <p class="text-[11px] font-medium text-surface-400">Al suspender, el cliente pierde el acceso de inmediato y recibe el motivo cuando intente entrar.</p>
                             </div>
-                        </div>
+                        </template>
                     </div>
+
+                    <footer class="flex items-center justify-between gap-3 px-6 py-4 border-t border-[color:var(--us-line)] bg-[color:var(--us-tint)]">
+                        <button type="button" class="us-btn us-btn-ghost" @click="cerrarAcceso()">Cancelar</button>
+                        <button type="button" class="us-btn" :class="ficha && ficha.suspendido ? 'us-btn-accent' : 'us-btn-danger'" @click="guardarAcceso()" :disabled="guardandoAcceso">
+                            <svg x-show="guardandoAcceso" x-cloak class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                            <span x-text="guardandoAcceso ? 'Procesando...' : (ficha && ficha.suspendido ? 'Restaurar acceso' : 'Suspender cuenta')"></span>
+                        </button>
+                    </footer>
                 </div>
             </div>
+        </dialog>
 
-            <!-- Soft bg elements -->
-            <div class="absolute top-[10%] left-[20%] w-[30rem] h-[30rem] bg-purple-300/10 rounded-full blur-[120px] pointer-events-none -z-10"></div>
-            <div class="absolute bottom-[20%] right-0 w-[40rem] h-[30rem] bg-furent-300/10 rounded-full blur-[120px] pointer-events-none -z-10"></div>
-        </div>
-
-    <script>
-        // Wire up advanced filters & search input
-        const userSearchInput = document.getElementById('userSearchInputBox');
-        let currentRoleFilter = 'ALL';
-        let currentStatusFilter = 'ALL';
-
-        // Alpine JS hook
-        window.applyTableAdvancedFilters = function(role, status) {
-             currentRoleFilter = role;
-             currentStatusFilter = status;
-             triggerFullFilter();
-        };
-
-        window.sortTableByDate = function(sortType) {
-            const tableBody = document.querySelector('#tablaUsuarios tbody');
-            const rows = Array.from(document.querySelectorAll('.usuario-fila'));
-            
-            rows.sort((a, b) => {
-                const dateA = a.getAttribute('data-date');
-                const dateB = b.getAttribute('data-date');
-                if(sortType === 'NEWEST') {
-                    return dateB.localeCompare(dateA); 
-                } else {
-                    return dateA.localeCompare(dateB);
-                }
-            });
-            
-            rows.forEach(row => tableBody.appendChild(row));
-        };
-
-        if (userSearchInput) {
-            userSearchInput.addEventListener('input', function(e) {
-                triggerFullFilter();
-            });
-        }
-
-        function triggerFullFilter() {
-            const searchTerm = userSearchInput ? userSearchInput.value.toLowerCase().trim() : '';
-            const allRows = document.querySelectorAll('.usuario-fila');
-            let hasVisibleElements = false;
-            
-            allRows.forEach(row => {
-                const role = row.getAttribute('data-role');
-                const status = row.getAttribute('data-status');
-                const searchData = row.getAttribute('data-search') || '';
-                
-                let matchesSearch = searchTerm === '' || searchData.includes(searchTerm);
-                let matchesRole = currentRoleFilter === 'ALL' || role === currentRoleFilter;
-                let matchesStatus = currentStatusFilter === 'ALL' || status === currentStatusFilter;
-                
-                if (matchesSearch && matchesRole && matchesStatus) {
-                    row.classList.remove('hidden-by-filter');
-                    hasVisibleElements = true;
-                } else {
-                    row.classList.add('hidden-by-filter');
-                }
-            });
-
-            const emptyStateEl = document.getElementById('empty-state-filter');
-            if (emptyStateEl) emptyStateEl.style.display = hasVisibleElements ? 'none' : 'block';
-        }
-
-        function toggleStatus(id, isActivo) {
-            if (isActivo) {
-                Swal.fire({
-                    title: '<span class="text-surface-900 font-extrabold">Gestionar Suspensión</span>',
-                    html: `
-                        <div class="px-2 text-left space-y-4 py-2">
-                            <div class="space-y-2">
-                                <label class="text-[11px] font-bold text-surface-400 uppercase ml-1">Motivo</label>
-                                <input id="swal-razon" class="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-sm font-medium focus:ring-4 focus:ring-red-500/10 outline-none transition-all" placeholder="Ej: Pago pendiente, comportamiento...">
-                            </div>
-                            <div class="flex items-center gap-3 mt-4 p-4 bg-surface-50 rounded-2xl border border-surface-100">
-                                <input type="checkbox" id="swal-permanente" class="size-5 accent-red-500 rounded-lg">
-                                <div>
-                                    <p class="text-sm font-bold text-surface-900">Suspensión Permanente</p>
-                                    <p class="text-[10px] font-medium text-surface-500 text-pretty">El usuario perderá el acceso a Furent definitivamente.</p>
-                                </div>
-                            </div>
+        <!-- ═══════════════════════════════════════════════════════════════
+             MODAL · Eliminar cuenta
+             ═══════════════════════════════════════════════════════════════ -->
+        <dialog id="us-eliminar" class="us-modal fixed inset-0 z-[95] overflow-y-auto">
+            <div class="us-modal__card w-[min(30rem,94vw)] my-[12vh] mx-auto overflow-hidden">
+                <div class="px-6 pt-6 pb-5">
+                    <div class="flex items-start gap-4">
+                        <span class="us-tile us-tile--md us-tile--stop shrink-0">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                        </span>
+                        <div class="min-w-0">
+                            <h2 class="text-lg font-black text-surface-900 dark:text-white">Eliminar cuenta</h2>
+                            <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-1.5">
+                                Vas a eliminar definitivamente a <span class="font-black text-surface-800 dark:text-surface-200" x-text="eliminarTarget ? eliminarTarget.nombreCompleto : ''"></span>. Esta acción no se puede deshacer.
+                            </p>
                         </div>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonColor: '#ef4444',
-                    confirmButtonText: 'Banear Cliente',
-                    cancelButtonText: 'Cancelar',
-                    customClass: {
-                        popup: 'rounded-[3rem] p-10',
-                        confirmButton: 'rounded-2xl px-8 py-4',
-                        cancelButton: 'rounded-2xl px-8 py-4'
-                    },
-                    preConfirm: () => {
-                        return {
-                            razon: document.getElementById('swal-razon').value,
-                            permanente: document.getElementById('swal-permanente').checked
+                    </div>
+                    <div class="mt-5 rounded-2xl border p-4 flex items-start gap-3" style="background:var(--us-stop-soft); border-color:var(--us-stop-line)">
+                        <svg class="w-5 h-5 shrink-0 text-[color:var(--us-stop)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                        <p class="text-xs font-medium text-surface-600 dark:text-surface-300">Solo se permite eliminar clientes sin reservas activas. Si el usuario tiene actividad, suspende la cuenta en su lugar.</p>
+                    </div>
+                </div>
+                <footer class="flex items-center justify-between gap-3 px-6 py-4 border-t border-[color:var(--us-line)] bg-[color:var(--us-tint)]">
+                    <button type="button" class="us-btn us-btn-ghost" @click="cerrarEliminar()">Cancelar</button>
+                    <button type="button" class="us-btn us-btn-danger" @click="confirmarEliminar()" :disabled="guardandoEliminar">
+                        <svg x-show="guardandoEliminar" x-cloak class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        <span x-text="guardandoEliminar ? 'Eliminando...' : 'Eliminar definitivamente'"></span>
+                    </button>
+                </footer>
+            </div>
+        </dialog>
+
+        <script id="us-data" type="application/json" th:utext="${usuariosJson}">{"stats":{},"usuarios":[]}</script>
+<script>
+        // ────────────────────────────────────────────────────────────────
+        // Usuarios · componente Alpine
+        // ────────────────────────────────────────────────────────────────
+        var US_ICON = {
+            list: 'M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5',
+            check: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+            checkOnly: 'M4.5 12.75l6 6 9-13.5',
+            stop: 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636',
+            shield: 'M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z',
+            plus: 'M12 4.5v15m7.5-7.5h-15',
+            box: 'M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z',
+            clock: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z',
+            calendar: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5',
+            sort: 'M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21L21 17.25',
+            user: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z',
+            coin: 'M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0-1.5H3.75m0 1.5h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z'
+        };
+
+        function usuariosPage() {
+            return {
+                // ── Datos ──
+                stats: { total: 0, activos: 0, suspendidos: 0, equipo: 0, nuevos: 0, conReservas: 0, oauth: 0, inversionTotal: 0 },
+                usuarios: [],
+
+                // ── Filtros ──
+                q: '', scope: 'todos', rol: 'todos', estado: 'todos', orden: 'recientes',
+                estadoOpen: false, estadoIdx: 0, ordenOpen: false, ordenIdx: 0, fechaOpen: false,
+                page: 1, perPage: 10,
+
+                // ── DateRangePicker ──
+                desde: '', hasta: '', hoverISO: '', dpAnio: 0, dpMes: 0, dpNM: 2,
+
+                // ── Modales ──
+                ficha: null, tab: 'perfil',
+                notasEdit: '', guardandoNotas: false,
+                rolSel: '', guardandoRol: false,
+                accesoTipo: 'temporal', accesoRazon: '', accesoInicio: '', accesoFin: '', guardandoAcceso: false,
+                eliminarTarget: null, guardandoEliminar: false,
+
+                init() {
+                    var raw = {};
+                    try { raw = JSON.parse(document.getElementById('us-data').textContent || '{}'); } catch (e) { raw = {}; }
+                    this.stats = Object.assign({ total: 0, activos: 0, suspendidos: 0, equipo: 0, nuevos: 0, conReservas: 0, oauth: 0, inversionTotal: 0 }, raw.stats || {});
+                    this.usuarios = Array.isArray(raw.usuarios) ? raw.usuarios : [];
+
+                    var qs = new URLSearchParams(location.search);
+                    if (qs.get('q')) this.q = qs.get('q');
+                    if (qs.get('scope')) this.scope = qs.get('scope');
+                    if (qs.get('rol')) this.rol = qs.get('rol');
+                    if (qs.get('estado')) this.estado = qs.get('estado');
+                    if (qs.get('orden')) this.orden = qs.get('orden');
+                    if (qs.get('desde')) this.desde = qs.get('desde');
+                    if (qs.get('hasta')) this.hasta = qs.get('hasta');
+                    if (qs.get('page')) this.page = parseInt(qs.get('page'), 10) || 1;
+
+                    this.dpNM = this.mesesVisibles();
+                    var base = this.parseISO(this.desde || this.hoyISO());
+                    this.dpAnio = base.getFullYear();
+                    this.dpMes = base.getMonth();
+
+                    this.normaliza();
+                    this.page = Math.min(Math.max(1, this.page), this.totalPaginas);
+                },
+
+                normaliza() {
+                    if (['todos', 'activos', 'suspendidos', 'equipo', 'nuevos'].indexOf(this.scope) === -1) this.scope = 'todos';
+                    if (['todos', 'USER', 'EQUIPO'].indexOf(this.rol) === -1) this.rol = 'todos';
+                    var ekeys = ['todos', 'activos', 'suspendidos', 'equipo', 'nuevos', 'conReservas'];
+                    if (ekeys.indexOf(this.estado) === -1) this.estado = 'todos';
+                    var okeys = this.ordenOpciones.map(function (o) { return o.key; });
+                    if (okeys.indexOf(this.orden) === -1) this.orden = 'recientes';
+                },
+
+                // ── Fechas ──
+                hoyISO() { return this.iso(new Date()); },
+                iso(d) { var m = String(d.getMonth() + 1).padStart(2, '0'); var dd = String(d.getDate()).padStart(2, '0'); return d.getFullYear() + '-' + m + '-' + dd; },
+                fechaParte(v) { return v ? String(v).slice(0, 10) : ''; },
+                parseISO(v) { var p = this.fechaParte(v).split('-'); if (p.length < 3) return new Date(); return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)); },
+                sumaDias(s, n) { var d = this.parseISO(s); d.setDate(d.getDate() + n); return this.iso(d); },
+                finDeMes(s) { var d = this.parseISO(s); return this.iso(new Date(d.getFullYear(), d.getMonth() + 1, 0)); },
+                dow(d) { return (d.getDay() + 6) % 7; },
+                fechaLarga(v) {
+                    if (!v) return '—';
+                    try { return this.parseISO(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }); }
+                    catch (e) { return this.fechaParte(v); }
+                },
+                fechaCorta(v) {
+                    if (!v) return '—';
+                    try { return this.parseISO(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }); }
+                    catch (e) { return this.fechaParte(v); }
+                },
+                nombreMes(anio, mes) { return new Date(anio, mes, 1).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' }); },
+                fechaRel(v) {
+                    var iso = this.fechaParte(v);
+                    if (!iso) return 'Nunca';
+                    var hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+                    var diff = Math.round((hoy - this.parseISO(iso)) / 86400000);
+                    if (diff <= 0) return 'Hoy';
+                    if (diff === 1) return 'Ayer';
+                    if (diff < 30) return 'Hace ' + diff + ' días';
+                    if (diff < 365) { var m = Math.round(diff / 30); return 'Hace ' + m + (m === 1 ? ' mes' : ' meses'); }
+                    var y = Math.round(diff / 365); return 'Hace ' + y + (y === 1 ? ' año' : ' años');
+                },
+                get diasSemana() { return ['L', 'M', 'X', 'J', 'V', 'S', 'D']; },
+
+                // ── Filtrado ──
+                get listaLimpia() {
+                    var self = this;
+                    var q = (this.q || '').trim().toLowerCase();
+                    return this.usuarios.filter(function (u) {
+                        if (self.scope === 'activos' && u.suspendido) return false;
+                        if (self.scope === 'suspendidos' && !u.suspendido) return false;
+                        if (self.scope === 'equipo' && !u.equipo) return false;
+                        if (self.scope === 'nuevos' && !u.nuevo) return false;
+                        if (self.desde && (u.creado || '') < self.desde) return false;
+                        if (self.hasta && (u.creado || '') > self.hasta) return false;
+                        if (q) {
+                            var hay = [u.nombreCompleto, u.email, u.telefono, u.documentoIdentidad, u.ciudad, u.pais, u.empresa, u.roleLabel].join(' ').toLowerCase();
+                            if (hay.indexOf(q) === -1) return false;
                         }
+                        return true;
+                    });
+                },
+                get listaRol() {
+                    var l = this.listaLimpia;
+                    if (this.rol === 'USER') return l.filter(function (u) { return !u.equipo; });
+                    if (this.rol === 'EQUIPO') return l.filter(function (u) { return u.equipo; });
+                    return l;
+                },
+                cumpleEstado(u) {
+                    switch (this.estado) {
+                        case 'activos': return !u.suspendido;
+                        case 'suspendidos': return !!u.suspendido;
+                        case 'equipo': return !!u.equipo;
+                        case 'nuevos': return !!u.nuevo;
+                        case 'conReservas': return (u.totalReservas || 0) > 0;
+                        default: return true;
                     }
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        const { razon, permanente } = result.value;
-                        const url = `/admin/usuarios/estado/${id}?activo=false&razon=${encodeURIComponent(razon)}&permanente=${permanente}`;
-                        Swal.fire({ title: 'Procesando...', didOpen: () => { Swal.showLoading(); } });
-                        fetch(url, {
-                            method: 'POST',
-                            headers: { [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content }
-                        }).then(res => res.ok ? window.location.reload() : alert('Error'));
+                },
+                get filtradas() {
+                    var self = this;
+                    var out = this.listaRol.filter(function (u) { return self.cumpleEstado(u); });
+                    var orden = this.orden;
+                    out.sort(function (a, b) {
+                        if (orden === 'antiguos') return String(a.creado || '').localeCompare(String(b.creado || ''));
+                        if (orden === 'nombre') return String(a.nombreCompleto || '').localeCompare(String(b.nombreCompleto || ''), 'es');
+                        if (orden === 'actividad') return (b.totalReservas || 0) - (a.totalReservas || 0);
+                        if (orden === 'inversion') return (b.totalInvertido || 0) - (a.totalInvertido || 0);
+                        return String(b.creado || '').localeCompare(String(a.creado || ''));
+                    });
+                    return out;
+                },
+                get totalFiltrado() { return this.filtradas.length; },
+                get totalPaginas() { return Math.max(1, Math.ceil(this.totalFiltrado / this.perPage)); },
+                get paginaSegura() { return Math.min(this.page, this.totalPaginas); },
+                get paginadas() { var s = (this.paginaSegura - 1) * this.perPage; return this.filtradas.slice(s, s + this.perPage); },
+                get rangoInicio() { return this.totalFiltrado === 0 ? 0 : (this.paginaSegura - 1) * this.perPage + 1; },
+                get rangoFin() { return Math.min(this.totalFiltrado, this.paginaSegura * this.perPage); },
+                get paginas() {
+                    var t = this.totalPaginas, p = this.paginaSegura, out = [];
+                    if (t <= 7) { for (var i = 1; i <= t; i++) out.push(i); return out; }
+                    var start = Math.max(1, p - 2), end = Math.min(t, start + 4);
+                    start = Math.max(1, end - 4);
+                    for (var j = start; j <= end; j++) out.push(j);
+                    return out;
+                },
+                get conteos() {
+                    var l = this.listaLimpia;
+                    return {
+                        todos: l.length,
+                        clientes: l.filter(function (u) { return !u.equipo; }).length,
+                        equipo: l.filter(function (u) { return u.equipo; }).length
+                    };
+                },
+                get hayFiltros() {
+                    return !!this.q || this.scope !== 'todos' || this.rol !== 'todos' || this.estado !== 'todos'
+                        || this.orden !== 'recientes' || !!this.desde || !!this.hasta;
+                },
+                get sinDatos() { return this.usuarios.length === 0; },
+                get scopeLabel() {
+                    var m = { activos: 'Solo activos', suspendidos: 'Solo suspendidos', equipo: 'Solo equipo', nuevos: 'Nuevos · 30 días' };
+                    return m[this.scope] || '';
+                },
+                get sinResTitulo() { return this.hayFiltros ? 'Sin coincidencias' : 'Sin personas que mostrar'; },
+                get sinResTexto() {
+                    if (this.q) return 'Ninguna persona coincide con «' + this.q + '». Prueba con otro nombre, correo o teléfono.';
+                    if (this.hayFiltros) return 'Ajusta el estado, el rango de fechas o el tipo de cuenta para ver más resultados.';
+                    return 'Cuando la comunidad crezca, aquí aparecerán todas las cuentas.';
+                },
+                irA(destino) {
+                    this.scope = (['todos', 'activos', 'suspendidos', 'equipo', 'nuevos'].indexOf(destino) >= 0) ? destino : 'todos';
+                    this.page = 1;
+                    this.cerrarPopovers();
+                    this.syncUrl();
+                },
+                setRol(r) { this.rol = r; this.page = 1; this.syncUrl(); },
+                onFilterChange() { this.page = 1; this.syncUrl(); },
+                limpiarFiltros() {
+                    this.q = ''; this.scope = 'todos'; this.rol = 'todos'; this.estado = 'todos'; this.orden = 'recientes';
+                    this.desde = ''; this.hasta = ''; this.hoverISO = '';
+                    this.estadoOpen = false; this.ordenOpen = false; this.fechaOpen = false;
+                    this.page = 1; this.syncUrl();
+                },
+
+                // ── Helpers ──
+                plural(n, s, p) { return (Number(n) || 0) === 1 ? s : p; },
+                num(v) { return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(v) || 0); },
+                money(v) { return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(v) || 0); },
+                shortId(id) { var s = String(id || ''); return s.length > 6 ? s.slice(-6) : s; },
+                iconPath(k) { return US_ICON[k] || US_ICON.list; },
+
+                syncUrl() {
+                    var p = new URLSearchParams();
+                    if (this.q) p.set('q', this.q);
+                    if (this.scope !== 'todos') p.set('scope', this.scope);
+                    if (this.rol !== 'todos') p.set('rol', this.rol);
+                    if (this.estado !== 'todos') p.set('estado', this.estado);
+                    if (this.orden !== 'recientes') p.set('orden', this.orden);
+                    if (this.desde) p.set('desde', this.desde);
+                    if (this.hasta) p.set('hasta', this.hasta);
+                    if (this.page > 1) p.set('page', this.page);
+                    var s = p.toString();
+                    try { history.replaceState(null, '', location.pathname + (s ? '?' + s : '')); } catch (e) { /* file:// */ }
+                },
+// ── Dropdown: estado ──
+                contarEstado(k) {
+                    var l = this.listaRol;
+                    if (k === 'todos') return l.length;
+                    if (k === 'activos') return l.filter(function (u) { return !u.suspendido; }).length;
+                    if (k === 'suspendidos') return l.filter(function (u) { return u.suspendido; }).length;
+                    if (k === 'equipo') return l.filter(function (u) { return u.equipo; }).length;
+                    if (k === 'nuevos') return l.filter(function (u) { return u.nuevo; }).length;
+                    if (k === 'conReservas') return l.filter(function (u) { return (u.totalReservas || 0) > 0; }).length;
+                    return 0;
+                },
+                get estadoOpciones() {
+                    var self = this;
+                    var opts = [
+                        { key: 'todos', label: 'Todos los estados', desc: 'Sin filtrar', icon: US_ICON.list },
+                        { key: 'activos', label: 'Activos', desc: 'Con acceso vigente', icon: US_ICON.check },
+                        { key: 'suspendidos', label: 'Suspendidos', desc: 'Acceso bloqueado', icon: US_ICON.stop },
+                        { key: 'equipo', label: 'Equipo', desc: 'Administradores y staff', icon: US_ICON.shield },
+                        { key: 'nuevos', label: 'Nuevos', desc: 'Registrados en 30 días', icon: US_ICON.plus },
+                        { key: 'conReservas', label: 'Con reservas', desc: 'Han reservado alguna vez', icon: US_ICON.box }
+                    ];
+                    opts.forEach(function (o) { o.count = self.contarEstado(o.key); });
+                    return opts;
+                },
+                get estadoActual() {
+                    var k = this.estado;
+                    var f = this.estadoOpciones.filter(function (o) { return o.key === k; });
+                    return f.length ? f[0] : this.estadoOpciones[0];
+                },
+                toggleEstado() {
+                    if (this.estadoOpen) { this.estadoOpen = false; return; }
+                    this.cerrarPopovers(); this.estadoOpen = true;
+                    var self = this;
+                    var i = this.estadoOpciones.map(function (o) { return o.key; }).indexOf(this.estado);
+                    this.estadoIdx = i < 0 ? 0 : i;
+                    this.$nextTick(function () { if (self.$refs.estadoMenu) self.$refs.estadoMenu.focus(); });
+                },
+                elegirEstado(i) {
+                    var o = this.estadoOpciones[i]; if (!o) return;
+                    this.estado = o.key; this.estadoOpen = false; this.onFilterChange();
+                },
+                moverEstado(dir) { var n = this.estadoOpciones.length; this.estadoIdx = (this.estadoIdx + dir + n) % n; },
+
+                // ── Dropdown: orden ──
+                get ordenOpciones() {
+                    return [
+                        { key: 'recientes', label: 'Más recientes', desc: 'Registro descendente', icon: US_ICON.clock },
+                        { key: 'antiguos', label: 'Más antiguos', desc: 'Registro ascendente', icon: US_ICON.calendar },
+                        { key: 'nombre', label: 'Nombre (A–Z)', desc: 'Orden alfabético', icon: US_ICON.user },
+                        { key: 'actividad', label: 'Mayor actividad', desc: 'Más reservas primero', icon: US_ICON.box },
+                        { key: 'inversion', label: 'Mayor inversión', desc: 'Más facturación primero', icon: US_ICON.coin }
+                    ];
+                },
+                get ordenActual() {
+                    var k = this.orden;
+                    var f = this.ordenOpciones.filter(function (o) { return o.key === k; });
+                    return f.length ? f[0] : this.ordenOpciones[0];
+                },
+                toggleOrden() {
+                    if (this.ordenOpen) { this.ordenOpen = false; return; }
+                    this.cerrarPopovers(); this.ordenOpen = true;
+                    var self = this;
+                    var i = this.ordenOpciones.map(function (o) { return o.key; }).indexOf(this.orden);
+                    this.ordenIdx = i < 0 ? 0 : i;
+                    this.$nextTick(function () { if (self.$refs.ordenMenu) self.$refs.ordenMenu.focus(); });
+                },
+                elegirOrden(i) {
+                    var o = this.ordenOpciones[i]; if (!o) return;
+                    this.orden = o.key; this.ordenOpen = false; this.onFilterChange();
+                },
+                moverOrden(dir) { var n = this.ordenOpciones.length; this.ordenIdx = (this.ordenIdx + dir + n) % n; },
+
+                // ── DateRangePicker ──
+                mesesVisibles() { return (window.matchMedia && window.matchMedia('(min-width: 640px)').matches) ? 2 : 1; },
+                onResize() { if (this.fechaOpen) this.dpNM = this.mesesVisibles(); },
+                get presetsFecha() {
+                    return [
+                        { key: 'mes', label: 'Este mes' },
+                        { key: 'mespasado', label: 'Mes anterior' },
+                        { key: '90d', label: 'Últimos 90 días' },
+                        { key: 'anio', label: 'Este año' },
+                        { key: 'todo', label: 'Todo' }
+                    ];
+                },
+                toggleFecha() { this.fechaOpen ? this.cerrarFecha() : this.abrirFecha(); },
+                abrirFecha() {
+                    this.estadoOpen = false; this.ordenOpen = false;
+                    var base = this.desde || this.hasta || this.hoyISO();
+                    var d = this.parseISO(base);
+                    this.dpAnio = d.getFullYear(); this.dpMes = d.getMonth();
+                    this.dpNM = this.mesesVisibles();
+                    this.fechaOpen = true;
+                },
+                cerrarFecha() { this.fechaOpen = false; this.hoverISO = ''; },
+                limpiarFechas() { this.desde = ''; this.hasta = ''; this.hoverISO = ''; this.onFilterChange(); },
+                dpMesAnterior() { var m = this.dpMes - 1, a = this.dpAnio; if (m < 0) { m = 11; a--; } this.dpMes = m; this.dpAnio = a; },
+                dpMesSiguiente() { var m = this.dpMes + 1, a = this.dpAnio; if (m > 11) { m = 0; a++; } this.dpMes = m; this.dpAnio = a; },
+                get dpMeses() {
+                    var out = [], n = this.dpNM || this.mesesVisibles();
+                    for (var i = 0; i < n; i++) {
+                        var d = new Date(this.dpAnio, this.dpMes + i, 1);
+                        out.push(this.mesSel(d.getFullYear(), d.getMonth()));
                     }
-                });
-            } else {
-                Swal.fire({
-                    title: '<span class="text-surface-900 font-extrabold text-2xl">Restaurar Acceso</span>',
-                    text: '¿Confirmas la reactivación de la cuenta? El usuario podrá reservar de inmediato.',
-                    showCancelButton: true,
-                    confirmButtonColor: '#22c55e',
-                    confirmButtonText: 'Reactivar ahora',
-                    cancelButtonText: 'Mantener bloqueado',
-                    customClass: {
-                        popup: 'rounded-[3rem] p-10 shadow-2xl',
-                        confirmButton: 'rounded-2xl px-8 py-4',
-                        cancelButton: 'rounded-2xl px-8 py-4 bg-surface-50 text-surface-400 border-none'
+                    return out;
+                },
+                mesSel(anio, mes) {
+                    var inicio = new Date(anio, mes, 1 - this.dow(new Date(anio, mes, 1)));
+                    var celdas = [];
+                    for (var i = 0; i < 42; i++) {
+                        var d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + i);
+                        celdas.push({ iso: this.iso(d), dia: d.getDate(), fuera: d.getMonth() !== mes || d.getFullYear() !== anio });
                     }
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        fetch(`/admin/usuarios/estado/${id}?activo=true`, {
-                            method: 'POST',
-                            headers: { [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content }
-                        }).then(res => res.ok ? window.location.reload() : alert('Error'));
+                    return { key: anio + '-' + mes, titulo: this.nombreMes(anio, mes), celdas: celdas };
+                },
+                dpClase(c) {
+                    var ini = this.desde;
+                    var fin = this.hasta || (this.desde && this.hoverISO ? this.hoverISO : '');
+                    if (ini && fin && ini > fin) { var t = ini; ini = fin; fin = t; }
+                    return {
+                        'us-dp__day--out': c.fuera,
+                        'us-dp__day--today': c.iso === this.hoyISO(),
+                        'us-dp__day--range': !!(ini && fin && c.iso > ini && c.iso < fin),
+                        'us-dp__day--edge': !!(ini && (c.iso === ini || c.iso === fin))
+                    };
+                },
+                dpElegir(iso) {
+                    if (!this.desde || (this.desde && this.hasta)) {
+                        this.desde = iso; this.hasta = ''; this.onFilterChange(); return;
                     }
-                });
-            }
+                    if (iso < this.desde) { this.hasta = this.desde; this.desde = iso; }
+                    else { this.hasta = iso; }
+                    this.onFilterChange();
+                },
+                aplicarPreset(k) {
+                    var h = this.hoyISO();
+                    if (k === 'todo') { this.desde = ''; this.hasta = ''; }
+                    else if (k === 'mes') { this.desde = h.substring(0, 8) + '01'; this.hasta = this.finDeMes(h); }
+                    else if (k === 'mespasado') {
+                        var primero = this.parseISO(h.substring(0, 8) + '01');
+                        var prev = new Date(primero.getFullYear(), primero.getMonth() - 1, 1);
+                        var prevFin = new Date(primero.getFullYear(), primero.getMonth(), 0);
+                        this.desde = this.iso(prev); this.hasta = this.iso(prevFin);
+                    }
+                    else if (k === '90d') { this.desde = this.sumaDias(h, -90); this.hasta = h; }
+                    else if (k === 'anio') { this.desde = h.substring(0, 4) + '-01-01'; this.hasta = h.substring(0, 4) + '-12-31'; }
+                    this.onFilterChange();
+                },
+                get rangoLabel() {
+                    if (this.desde && this.hasta) return this.fechaCorta(this.desde) + ' → ' + this.fechaCorta(this.hasta);
+                    if (this.desde) return 'Desde ' + this.fechaCorta(this.desde);
+                    if (this.hasta) return 'Hasta ' + this.fechaCorta(this.hasta);
+                    return 'Cualquier fecha';
+                },
+
+                cerrarPopovers(ev) {
+                    if (ev && ev.target && ev.target.closest && ev.target.closest('[data-ugpop]')) return;
+                    this.estadoOpen = false; this.ordenOpen = false; this.fechaOpen = false; this.hoverISO = '';
+                },
+
+                // ── Modales ──
+                abrirFicha(u) {
+                    if (!u) return;
+                    this.ficha = u;
+                    this.tab = 'perfil';
+                    this.notasEdit = u.notasAdmin || '';
+                    var d = document.getElementById('us-ficha');
+                    if (d) this.enfocar(d);
+                },
+                cerrarFicha() { var d = document.getElementById('us-ficha'); if (d && d.open) d.close(); },
+                abrirRol(u) {
+                    if (!u) return;
+                    this.ficha = u; this.rolSel = u.role;
+                    var d = document.getElementById('us-rol');
+                    if (d) this.enfocar(d);
+                },
+                cerrarRol() { var d = document.getElementById('us-rol'); if (d && d.open) d.close(); },
+                abrirAcceso(u) {
+                    if (!u) return;
+                    this.ficha = u;
+                    this.accesoTipo = 'temporal';
+                    this.accesoRazon = u.razonSuspension || '';
+                    this.accesoInicio = this.hoyISO();
+                    this.accesoFin = this.sumaDias(this.hoyISO(), 7);
+                    var d = document.getElementById('us-acceso');
+                    if (d) this.enfocar(d);
+                },
+                cerrarAcceso() { var d = document.getElementById('us-acceso'); if (d && d.open) d.close(); },
+                setAccesoTipo(k) { this.accesoTipo = k; },
+                abrirEliminar(u) { this.eliminarTarget = u; var d = document.getElementById('us-eliminar'); if (d) this.enfocar(d); },
+                cerrarEliminar() { var d = document.getElementById('us-eliminar'); if (d && d.open) d.close(); },
+                enfocar(d) {
+                    if (!d) return;
+                    if (!d.open) d.showModal();
+                    var c = d.querySelector('.us-modal__card');
+                    if (c) {
+                        c.setAttribute('tabindex', '-1');
+                        try { c.focus({ preventScroll: true }); } catch (e) { /* noop */ }
+                    }
+                },
+
+                get rolesForm() {
+                    return [
+                        { key: 'USER', label: 'Cliente', desc: 'Compra y reserva desde la tienda. Sin acceso al panel administrativo.', icon: US_ICON.user },
+                        { key: 'ADMIN', label: 'Administrador', desc: 'Control total del catálogo, reservas, logística y comunidad.', icon: US_ICON.shield }
+                    ];
+                },
+                get tiposAcceso() {
+                    return [
+                        { key: 'temporal', label: 'Suspensión temporal', desc: 'Bloqueo de 7 días desde hoy.', icon: US_ICON.clock, ic: 'us-choice__ic--warn' },
+                        { key: 'fecha', label: 'Rango personalizado', desc: 'Elige la fecha de inicio y de fin.', icon: US_ICON.calendar, ic: 'us-choice__ic--warn' },
+                        { key: 'permanente', label: 'Bloqueo permanente', desc: 'La cuenta no podrá acceder hasta reactivarla.', icon: US_ICON.stop, ic: 'us-choice__ic--stop' }
+                    ];
+                },
+
+                // ── Persistencia ──
+                async post(url, params) {
+                    var body = new URLSearchParams();
+                    Object.keys(params || {}).forEach(function (k) {
+                        var v = params[k];
+                        if (v === undefined || v === null) v = '';
+                        body.append(k, String(v));
+                    });
+                    var metaT = document.querySelector('meta[name="_csrf"]');
+                    var metaH = document.querySelector('meta[name="_csrf_header"]');
+                    var headers = { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+                    if (metaT && metaH) headers[metaH.getAttribute('content')] = metaT.getAttribute('content');
+                    var res = await fetch(url, { method: 'POST', headers: headers, body: body.toString(), credentials: 'same-origin' });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return await res.json();
+                },
+                aviso(msg, tipo) { if (window.showToast) window.showToast(msg, tipo || 'success'); },
+
+                refreshStats() {
+                    var u = this.usuarios;
+                    this.stats.total = u.length;
+                    this.stats.activos = u.filter(function (x) { return !x.suspendido; }).length;
+                    this.stats.suspendidos = u.filter(function (x) { return x.suspendido; }).length;
+                    this.stats.equipo = u.filter(function (x) { return x.equipo; }).length;
+                    this.stats.nuevos = u.filter(function (x) { return x.nuevo; }).length;
+                    this.stats.conReservas = u.filter(function (x) { return (x.totalReservas || 0) > 0; }).length;
+                },
+
+                async guardarRol() {
+                    if (!this.ficha || !this.rolSel) return;
+                    var u = this.ficha;
+                    this.guardandoRol = true;
+                    try {
+                        var r = await this.post('/admin/usuarios/rol/' + encodeURIComponent(u.id), { role: this.rolSel });
+                        if (!r.ok) { this.aviso(r.message || 'No se pudo cambiar el rol', 'error'); return; }
+                        u.role = r.role || this.rolSel;
+                        u.roleLabel = r.roleLabel || u.role;
+                        u.equipo = u.role !== 'USER';
+                        this.refreshStats();
+                        this.cerrarRol();
+                        this.aviso(r.message || 'Rol actualizado', 'success');
+                    } catch (e) {
+                        this.aviso('No se pudo actualizar el rol. Inténtalo de nuevo.', 'error');
+                    } finally {
+                        this.guardandoRol = false;
+                    }
+                },
+
+                async guardarAcceso() {
+                    if (!this.ficha) return;
+                    var u = this.ficha;
+                    var suspender = !u.suspendido;
+                    if (suspender && !String(this.accesoRazon || '').trim()) {
+                        this.aviso('Indica el motivo de la suspensión', 'error');
+                        return;
+                    }
+                    if (suspender && this.accesoTipo === 'fecha' && (!this.accesoInicio || !this.accesoFin)) {
+                        this.aviso('Selecciona las fechas de inicio y fin', 'error');
+                        return;
+                    }
+                    this.guardandoAcceso = true;
+                    try {
+                        var params;
+                        if (!suspender) {
+                            params = { activo: true };
+                        } else {
+                            params = {
+                                activo: false,
+                                razon: String(this.accesoRazon).trim(),
+                                permanente: this.accesoTipo === 'permanente',
+                                fechaInicio: this.accesoTipo === 'fecha' ? this.accesoInicio : this.hoyISO(),
+                                fechaFin: this.accesoTipo === 'fecha' ? this.accesoFin : (this.accesoTipo === 'temporal' ? this.sumaDias(this.hoyISO(), 7) : '')
+                            };
+                        }
+                        var r = await this.post('/admin/usuarios/estado/' + encodeURIComponent(u.id), params);
+                        if (!r.ok) { this.aviso(r.message || 'No se pudo actualizar el acceso', 'error'); return; }
+                        u.suspendido = !r.activo;
+                        u.activo = !!r.activo;
+                        u.razonSuspension = r.razon || '';
+                        u.suspensionPermanente = !!r.permanente;
+                        u.fechaInicioSuspension = r.activo ? null : (params.fechaInicio || null);
+                        u.fechaFinSuspension = r.fechaFin || null;
+                        this.refreshStats();
+                        this.cerrarAcceso();
+                        this.aviso(r.message || 'Acceso actualizado', 'success');
+                    } catch (e) {
+                        this.aviso('No se pudo actualizar el acceso. Inténtalo de nuevo.', 'error');
+                    } finally {
+                        this.guardandoAcceso = false;
+                    }
+                },
+
+                async guardarNotas() {
+                    if (!this.ficha) return;
+                    var u = this.ficha;
+                    this.guardandoNotas = true;
+                    try {
+                        var r = await this.post('/admin/usuarios/notas/' + encodeURIComponent(u.id), { notas: this.notasEdit });
+                        if (!r.ok) { this.aviso(r.message || 'No se pudieron guardar las notas', 'error'); return; }
+                        u.notasAdmin = r.notas || '';
+                        this.notasEdit = u.notasAdmin;
+                        this.aviso(r.message || 'Notas guardadas', 'success');
+                    } catch (e) {
+                        this.aviso('No se pudieron guardar las notas.', 'error');
+                    } finally {
+                        this.guardandoNotas = false;
+                    }
+                },
+
+                async confirmarEliminar() {
+                    var u = this.eliminarTarget;
+                    if (!u) return;
+                    this.guardandoEliminar = true;
+                    try {
+                        var r = await this.post('/admin/usuarios/eliminar/' + encodeURIComponent(u.id), {});
+                        if (!r.ok) { this.aviso(r.message || 'No se pudo eliminar la cuenta', 'error'); return; }
+                        this.usuarios = this.usuarios.filter(function (x) { return x.id !== u.id; });
+                        this.ficha = null;
+                        this.refreshStats();
+                        this.cerrarEliminar();
+                        this.cerrarFicha();
+                        this.eliminarTarget = null;
+                        this.aviso(r.message || 'Cuenta eliminada', 'success');
+                    } catch (e) {
+                        this.aviso('No se pudo eliminar la cuenta.', 'error');
+                    } finally {
+                        this.guardandoEliminar = false;
+                    }
+                }
+            };
         }
-    </script>
+        </script>
+    </div>
 </main>
 </body>
 </html>
