@@ -5,7 +5,6 @@ import com.alquiler.furent.config.AssistantProperties;
 import com.alquiler.furent.model.AssistantConversation;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,7 +76,6 @@ class AssistantOrchestratorTest {
     private void stubGemini(List<List<GeminiChunk>> responses) {
         AtomicInteger index = new AtomicInteger();
         lenient().doAnswer(invocation -> {
-            @SuppressWarnings("unchecked")
             Consumer<GeminiChunk> consumer = invocation.getArgument(1);
             List<GeminiChunk> chunks = responses.get(Math.min(index.getAndIncrement(), responses.size() - 1));
             chunks.forEach(consumer);
