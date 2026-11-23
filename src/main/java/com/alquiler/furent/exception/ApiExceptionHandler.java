@@ -11,6 +11,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -87,6 +88,16 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleRateLimit(TooManyRequestsException ex, HttpServletRequest req) {
         log.warn("API 429: {} — {}", req.getRequestURI(), ex.getMessage());
         return buildResponse(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), req.getRequestURI());
+    }
+
+    /**
+     * El cliente cerró la conexión a mitad de una respuesta en streaming (por ejemplo, la SSE del
+     * asistente). No es un error del servidor: la respuesta ya no es utilizable y no se puede
+     * escribir un JSON encima. Se registra a nivel debug para no ensuciar los logs con falsos 500.
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleClientDisconnect(AsyncRequestNotUsableException ex, HttpServletRequest req) {
+        log.debug("Cliente desconectado durante la respuesta en {}: {}", req.getRequestURI(), ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

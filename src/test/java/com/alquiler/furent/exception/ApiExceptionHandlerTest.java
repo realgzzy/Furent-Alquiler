@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 import java.util.Map;
 
@@ -113,6 +114,14 @@ class ApiExceptionHandlerTest {
         assertEquals(500, response.getBody().get("status"));
         assertEquals("Ha ocurrido un error inesperado. Por favor, intenta de nuevo.",
                 response.getBody().get("message"));
+    }
+
+    @Test
+    void handleClientDisconnect_doesNotWriteAResponseAndDoesNotThrow() {
+        AsyncRequestNotUsableException ex = new AsyncRequestNotUsableException("cliente desconectado");
+
+        // No debe lanzar: la respuesta SSE ya no es utilizable y no se le puede escribir JSON encima.
+        assertDoesNotThrow(() -> handler.handleClientDisconnect(ex, request));
     }
 
     @Test
