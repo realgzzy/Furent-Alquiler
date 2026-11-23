@@ -68,6 +68,26 @@
                                     th:text="${conversacion.tokensEntrada + ' / ' + conversacion.tokensSalida}">0 / 0</dd>
                             </div>
                             <div class="flex items-center justify-between gap-4">
+                                <dt class="font-bold text-surface-400">Valoraciones</dt>
+                                <dd class="font-black">
+                                    <span class="text-green-600 inline-flex items-center gap-1">
+                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M7 10v10H4.5A1.5 1.5 0 0 1 3 18.5v-7A1.5 1.5 0 0 1 4.5 10H7Z"/>
+                                            <path d="M7 10l3.2-6.4A1.6 1.6 0 0 1 11.7 3h.3a2.3 2.3 0 0 1 2.3 2.3V9h4.1a2 2 0 0 1 2 2.4l-1.4 7A2 2 0 0 1 18 20H7"/>
+                                        </svg>
+                                        <span th:text="${conversacion.feedbackPositivo}">0</span>
+                                    </span>
+                                    <span class="text-surface-300">·</span>
+                                    <span class="text-red-500 inline-flex items-center gap-1">
+                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M7 14V4H4.5A1.5 1.5 0 0 0 3 5.5v7A1.5 1.5 0 0 0 4.5 14H7Z"/>
+                                            <path d="M7 14l3.2 6.4A1.6 1.6 0 0 0 11.7 21h.3a2.3 2.3 0 0 0 2.3-2.3V15h4.1a2 2 0 0 0 2-2.4l-1.4-7A2 2 0 0 0 18 4H7"/>
+                                        </svg>
+                                        <span th:text="${conversacion.feedbackNegativo}">0</span>
+                                    </span>
+                                </dd>
+                            </div>
+                            <div class="flex items-center justify-between gap-4">
                                 <dt class="font-bold text-surface-400">Inicio</dt>
                                 <dd class="font-black text-surface-800"
                                     th:text="${T(com.alquiler.furent.util.DateDisplay).dateTime(conversacion.inicio)}">-</dd>

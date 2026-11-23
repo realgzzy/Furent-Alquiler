@@ -61,8 +61,11 @@
         },
         "fechaInicio": { "type": "STRING", "description": "YYYY-MM-DD." },
         "fechaFin": { "type": "STRING", "description": "YYYY-MM-DD." },
-        "tipoEvento": { "type": "STRING" },
-        "invitados": { "type": "INTEGER" },
+        "tipoEvento": { "type": "STRING", "description": "Opcional: datos del evento que ya conoces, para precargar el checkout." },
+        "invitados": { "type": "INTEGER", "description": "Opcional: numero de invitados que ya conoces." },
+        "horaEntrega": { "type": "STRING", "description": "Opcional: hora de entrega HH:mm." },
+        "direccion": { "type": "STRING", "description": "Opcional: direccion del evento." },
+        "notas": { "type": "STRING", "description": "Opcional: notas del evento." },
         "codigoCupon": { "type": "STRING" }
       },
       "required": ["items", "fechaInicio", "fechaFin"]
@@ -161,8 +164,19 @@
   },
   {
     "name": "pedir_detalles_alquiler",
-    "description": "Abre en el panel lateral el formulario de 'Detalles del alquiler' con los campos del checkout (tipo de evento, invitados, fechas, direccion, hora de entrega y notas). El usuario lo completa y confirma; sus datos quedan listos y se le lleva al checkout precargado.",
-    "parameters": { "type": "OBJECT", "properties": {} }
+    "description": "Abre en el panel lateral el formulario de 'Detalles del alquiler' con los campos del checkout (tipo de evento, invitados, fechas, direccion, hora de entrega y notas). Pasa como argumentos TODOS los datos que el usuario ya te haya dado en la conversacion para que aparezcan precargados; omite los que no tengas. El usuario completa o ajusta y confirma; sus datos quedan listos y se le lleva al checkout precargado.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "tipoEvento": { "type": "STRING", "description": "Boda, Corporativo, Cumpleanos, Graduacion, Feria u Otro." },
+        "invitados": { "type": "INTEGER", "description": "Numero de invitados." },
+        "fechaInicio": { "type": "STRING", "description": "Fecha de entrega YYYY-MM-DD." },
+        "fechaFin": { "type": "STRING", "description": "Fecha de devolucion YYYY-MM-DD." },
+        "horaEntrega": { "type": "STRING", "description": "Hora de entrega HH:mm (08:00 a 20:00)." },
+        "direccion": { "type": "STRING", "description": "Direccion del evento." },
+        "notas": { "type": "STRING", "description": "Notas o requerimientos especiales." }
+      }
+    }
   },
   {
     "name": "consultar_alquiler",
@@ -184,6 +198,193 @@
         "resumen": { "type": "STRING" }
       },
       "required": ["motivo", "resumen"]
+    }
+  },
+  {
+    "name": "siguiente_fecha_disponible",
+    "description": "Busca el primer rango de fechas en los proximos 90 dias en el que todos los productos pedidos tienen stock suficiente. Devuelve fechaInicio y fechaFin y abre el panel de fechas.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "productoIds": { "type": "ARRAY", "items": { "type": "STRING" } },
+        "cantidad": { "type": "INTEGER", "description": "Unidades necesarias de cada producto." },
+        "dias": { "type": "INTEGER", "description": "Duracion del alquiler en dias (1 a 7)." },
+        "desde": { "type": "STRING", "description": "Fecha minima YYYY-MM-DD (opcional)." }
+      },
+      "required": ["productoIds"]
+    }
+  },
+  {
+    "name": "aplicar_cupon",
+    "description": "Aplica un cupon a la bolsa actual y devuelve una cotizacion recalculada con el descuento real. Requiere fechas de inicio y fin.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "codigo": { "type": "STRING" },
+        "fechaInicio": { "type": "STRING", "description": "YYYY-MM-DD." },
+        "fechaFin": { "type": "STRING", "description": "YYYY-MM-DD." }
+      },
+      "required": ["codigo", "fechaInicio", "fechaFin"]
+    }
+  },
+  {
+    "name": "listar_cupones",
+    "description": "Lista los cupones vigentes que el usuario puede usar. Si la bolsa tiene un total, indica el descuento real de cada cupon. Usalo cuando el usuario pregunte por descuentos o antes de cerrar una cotizacion para recomendarle el mejor cupon.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "montoTotal": { "type": "NUMBER", "description": "Total de la cotizacion actual en COP (opcional)." }
+      }
+    }
+  },
+  {
+    "name": "planificar_evento",
+    "description": "Arma un plan integral del evento: mobiliario recomendado, presupuesto por categoria, distribucion de mesas y checklist con fechas clave. Emite el plan en el panel lateral.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "tipoEvento": { "type": "STRING" },
+        "invitados": { "type": "INTEGER" },
+        "estilo": { "type": "STRING" },
+        "presupuesto": { "type": "NUMBER" },
+        "fechaInicio": { "type": "STRING", "description": "YYYY-MM-DD (opcional)." },
+        "fechaFin": { "type": "STRING", "description": "YYYY-MM-DD (opcional)." },
+        "horaEvento": { "type": "STRING", "description": "HH:mm (opcional)." }
+      },
+      "required": ["invitados"]
+    }
+  },
+  {
+    "name": "distribucion_mesas",
+    "description": "Calcula cuantas mesas y sillas se necesitan segun los invitados y muestra la distribucion sugerida en el panel lateral.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "invitados": { "type": "INTEGER" },
+        "mesas": { "type": "INTEGER", "description": "Numero de mesas deseado (opcional)." }
+      },
+      "required": ["invitados"]
+    }
+  },
+  {
+    "name": "presupuesto_por_categorias",
+    "description": "Calcula un presupuesto en tres niveles (esencial, recomendado y premium) con precios reales del catalogo y el desglose por categoria.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "tipoEvento": { "type": "STRING" },
+        "invitados": { "type": "INTEGER" },
+        "estilo": { "type": "STRING" },
+        "presupuesto": { "type": "NUMBER" },
+        "fechaInicio": { "type": "STRING", "description": "YYYY-MM-DD (opcional)." },
+        "fechaFin": { "type": "STRING", "description": "YYYY-MM-DD (opcional)." }
+      },
+      "required": ["invitados"]
+    }
+  },
+  {
+    "name": "descargar_cotizacion",
+    "description": "Pide al widget descargar la ultima cotizacion mostrada en PDF. Si no hay cotizacion reciente, cotiza primero.",
+    "parameters": { "type": "OBJECT", "properties": {} }
+  },
+  {
+    "name": "comparar_productos",
+    "description": "Compara de 2 a 4 productos por precio, calificacion, stock, material y dimensiones. Muestra la comparacion en el panel lateral.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "productoIds": { "type": "ARRAY", "items": { "type": "STRING" } }
+      },
+      "required": ["productoIds"]
+    }
+  },
+  {
+    "name": "ver_resenas",
+    "description": "Muestra las resenas reales de un producto con calificacion, comentario y respuesta de Furent.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "productoId": { "type": "STRING" },
+        "limite": { "type": "INTEGER", "description": "Cantidad maxima de resenas (1 a 10)." }
+      },
+      "required": ["productoId"]
+    }
+  },
+  {
+    "name": "productos_similares",
+    "description": "Recomienda productos disponibles parecidos a uno dado por categoria, material o busqueda semantica. Devuelve tarjetas en el chat.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "productoId": { "type": "STRING" },
+        "limite": { "type": "INTEGER", "description": "Cantidad de alternativas (1 a 6)." }
+      },
+      "required": ["productoId"]
+    }
+  },
+  {
+    "name": "ver_inspiracion",
+    "description": "Muestra imagenes de inspiracion de eventos reales, con los productos usados y sus precios. Filtra por categoria o tipo de evento.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "categoria": { "type": "STRING" },
+        "tipoEvento": { "type": "STRING" },
+        "limite": { "type": "INTEGER", "description": "Cantidad maxima de imagenes (1 a 8)." }
+      }
+    }
+  },
+  {
+    "name": "productos_populares",
+    "description": "Devuelve los productos mas alquilados y mejor calificados del catalogo. Usalo para inspiracion o cuando el usuario no sabe que buscar.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "limite": { "type": "INTEGER", "description": "Cantidad de productos (1 a 6)." }
+      }
+    }
+  },
+  {
+    "name": "mis_direcciones",
+    "description": "Lista las direcciones guardadas del usuario autenticado. Muestra el panel lateral de direcciones.",
+    "parameters": { "type": "OBJECT", "properties": {} }
+  },
+  {
+    "name": "mis_notificaciones",
+    "description": "Lista las notificaciones recientes del usuario autenticado y el numero de no leidas.",
+    "parameters": { "type": "OBJECT", "properties": {} }
+  },
+  {
+    "name": "pedir_datos_contacto",
+    "description": "Abre en el panel lateral un formulario breve para que un asesor contacte al usuario (nombre, telefono, correo, ciudad y motivo).",
+    "parameters": { "type": "OBJECT", "properties": {} }
+  },
+  {
+    "name": "guardar_contacto",
+    "description": "Guarda los datos del formulario de contacto que el usuario envio, para que el equipo comercial lo contacte.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "nombre": { "type": "STRING" },
+        "telefono": { "type": "STRING" },
+        "email": { "type": "STRING" },
+        "ciudad": { "type": "STRING" },
+        "motivo": { "type": "STRING" }
+      },
+      "required": ["nombre"]
+    }
+  },
+  {
+    "name": "sugerir_pagina",
+    "description": "Muestra botones con enlaces utiles: catalogo filtrado por categoria o busqueda, inspiracion, checkout, panel, FAQ, contacto o una pagina del sitio.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "pagina": { "type": "STRING", "description": "catalogo, producto, inspiracion, checkout, panel, faq, contacto, nosotros." },
+        "categoria": { "type": "STRING" },
+        "consulta": { "type": "STRING" },
+        "productoId": { "type": "STRING" }
+      }
     }
   }
 ]

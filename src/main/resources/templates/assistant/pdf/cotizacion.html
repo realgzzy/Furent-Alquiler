@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title>Cotización Furent</title>
+    <style>
+        body { font-family: 'Helvetica', 'Arial', sans-serif; margin: 40px; color: #2b2320; font-size: 11px; }
+        .header { border-bottom: 3px solid #b96a3d; padding-bottom: 14px; margin-bottom: 22px; }
+        .brand { font-size: 22px; font-weight: bold; letter-spacing: 2px; color: #b96a3d; }
+        .tagline { font-size: 9px; color: #777; margin-top: 3px; letter-spacing: 1px; text-transform: uppercase; }
+        .title { font-size: 16px; font-weight: bold; margin-top: 18px; }
+        .meta { margin: 14px 0 22px; }
+        .meta p { margin: 3px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+        th, td { border: 1px solid #e5ddd4; padding: 8px; text-align: left; }
+        th { background: #f6f1ea; font-size: 9px; text-transform: uppercase; letter-spacing: .6px; }
+        .right { text-align: right; }
+        .center { text-align: center; }
+        .totals { width: 260px; margin-left: auto; margin-top: 14px; }
+        .totals td { border: none; padding: 4px 6px; }
+        .totals .label { color: #777; }
+        .totals .grand { border-top: 2px solid #2b2320; font-size: 14px; font-weight: bold; }
+        .note { margin-top: 26px; padding: 12px; background: #faf6f1; border-left: 3px solid #b96a3d; font-size: 9px; color: #5c4f46; }
+        .footer { margin-top: 34px; border-top: 1px solid #e5ddd4; padding-top: 10px; font-size: 8px; color: #999; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="brand">FURENT</div>
+        <div class="tagline">Alquiler de mobiliario para eventos</div>
+        <div class="title">Cotización de alquiler</div>
+    </div>
+
+    <div class="meta">
+        <p><strong>Cliente:</strong> <span th:text="${cliente}">cliente</span></p>
+        <p><strong>Fecha de emisión:</strong> <span th:text="${fecha}">00/00/0000</span></p>
+        <p th:if="${fechaInicio != null and !#strings.isEmpty(fechaInicio)}">
+            <strong>Fechas del alquiler:</strong>
+            <span th:text="${fechaInicio}">2026-01-01</span> al <span th:text="${fechaFin}">2026-01-02</span>
+        </p>
+        <p><strong>Días de alquiler:</strong> <span th:text="${dias}">1</span></p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Mobiliario</th>
+                <th class="center" style="width: 60px;">Cantidad</th>
+                <th class="right" style="width: 90px;">Precio/día</th>
+                <th class="right" style="width: 100px;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="item : ${items}">
+                <td th:text="${item.nombre}">Producto</td>
+                <td class="center" th:text="${item.cantidad}">1</td>
+                <td class="right" th:text="'$' + ${#numbers.formatInteger(item.precioDia, 0, 'POINT')}">$ 0</td>
+                <td class="right" th:text="'$' + ${#numbers.formatInteger(item.total, 0, 'POINT')}">$ 0</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <table class="totals">
+        <tr>
+            <td class="label">Subtotal por día</td>
+            <td class="right" th:text="'$' + ${#numbers.formatInteger(subtotal, 0, 'POINT')}">$ 0</td>
+        </tr>
+        <tr th:if="${dias > 1}">
+            <td class="label" th:text="'Alquiler (' + ${dias} + ' días)'">Alquiler (2 días)</td>
+            <td class="right" th:text="'$' + ${#numbers.formatInteger(totalBruto, 0, 'POINT')}">$ 0</td>
+        </tr>
+        <tr th:if="${descuento != null and descuento.signum() > 0}">
+            <td class="label">Descuento</td>
+            <td class="right" th:text="'- $' + ${#numbers.formatInteger(descuento, 0, 'POINT')}">- $ 0</td>
+        </tr>
+        <tr>
+            <td class="grand">Total estimado</td>
+            <td class="grand right" th:text="'$' + ${#numbers.formatInteger(total, 0, 'POINT')}">$ 0</td>
+        </tr>
+    </table>
+
+    <div class="note">
+        <p th:text="${nota}">La disponibilidad no bloquea el inventario hasta confirmar y pagar.</p>
+        <p th:if="${codigoCupon != null and !#strings.isEmpty(codigoCupon)}">
+            Cupón aplicado: <span th:text="${codigoCupon}">FURENT</span>
+        </p>
+        <p>Esta cotización es informativa y no constituye una reserva confirmada.</p>
+    </div>
+
+    <div class="footer">
+        Furent · Cotización generada desde el asistente virtual · furent.co
+    </div>
+</body>
+</html>

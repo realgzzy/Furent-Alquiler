@@ -3,6 +3,7 @@ package com.alquiler.furent.assistant;
 import com.alquiler.furent.config.AssistantProperties;
 import com.alquiler.furent.model.Category;
 import com.alquiler.furent.model.Combo;
+import com.alquiler.furent.model.Coupon;
 import com.alquiler.furent.model.Payment;
 import com.alquiler.furent.model.Product;
 import com.alquiler.furent.model.Reservation;
@@ -57,6 +58,7 @@ public class AssistantToolService {
     private final AssistantMetrics metrics;
     private final ObjectMapper mapper;
     private final PaymentRepository paymentRepository;
+    private final AssistantExtraToolService extraTools;
 
     public AssistantToolService(ProductService productService,
                                 ReservationService reservationService,
@@ -68,7 +70,8 @@ public class AssistantToolService {
                                 AssistantProperties properties,
                                 AssistantMetrics metrics,
                                 ObjectMapper mapper,
-                                PaymentRepository paymentRepository) {
+                                PaymentRepository paymentRepository,
+                                AssistantExtraToolService extraTools) {
         this.productService = productService;
         this.reservationService = reservationService;
         this.reservationRepository = reservationRepository;
@@ -80,6 +83,7 @@ public class AssistantToolService {
         this.metrics = metrics;
         this.mapper = mapper;
         this.paymentRepository = paymentRepository;
+        this.extraTools = extraTools;
     }
 
     public ToolResult execute(String name, JsonNode rawArgs, ToolContext context) {
@@ -117,11 +121,23 @@ public class AssistantToolService {
             case "editar_bolsa" -> editarBolsa(args);
             case "recomendar_evento" -> recomendarEvento(args);
             case "pedir_datos_evento" -> pedirDatosEvento();
-            case "pedir_detalles_alquiler" -> pedirDetallesAlquiler();
+            case "pedir_detalles_alquiler" -> pedirDetallesAlquiler(args);
             case "consultar_alquiler" -> consultarAlquiler(args, context);
+            case "aplicar_cupon" -> aplicarCupon(args, context);
+        case "listar_cupones" -> listarCupones(args);
+            case "siguiente_fecha_disponible" -> siguienteFechaDisponible(args);
+            case "planificar_evento" -> planificarEvento(args);
+            case "distribucion_mesas" -> distribucionMesas(args);
+            case "presupuesto_por_categorias" -> presupuestoPorCategorias(args);
+            case "descargar_cotizacion" -> descargarCotizacion();
             case "escalar_a_humano" -> escalarAHumano(args, context);
-            default -> throw new AssistantException(AssistantException.Code.INVALID_INPUT,
-                    "Herramienta desconocida: " + name);
+            default -> {
+                if (extraTools != null && extraTools.supports(name)) {
+                    yield extraTools.execute(name, args, context);
+                }
+                throw new AssistantException(AssistantException.Code.INVALID_INPUT,
+                        "Herramienta desconocida: " + name);
+            }
         };
     }
 
@@ -419,6 +435,13 @@ public class AssistantToolService {
         quoteData.put("total", total);
         quoteData.put("checkoutUrl", "/cotizacion");
         quoteData.put("puedeContinuar", true);
+        // Datos del evento que el usuario ya dio: viajan con la cotización para que el checkout
+        // llegue precargado (tipo de evento, invitados, hora, dirección y notas), no solo las fechas.
+        putIfPresent(quoteData, args, "tipoEvento");
+        putIfPresent(quoteData, args, "invitados");
+        putIfPresent(quoteData, args, "horaEntrega");
+        putIfPresent(quoteData, args, "direccion");
+        putIfPresent(quoteData, args, "notas");
         return ToolResult.of(payload, List.of(new UiEvent(UiEvent.QUOTE, quoteData)));
     }
 
@@ -793,17 +816,532 @@ public class AssistantToolService {
         return ToolResult.of(payload, List.of(new UiEvent(UiEvent.PANEL, data)));
     }
 
-    private ToolResult pedirDetallesAlquiler() {
+    /**
+     * Abre el formulario del checkout en el panel lateral. Los datos que el usuario ya dio en el
+     * chat (tipo de evento, invitados, fechas, hora, dirección y notas) llegan como argumentos y
+     * se precargan en los campos; lo que falte lo completa el usuario.
+     */
+    private ToolResult pedirDetallesAlquiler(JsonNode args) {
         ObjectNode payload = mapper.createObjectNode();
         payload.put("ok", true);
-        payload.put("nota", "Se abrió el formulario de 'Detalles del alquiler' en el panel lateral. El usuario "
-                + "completa los datos del evento y confirma; quedan listos para el checkout.");
+        payload.put("nota", "Se abrió el formulario de 'Detalles del alquiler' en el panel lateral con los "
+                + "datos que el usuario ya te dio precargados. El usuario completa o ajusta lo que falte y "
+                + "confirma; quedan listos para el checkout.");
 
         ObjectNode data = mapper.createObjectNode();
         data.put("vista", "detalles");
         data.put("titulo", "Detalles del alquiler");
-        data.put("descripcion", "Completa los datos de tu evento y te los dejo listos en el checkout.");
+        data.put("descripcion", "Revisa y completa los datos de tu evento; te los dejo listos en el checkout.");
+        data.put("submitLabel", "Confirmar y reservar");
+
+        ArrayNode fields = data.putArray("fields");
+        ObjectNode tipo = selectField("tipoEvento", "Tipo de evento", true,
+                "Boda", "Boda", "Corporativo", "Corporativo", "Cumpleaños", "Cumpleaños",
+                "Graduación", "Graduación", "Feria", "Feria", "Otro", "Otro");
+        putFieldValue(tipo, args, "tipoEvento");
+        fields.add(tipo);
+
+        ObjectNode invitados = numberField("invitados", "Número de invitados", true, "120");
+        putFieldValue(invitados, args, "invitados");
+        fields.add(invitados);
+
+        ObjectNode inicio = dateField("fechaInicio", "Desde", true);
+        putFieldValue(inicio, args, "fechaInicio");
+        fields.add(inicio);
+
+        ObjectNode fin = dateField("fechaFin", "Hasta", true);
+        putFieldValue(fin, args, "fechaFin");
+        fields.add(fin);
+
+        ObjectNode hora = timeField("horaEntrega", "Hora de entrega", true);
+        putFieldValue(hora, args, "horaEntrega");
+        fields.add(hora);
+
+        ObjectNode direccion = baseField("direccion", "Dirección del evento", "text", true);
+        direccion.put("placeholder", "Calle, número, ciudad...");
+        putFieldValue(direccion, args, "direccion");
+        fields.add(direccion);
+
+        ObjectNode notas = textareaField("notas", "Notas (opcional)", false, "Accesos, requerimientos especiales...");
+        putFieldValue(notas, args, "notas");
+        fields.add(notas);
+
         return ToolResult.of(payload, List.of(new UiEvent(UiEvent.PANEL, data)));
+    }
+
+    /** Copia el valor recibido a la propiedad {@code name} del objeto, cuando viene con contenido. */
+    private void putIfPresent(ObjectNode node, JsonNode args, String name) {
+        String value = text(args, name);
+        if (!value.isBlank()) {
+            node.put(name, value);
+        }
+    }
+
+    /** Precarga el valor recibido en la propiedad "value" del campo de un formulario. */
+    private void putFieldValue(ObjectNode field, JsonNode args, String name) {
+        String value = text(args, name);
+        if (!value.isBlank()) {
+            field.put("value", value);
+        }
+    }
+
+    /**
+     * Lista los cupones vigentes aplicables a la compra actual. Omite códigos ya expirados o
+     * agotados y, si hay una bolsa con total, calcula el descuento real de cada cupón.
+     */
+    private ToolResult listarCupones(JsonNode args) {
+        ObjectNode payload = mapper.createObjectNode();
+        BigDecimal total = decimal(args, "montoTotal");
+        List<Map<String, Object>> cupones = new ArrayList<>();
+        for (Coupon cupon : couponService.getAll()) {
+            if (cupon == null || !cupon.isValid()) {
+                continue;
+            }
+            BigDecimal minimo = cupon.getMontoMinimo() != null ? cupon.getMontoMinimo() : BigDecimal.ZERO;
+            if (total != null && total.compareTo(minimo) < 0) {
+                continue;
+            }
+            Map<String, Object> info = new LinkedHashMap<>();
+            info.put("codigo", cupon.getCodigo());
+            info.put("tipo", cupon.getTipo());
+            info.put("valor", cupon.getValor());
+            if (cupon.getMontoMinimo() != null) {
+                info.put("montoMinimo", cupon.getMontoMinimo());
+            }
+            if (cupon.getValidoHasta() != null) {
+                info.put("validoHasta", cupon.getValidoHasta().toString());
+            }
+            if (total != null) {
+                info.put("descuento", cupon.calcularDescuento(total));
+            }
+            cupones.add(info);
+        }
+        if (cupones.isEmpty()) {
+            payload.put("ok", true);
+            payload.put("cupones", 0);
+            payload.put("mensaje", "No hay cupones vigentes disponibles en este momento.");
+            return ToolResult.of(payload);
+        }
+        ArrayNode list = payload.putArray("cupones");
+        for (Map<String, Object> cupon : cupones) {
+            ObjectNode node = list.addObject();
+            cupon.forEach((k, v) -> {
+                if (v == null) {
+                    return;
+                }
+                if (v instanceof BigDecimal bd) {
+                    node.put(k, bd);
+                } else {
+                    node.put(k, String.valueOf(v));
+                }
+            });
+        }
+        payload.put("ok", true);
+        payload.put("mensaje", "Comparte el cupón más conveniente y aplícalo con \"aplicar_cupon\".");
+        return ToolResult.of(payload);
+    }
+
+    // ───────────────────────── Cupones, fechas y planes ─────────────────────────
+
+    /**
+     * Aplica un cupón a la bolsa actual y reemite la cotización con el descuento real.
+     * Si faltan fechas o la bolsa está vacía, devuelve un error en lenguaje natural.
+     */
+    private ToolResult aplicarCupon(JsonNode args, ToolContext context) {
+        ObjectNode payload = mapper.createObjectNode();
+        String codigo = text(args, "codigo");
+        if (codigo.isBlank()) {
+            payload.put("error", "Falta el código del cupón.");
+            return ToolResult.of(payload);
+        }
+        if (context == null || context.bag() == null || context.bag().isEmpty()) {
+            payload.put("error", "La bolsa está vacía. Agrega productos antes de aplicar el cupón.");
+            return ToolResult.of(payload);
+        }
+        String fechaInicio = text(args, "fechaInicio");
+        String fechaFin = text(args, "fechaFin");
+        if (fechaInicio.isBlank() || fechaFin.isBlank()) {
+            payload.put("error", "Necesito las fechas del alquiler para aplicar el cupón.");
+            return ToolResult.of(payload);
+        }
+
+        ObjectNode quoteArgs = mapper.createObjectNode();
+        quoteArgs.put("fechaInicio", fechaInicio);
+        quoteArgs.put("fechaFin", fechaFin);
+        quoteArgs.put("codigoCupon", codigo);
+        ArrayNode items = quoteArgs.putArray("items");
+        for (BagItem item : context.bag()) {
+            ObjectNode node = items.addObject();
+            node.put("productoId", item.id());
+            node.put("cantidad", Math.max(1, item.cantidad()));
+        }
+        ToolResult result = cotizar(quoteArgs);
+        if (result.payload() instanceof ObjectNode node) {
+            node.put("cupon", codigo);
+        }
+        return result;
+    }
+
+    /**
+     * Busca el primer rango de fechas en el que todos los productos pedidos tienen stock.
+     * Recorre hasta 90 días hacia adelante para no dejar al usuario sin alternativas.
+     */
+    private ToolResult siguienteFechaDisponible(JsonNode args) {
+        ObjectNode payload = mapper.createObjectNode();
+        List<String> ids = listaIds(args, "productoIds", "productoId");
+        if (ids.isEmpty()) {
+            payload.put("error", "Indica al menos un producto para buscar fechas.");
+            return ToolResult.of(payload);
+        }
+        ids = ids.stream().limit(MAX_IDS_DISPONIBILIDAD).toList();
+        int cantidad = Math.max(1, args.path("cantidad").asInt(1));
+        int dias = Math.min(Math.max(1, args.path("dias").asInt(1)), (int) MAX_DIAS_ALQUILER);
+        LocalDate desde = parseFechaOpcional(text(args, "desde"));
+        if (desde == null || desde.isBefore(LocalDate.now())) {
+            desde = LocalDate.now();
+        }
+
+        List<Product> productos = new ArrayList<>();
+        for (String id : ids) {
+            productService.getProductById(id).ifPresent(productos::add);
+        }
+        if (productos.isEmpty()) {
+            payload.put("error", "No encontré esos productos en el catálogo.");
+            return ToolResult.of(payload);
+        }
+        List<Reservation> activas = reservationService.getActiveReservationsByProductIds(ids);
+
+        LocalDate mejorInicio = null;
+        LocalDate mejorFin = null;
+        for (int i = 0; i < 90 && mejorInicio == null; i++) {
+            LocalDate inicio = desde.plusDays(i);
+            LocalDate fin = inicio.plusDays(dias - 1L);
+            boolean alcanza = true;
+            for (Product p : productos) {
+                if (calcularDisponible(p, inicio, fin, activas) < cantidad) {
+                    alcanza = false;
+                    break;
+                }
+            }
+            if (alcanza) {
+                mejorInicio = inicio;
+                mejorFin = fin;
+            }
+        }
+
+        payload.put("cantidad", cantidad);
+        payload.put("dias", dias);
+        if (mejorInicio == null) {
+            payload.put("disponible", false);
+            payload.put("nota", "No encontré fechas libres en los próximos 90 días. Ofrece hablar con un asesor.");
+            return ToolResult.of(payload);
+        }
+        payload.put("disponible", true);
+        payload.put("fechaInicio", mejorInicio.toString());
+        payload.put("fechaFin", mejorFin.toString());
+        ArrayNode disponibles = payload.putArray("productos");
+        for (Product p : productos) {
+            ObjectNode node = disponibles.addObject();
+            node.put("id", p.getId());
+            node.put("nombre", p.getNombre());
+            node.put("disponible", calcularDisponible(p, mejorInicio, mejorFin, activas));
+        }
+
+        ObjectNode data = mapper.createObjectNode();
+        data.put("vista", "fechas");
+        data.put("titulo", "Próxima fecha disponible");
+        data.put("fechaInicio", mejorInicio.toString());
+        data.put("fechaFin", mejorFin.toString());
+        return ToolResult.of(payload, List.of(new UiEvent(UiEvent.PANEL, data)));
+    }
+
+    /**
+     * Plan integral del evento: mobiliario recomendado, distribución de mesas, presupuesto
+     * por categoría y checklist con fechas clave.
+     */
+    private ToolResult planificarEvento(JsonNode args) {
+        ToolResult recomendacion = recomendarEvento(args);
+        if (recomendacion.payload().has("error")) {
+            return recomendacion;
+        }
+        JsonNode reco = recomendacion.payload();
+        int invitados = reco.path("invitados").asInt(30);
+        int mesas = Math.max(1, (int) Math.ceil(invitados / 8.0));
+        long dias = Math.max(1, reco.path("dias").asLong(1));
+        BigDecimal total = decimalOrZero(reco.path("totalEstimado"));
+        LocalDate inicio = parseFechaOpcional(text(args, "fechaInicio"));
+        LocalDate fin = parseFechaOpcional(text(args, "fechaFin"));
+        String tipo = text(args, "tipoEvento");
+        String estilo = text(args, "estilo");
+
+        ObjectNode resumen = mapper.createObjectNode();
+        resumen.put("tipoEvento", tipo);
+        resumen.put("invitados", invitados);
+        if (!estilo.isBlank()) {
+            resumen.put("estilo", estilo);
+        }
+        resumen.put("dias", dias);
+        if (inicio != null) {
+            resumen.put("fechaInicio", inicio.toString());
+        }
+        if (fin != null) {
+            resumen.put("fechaFin", fin.toString());
+        }
+        String hora = text(args, "horaEvento");
+        if (!hora.isBlank()) {
+            resumen.put("horaEvento", hora);
+        }
+        resumen.put("totalEstimado", total);
+        BigDecimal presupuesto = decimal(args, "presupuesto");
+        if (presupuesto != null) {
+            resumen.put("presupuesto", presupuesto);
+        }
+
+        ArrayNode mobiliario = mapper.createArrayNode();
+        Map<String, BigDecimal> porCategoria = new LinkedHashMap<>();
+        for (JsonNode item : reco.path("items")) {
+            String id = item.path("productoId").asText("");
+            int cantidad = item.path("cantidad").asInt(1);
+            BigDecimal precioDia = decimalOrZero(item.path("precioDia"));
+            BigDecimal subtotal = precioDia.multiply(BigDecimal.valueOf(cantidad)).multiply(BigDecimal.valueOf(dias));
+            ObjectNode node = mapper.createObjectNode();
+            node.put("id", id);
+            node.put("nombre", item.path("nombre").asText("Producto"));
+            node.put("cantidad", cantidad);
+            node.put("precioDia", precioDia);
+            node.put("subtotal", subtotal);
+            productService.getProductById(id).ifPresent(p -> {
+                node.put("imagen", p.getImagenUrl());
+                node.put("categoria", p.getCategoriaNombre());
+            });
+            mobiliario.add(node);
+            String categoria = node.path("categoria").asText("Otros");
+            porCategoria.merge(categoria, subtotal, BigDecimal::add);
+        }
+
+        ArrayNode categorias = mapper.createArrayNode();
+        porCategoria.forEach((categoria, subtotal) -> {
+            ObjectNode node = categorias.addObject();
+            node.put("categoria", categoria);
+            node.put("total", subtotal);
+        });
+
+        ObjectNode mesasNode = mapper.createObjectNode();
+        mesasNode.put("totalMesas", mesas);
+        mesasNode.put("totalSillas", invitados);
+        ArrayNode detalleMesas = mesasNode.putArray("detalle");
+        int base = invitados / mesas;
+        int extra = invitados % mesas;
+        for (int i = 1; i <= mesas; i++) {
+            ObjectNode mesa = detalleMesas.addObject();
+            mesa.put("numero", i);
+            mesa.put("personas", base + (i <= extra ? 1 : 0));
+        }
+
+        ArrayNode checklist = construirChecklist(inicio, fin);
+
+        ObjectNode payload = mapper.createObjectNode();
+        payload.set("resumen", resumen.deepCopy());
+        payload.set("mobiliario", mobiliario.deepCopy());
+        payload.set("categorias", categorias.deepCopy());
+        payload.set("mesas", mesasNode.deepCopy());
+        payload.set("checklist", checklist.deepCopy());
+        payload.put("nota", "Los precios son reales; la disponibilidad se confirma al cotizar y pagar.");
+
+        ObjectNode data = mapper.createObjectNode();
+        data.put("vista", "plan");
+        data.put("titulo", tipo.isBlank() ? "Plan para tu evento" : "Plan para tu " + tipo);
+        data.set("resumen", resumen.deepCopy());
+        data.set("mobiliario", mobiliario.deepCopy());
+        data.set("categorias", categorias.deepCopy());
+        data.set("mesas", mesasNode.deepCopy());
+        data.set("checklist", checklist.deepCopy());
+        return ToolResult.of(payload, List.of(new UiEvent(UiEvent.PANEL, data)));
+    }
+
+    private ArrayNode construirChecklist(LocalDate inicio, LocalDate fin) {
+        ArrayNode checklist = mapper.createArrayNode();
+        agregarPaso(checklist, "Confirmar mobiliario y fechas", "Revisa cantidades y disponibilidad.",
+                inicio == null ? null : inicio.minusDays(15));
+        agregarPaso(checklist, "Reservar y pagar anticipo", "La reserva bloquea el inventario.",
+                inicio == null ? null : inicio.minusDays(12));
+        agregarPaso(checklist, "Confirmar dirección y hora de entrega", "Comparte accesos y requerimientos.",
+                inicio == null ? null : inicio.minusDays(7));
+        agregarPaso(checklist, "Coordinar montaje", "El montaje se agenda con 48 horas de anticipación.",
+                inicio == null ? null : inicio.minusDays(2));
+        agregarPaso(checklist, "Recibir el mobiliario", "Revisa el estado al momento de la entrega.", inicio);
+        agregarPaso(checklist, "Coordinar recogida o desmontaje", "Confirma la ventana con logística.",
+                fin == null ? null : fin.plusDays(1));
+        return checklist;
+    }
+
+    private void agregarPaso(ArrayNode checklist, String titulo, String detalle, LocalDate fecha) {
+        ObjectNode paso = checklist.addObject();
+        paso.put("titulo", titulo);
+        paso.put("detalle", detalle);
+        if (fecha != null) {
+            paso.put("fecha", fecha.toString());
+        }
+    }
+
+    /** Distribución sencilla de mesas y sillas para el número de invitados. */
+    private ToolResult distribucionMesas(JsonNode args) {
+        ObjectNode payload = mapper.createObjectNode();
+        int invitados = args.path("invitados").asInt(0);
+        if (invitados <= 0) {
+            invitados = 30;
+            payload.put("nota", "No se indicó el número de invitados; se asumieron 30.");
+        }
+        int mesas = args.path("mesas").asInt(0);
+        if (mesas <= 0) {
+            mesas = Math.max(1, (int) Math.ceil(invitados / 8.0));
+        }
+        mesas = Math.min(mesas, invitados);
+
+        payload.put("invitados", invitados);
+        payload.put("totalMesas", mesas);
+        payload.put("totalSillas", invitados);
+        ArrayNode detalle = payload.putArray("detalle");
+        int base = invitados / mesas;
+        int extra = invitados % mesas;
+        for (int i = 1; i <= mesas; i++) {
+            ObjectNode mesa = detalle.addObject();
+            mesa.put("numero", i);
+            mesa.put("personas", base + (i <= extra ? 1 : 0));
+        }
+
+        ObjectNode data = mapper.createObjectNode();
+        data.put("vista", "mesas");
+        data.put("titulo", "Distribución de mesas");
+        data.put("invitados", invitados);
+        data.put("totalMesas", mesas);
+        data.put("totalSillas", invitados);
+        data.set("detalle", detalle.deepCopy());
+        return ToolResult.of(payload, List.of(new UiEvent(UiEvent.PANEL, data)));
+    }
+
+    /** Presupuesto en tres niveles, calculado con precios reales del catálogo. */
+    private ToolResult presupuestoPorCategorias(JsonNode args) {
+        ToolResult recomendacion = recomendarEvento(args);
+        if (recomendacion.payload().has("error")) {
+            return recomendacion;
+        }
+        JsonNode reco = recomendacion.payload();
+        long dias = Math.max(1, reco.path("dias").asLong(1));
+
+        Map<String, BigDecimal> categorias = new LinkedHashMap<>();
+        java.util.Set<String> idsPlan = new java.util.HashSet<>();
+        BigDecimal esencial = BigDecimal.ZERO;
+        BigDecimal recomendado = BigDecimal.ZERO;
+        for (JsonNode item : reco.path("items")) {
+            String id = item.path("productoId").asText("");
+            idsPlan.add(id);
+            int cantidad = item.path("cantidad").asInt(1);
+            BigDecimal precioDia = decimalOrZero(item.path("precioDia"));
+            BigDecimal subtotal = precioDia.multiply(BigDecimal.valueOf(cantidad)).multiply(BigDecimal.valueOf(dias));
+            recomendado = recomendado.add(subtotal);
+            String categoria = "Otros";
+            Optional<Product> p = productService.getProductById(id);
+            if (p.isPresent() && p.get().getCategoriaNombre() != null) {
+                categoria = p.get().getCategoriaNombre();
+            }
+            categorias.merge(categoria, subtotal, BigDecimal::add);
+            String cat = categoria.toLowerCase(Locale.ROOT);
+            if (cat.contains("silla") || cat.contains("mesa") || cat.contains("mantel")) {
+                esencial = esencial.add(subtotal);
+            }
+        }
+
+        BigDecimal premium = recomendado;
+        ArrayNode extras = mapper.createArrayNode();
+        for (Product p : productService.getFeaturedProducts()) {
+            if (extras.size() >= 2 || idsPlan.contains(p.getId()) || !p.isDisponible()
+                    || p.getPrecioPorDia() == null) {
+                continue;
+            }
+            String cat = p.getCategoriaNombre() == null ? "" : p.getCategoriaNombre().toLowerCase(Locale.ROOT);
+            if (!cat.contains("decor") && !cat.contains("ilumin")) {
+                continue;
+            }
+            BigDecimal subtotal = p.getPrecioPorDia().multiply(BigDecimal.valueOf(dias));
+            premium = premium.add(subtotal);
+            ObjectNode extra = extras.addObject();
+            extra.put("id", p.getId());
+            extra.put("nombre", p.getNombre());
+            extra.put("precioDia", p.getPrecioPorDia());
+            extra.put("subtotal", subtotal);
+        }
+
+        ArrayNode niveles = mapper.createArrayNode();
+        niveles.add(nivel("Esencial", "Sillas, mesas y mantelería para cubrir lo básico.", esencial));
+        niveles.add(nivel("Recomendado", "Propuesta completa de mobiliario para tu evento.", recomendado));
+        niveles.add(nivel("Premium", "Incluye decoración e iluminación adicional.", premium));
+
+        ArrayNode categoriasNode = mapper.createArrayNode();
+        categorias.forEach((categoria, total) -> {
+            ObjectNode node = categoriasNode.addObject();
+            node.put("categoria", categoria);
+            node.put("total", total);
+        });
+
+        ObjectNode payload = mapper.createObjectNode();
+        payload.put("dias", dias);
+        payload.set("niveles", niveles.deepCopy());
+        payload.set("categorias", categoriasNode.deepCopy());
+        payload.set("extrasPremium", extras.deepCopy());
+        payload.put("nota", "Valores calculados con precios reales por día; no incluyen transporte ni montaje.");
+
+        ObjectNode data = mapper.createObjectNode();
+        data.put("vista", "presupuesto");
+        data.put("titulo", "Presupuesto por categorías");
+        data.set("niveles", niveles.deepCopy());
+        data.set("categorias", categoriasNode.deepCopy());
+        return ToolResult.of(payload, List.of(new UiEvent(UiEvent.PANEL, data)));
+    }
+
+    private ObjectNode nivel(String nombre, String descripcion, BigDecimal total) {
+        ObjectNode node = mapper.createObjectNode();
+        node.put("nombre", nombre);
+        node.put("descripcion", descripcion);
+        node.put("total", total);
+        return node;
+    }
+
+    /** Pide al widget descargar el PDF de la última cotización mostrada. */
+    private ToolResult descargarCotizacion() {
+        ObjectNode payload = mapper.createObjectNode();
+        payload.put("ok", true);
+        payload.put("nota", "El widget descarga la última cotización en PDF. Si no hay una cotización "
+                + "en pantalla, pide primero cotizar.");
+        ObjectNode data = mapper.createObjectNode();
+        data.put("tipo", "cotizacion");
+        data.put("titulo", "Cotización Furent");
+        return ToolResult.of(payload, List.of(new UiEvent(UiEvent.DOCUMENT, data)));
+    }
+
+    private BigDecimal decimalOrZero(JsonNode node) {
+        return node == null || !node.isNumber() ? BigDecimal.ZERO : node.decimalValue();
+    }
+
+    private List<String> listaIds(JsonNode args, String... campos) {
+        List<String> ids = new ArrayList<>();
+        for (String campo : campos) {
+            JsonNode node = args.path(campo);
+            if (node.isArray()) {
+                for (JsonNode idNode : node) {
+                    String id = idNode.asText("").trim();
+                    if (!id.isEmpty() && !ids.contains(id)) {
+                        ids.add(id);
+                    }
+                }
+            } else {
+                String id = node.asText("").trim();
+                if (!id.isEmpty() && !ids.contains(id)) {
+                    ids.add(id);
+                }
+            }
+        }
+        return ids;
     }
 
     private ToolResult consultarAlquiler(JsonNode args, ToolContext context) {

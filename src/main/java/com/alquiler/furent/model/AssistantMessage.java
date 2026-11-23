@@ -34,7 +34,7 @@ public class AssistantMessage {
     private Instant createdAt;
 
     /** Momento en que Mongo borra el mensaje (índice TTL); hereda la caducidad del chat. */
-    @Indexed(expireAfterSeconds = 0)
+    @Indexed(expireAfter = "0s")
     private Instant expireAt;
 
     public AssistantMessage() {

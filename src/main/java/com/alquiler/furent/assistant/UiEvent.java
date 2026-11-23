@@ -23,4 +23,8 @@ public record UiEvent(String type, JsonNode data) {
     public static final String RESERVATION = "reservation";
     /** Texto dinámico de "Typing Intelligence" ("Buscando muebles…"). El modelo no lo ve. */
     public static final String STATUS = "status";
+    /** Pide al widget descargar un documento generado por el backend (p. ej. la cotización en PDF). */
+    public static final String DOCUMENT = "document";
+    /** Enlaces sugeridos (catálogo filtrado, inspiración, checkout…) como botones del chat. */
+    public static final String LINKS = "links";
 }

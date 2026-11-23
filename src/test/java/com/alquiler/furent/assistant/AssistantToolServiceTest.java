@@ -1,6 +1,7 @@
 package com.alquiler.furent.assistant;
 
 import com.alquiler.furent.config.AssistantProperties;
+import com.alquiler.furent.model.Coupon;
 import com.alquiler.furent.model.Payment;
 import com.alquiler.furent.model.Product;
 import com.alquiler.furent.model.Reservation;
@@ -57,6 +58,8 @@ class AssistantToolServiceTest {
     private AssistantMetrics metrics;
     @Spy
     private ObjectMapper mapper = new ObjectMapper();
+    @Mock
+    private AssistantExtraToolService extraTools;
 
     private AssistantProperties properties;
     private AssistantToolService service;
@@ -71,7 +74,7 @@ class AssistantToolServiceTest {
         properties.setWhatsappNumber("573105782442");
         service = new AssistantToolService(productService, reservationService, reservationRepository,
                 couponService, knowledgeService, toolDefinitions, new AssistantSemanticSearch(productService),
-                properties, metrics, mapper, paymentRepository);
+                properties, metrics, mapper, paymentRepository, extraTools);
         lenient().when(toolDefinitions.exists(anyString())).thenReturn(true);
     }
 
@@ -129,6 +132,25 @@ class AssistantToolServiceTest {
         assertEquals(1, result.uiEvents().size());
         assertEquals(UiEvent.QUOTE, result.uiEvents().get(0).type());
         assertEquals("/cotizacion", result.uiEvents().get(0).data().path("checkoutUrl").asText());
+    }
+
+    @Test
+    void cotizarPropagaDatosDelEventoParaElCheckout() {
+        when(productService.getProductById("p1"))
+                .thenReturn(Optional.of(product("p1", "Silla Tiffany", 5000, 100)));
+        when(reservationService.validateAvailability(any(Reservation.class))).thenReturn(Map.of());
+
+        LocalDate inicio = LocalDate.now().plusDays(5);
+        String json = "{\"items\":[{\"productoId\":\"p1\",\"cantidad\":10}],"
+                + "\"fechaInicio\":\"" + inicio + "\",\"fechaFin\":\"" + inicio + "\","
+                + "\"tipoEvento\":\"Boda\",\"invitados\":150,\"horaEntrega\":\"15:00\"}";
+
+        ToolResult result = service.execute("cotizar", args(json), GUEST);
+
+        JsonNode quote = result.uiEvents().get(0).data();
+        assertEquals("Boda", quote.path("tipoEvento").asText());
+        assertEquals("150", quote.path("invitados").asText());
+        assertEquals("15:00", quote.path("horaEntrega").asText());
     }
 
     @Test
@@ -357,6 +379,55 @@ class AssistantToolServiceTest {
         JsonNode data = result.uiEvents().get(0).data();
         assertEquals("detalles", data.path("vista").asText());
         assertEquals("Detalles del alquiler", data.path("titulo").asText());
+    }
+
+    @Test
+    void pedirDetallesAlquilerPrecargaDatosConocidos() {
+        ObjectNode input = args("{\"tipoEvento\":\"Boda\",\"invitados\":120,\"horaEntrega\":\"15:00\","
+                + "\"fechaInicio\":\"2026-12-01\",\"fechaFin\":\"2026-12-03\"}");
+
+        ToolResult result = service.execute("pedir_detalles_alquiler", input, GUEST);
+
+        JsonNode fields = result.uiEvents().get(0).data().path("fields");
+        String tipo = null;
+        String invitados = null;
+        String hora = null;
+        String inicio = null;
+        String fin = null;
+        for (JsonNode field : fields) {
+            switch (field.path("name").asText()) {
+                case "tipoEvento" -> tipo = field.path("value").asText();
+                case "invitados" -> invitados = field.path("value").asText();
+                case "horaEntrega" -> hora = field.path("value").asText();
+                case "fechaInicio" -> inicio = field.path("value").asText();
+                case "fechaFin" -> fin = field.path("value").asText();
+                default -> { }
+            }
+        }
+        assertEquals("Boda", tipo);
+        assertEquals("120", invitados);
+        assertEquals("15:00", hora);
+        assertEquals("2026-12-01", inicio);
+        assertEquals("2026-12-03", fin);
+    }
+
+    @Test
+    void listarCuponesDevuelveVigentesConDescuento() {
+        Coupon cupon = new Coupon();
+        cupon.setCodigo("BIENVENIDA10");
+        cupon.setTipo("PORCENTAJE");
+        cupon.setValor(BigDecimal.valueOf(10));
+        cupon.setMontoMinimo(BigDecimal.valueOf(300000));
+        cupon.setActivo(true);
+        when(couponService.getAll()).thenReturn(List.of(cupon));
+
+        ToolResult result = service.execute("listar_cupones", args("{\"montoTotal\":1000000}"), GUEST);
+
+        JsonNode cupones = result.payload().path("cupones");
+        assertEquals(1, cupones.size());
+        assertEquals("BIENVENIDA10", cupones.get(0).path("codigo").asText());
+        assertEquals(0, cupones.get(0).path("descuento").decimalValue()
+                .compareTo(BigDecimal.valueOf(100000)));
     }
 
     @Test

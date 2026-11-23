@@ -79,13 +79,18 @@ public class AssistantConversation {
      * Momento en que Mongo borra la conversación (índice TTL). Va por detrás de {@link #cierraEn}
      * para que el chat cerrado siga visible (y muestre el aviso) durante un tiempo de gracia.
      */
-    @Indexed(expireAfterSeconds = 0)
+    @Indexed(expireAfter = "0s")
     private Instant expireAt;
 
     private int totalMensajes;
     private long tokensEntrada;
     private long tokensSalida;
     private String ipHash;
+
+    /** Veces que el usuario marcó una respuesta como útil (👍). */
+    private int feedbackPositivo;
+    /** Veces que el usuario marcó una respuesta como poco útil (👎). */
+    private int feedbackNegativo;
 
     public AssistantConversation() {
         Instant now = Instant.now();
@@ -252,5 +257,21 @@ public class AssistantConversation {
 
     public void setIpHash(String ipHash) {
         this.ipHash = ipHash;
+    }
+
+    public int getFeedbackPositivo() {
+        return feedbackPositivo;
+    }
+
+    public void setFeedbackPositivo(int feedbackPositivo) {
+        this.feedbackPositivo = feedbackPositivo;
+    }
+
+    public int getFeedbackNegativo() {
+        return feedbackNegativo;
+    }
+
+    public void setFeedbackNegativo(int feedbackNegativo) {
+        this.feedbackNegativo = feedbackNegativo;
     }
 }

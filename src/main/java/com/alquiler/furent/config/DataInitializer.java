@@ -1,21 +1,27 @@
 package com.alquiler.furent.config;
 
 import com.alquiler.furent.model.Category;
+import com.alquiler.furent.model.Coupon;
 import com.alquiler.furent.model.Permission;
 import com.alquiler.furent.model.Product;
 import com.alquiler.furent.model.Reservation;
 import com.alquiler.furent.model.Review;
+import com.alquiler.furent.model.User;
+import com.alquiler.furent.model.UserAddress;
 import com.alquiler.furent.repository.CategoryRepository;
+import com.alquiler.furent.repository.CouponRepository;
 import com.alquiler.furent.repository.PermissionRepository;
 import com.alquiler.furent.repository.ProductRepository;
 import com.alquiler.furent.repository.ReservationRepository;
 import com.alquiler.furent.repository.ReviewRepository;
+import com.alquiler.furent.repository.UserRepository;
 import com.alquiler.furent.service.TenantService;
 import com.alquiler.furent.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -38,6 +44,12 @@ public class DataInitializer implements CommandLineRunner {
         private final UserService userService;
         private final TenantService tenantService;
         private final PermissionRepository permissionRepository;
+        private final UserRepository userRepository;
+        private final CouponRepository couponRepository;
+        private final PasswordEncoder passwordEncoder;
+
+        /** Contraseña compartida por las cuentas demo sembradas para pruebas. */
+        public static final String DEMO_PASSWORD = "Demo1234!";
 
         @Value("${furent.admin.password:admin123}")
         private String adminPassword;
@@ -45,7 +57,8 @@ public class DataInitializer implements CommandLineRunner {
         public DataInitializer(ProductRepository productRepository, CategoryRepository categoryRepository,
                         ReviewRepository reviewRepository, ReservationRepository reservationRepository,
                         UserService userService, TenantService tenantService,
-                        PermissionRepository permissionRepository) {
+                        PermissionRepository permissionRepository, UserRepository userRepository,
+                        CouponRepository couponRepository, PasswordEncoder passwordEncoder) {
                 this.productRepository = productRepository;
                 this.categoryRepository = categoryRepository;
                 this.reviewRepository = reviewRepository;
@@ -53,6 +66,9 @@ public class DataInitializer implements CommandLineRunner {
                 this.userService = userService;
                 this.tenantService = tenantService;
                 this.permissionRepository = permissionRepository;
+                this.userRepository = userRepository;
+                this.couponRepository = couponRepository;
+                this.passwordEncoder = passwordEncoder;
         }
 
         @Override
@@ -78,6 +94,12 @@ public class DataInitializer implements CommandLineRunner {
                         seedProducts();
                         log.info("Productos seed creados");
                 }
+
+                // Catálogo, clientes, reseñas y cupones demo para pruebas (idempotente).
+                seedDemoProducts();
+                seedDemoUsers();
+                seedDemoReviews();
+                seedDemoCoupons();
 
                 // Seed reservations for predictive model (only if no seed data exists yet)
                 if (reservationRepository.countByNotasEvento("Reserva seed para modelo predictivo") == 0) {
@@ -164,6 +186,149 @@ public class DataInitializer implements CommandLineRunner {
                                 BigDecimal.valueOf(32000), "/images/manteleria.jpg", null, "Decoración",
                                 4.4, 187, true, "Poliéster satinado", "Varios tamaños", "Blanco", 1, 200, 160, 20,
                                 "EXCELENTE"));
+        }
+
+        // ───────────────────────── Datos demo (50 productos + 50 usuarios) ─────────────────────────
+
+        /**
+         * Siembra 50 productos adicionales repartidos entre las cuatro categorías. Es idempotente:
+         * si el primero de la lista ya existe, no vuelve a insertar nada.
+         */
+        private void seedDemoProducts() {
+                boolean yaExiste = productRepository.findAll().stream()
+                                .anyMatch(p -> "Silla Nórdica Aurora".equalsIgnoreCase(p.getNombre()));
+                if (yaExiste) {
+                        return;
+                }
+
+                String[] sillas = {
+                                "Silla Nórdica Aurora", "Silla Crossback Roble", "Silla Tiffany Blanca",
+                                "Silla Tiffany Dorada", "Silla Luis XV", "Silla Industrial Metal",
+                                "Silla Acrílica Crystal", "Silla Rattan Natural", "Silla Plegable Madera",
+                                "Silla Windsor Clásica", "Silla Eames Blanca", "Silla Bistro Terracota",
+                                "Silla Terciopelo Azul", "Silla Ghost Cristal", "Silla Banquete Tapizada",
+                                "Silla Infantil Color"
+                };
+                String[] mesas = {
+                                "Mesa Campestre Roble", "Mesa Cocktail Alta", "Mesa Imperial Rústica",
+                                "Mesa Oval Cristal", "Mesa Cuadrada Blanca", "Mesa Redonda Mármol",
+                                "Mesa Auxiliar Dorada", "Mesa Banquete Extensible", "Mesa Plegable Campo",
+                                "Mesa Rústica Tronco", "Mesa Cristal Premium", "Mesa Infantil Plegable"
+                };
+                String[] carpas = {
+                                "Carpa Jaima Blanca", "Carpa Transparente Crystal", "Carpa Cúpula Geodésica",
+                                "Carpa Gazebo Clásica", "Carpa Tipo Túnel", "Carpa Pagoda 4x4",
+                                "Carpa Doble Agua", "Carpa Receptiva Corporativa"
+                };
+                String[] decoracion = {
+                                "Arco Floral Eucalipto", "Espejo Vintage Oro", "Candelabro Alto Cristal",
+                                "Mampara Neutra", "Alfombra Celeste", "Cortina de Luces",
+                                "Jarrón Terracota", "Letras Luminosas LED", "Cojín Terciopelo",
+                                "Centro de Suculentas", "Bandeja Dorada", "Backdrop de Flores",
+                                "Lámpara Colgante", "Cubremantel de Lino"
+                };
+
+                String[] dimensiones = { "45 x 45 x 90 cm", "60 x 60 x 75 cm", "100 x 100 x 30 cm", "120 x 80 x 74 cm" };
+                String[] materiales = { "Madera de haya", "Metal lacado", "Policarbonato", "Ratán natural",
+                                "Terciopelo", "Cristal templado", "Aluminio anodizado", "Poliéster satinado" };
+
+                Random rng = new Random(7);
+                List<Product> batch = new ArrayList<>();
+                batch.addAll(demoProducts(sillas, "Sillas", 45000L,
+                                new String[] { "/images/silla-chiavari.jpg", "/images/silla-ghost.jpg" },
+                                materiales, dimensiones, rng));
+                batch.addAll(demoProducts(mesas, "Mesas", 140000L,
+                                new String[] { "/images/mesa-imperial.jpg", "/images/mesa-cristal.jpg" },
+                                materiales, dimensiones, rng));
+                batch.addAll(demoProducts(carpas, "Carpas", 380000L,
+                                new String[] { "/images/carpa-pagoda.jpg", "/images/carpa-hangar.jpg" },
+                                materiales, dimensiones, rng));
+                batch.addAll(demoProducts(decoracion, "Decoración", 60000L,
+                                new String[] { "/images/centro-mesa.jpg", "/images/guirnalda-led.jpg", "/images/manteleria.jpg" },
+                                materiales, dimensiones, rng));
+
+                productRepository.saveAll(batch);
+                log.info("=== {} productos demo creados ===", batch.size());
+        }
+
+        private List<Product> demoProducts(String[] nombres, String categoria, long precioBase,
+                        String[] imagenes, String[] materiales, String[] dimensiones, Random rng) {
+                List<Product> out = new ArrayList<>();
+                for (int i = 0; i < nombres.length; i++) {
+                        String nombre = nombres[i];
+                        long precio = precioBase + (long) (i % 6) * 8000;
+                        int stock = 15 + rng.nextInt(200);
+                        double calificacion = Math.round((4.1 + rng.nextDouble() * 0.9) * 10.0) / 10.0;
+                        out.add(new Product(
+                                        nombre,
+                                        nombre + ": mobiliario revisado y listo para tu evento, con precio por día y "
+                                                        + "montaje opcional. Disponible para entregas en toda la ciudad.",
+                                        "Opción versátil para tu evento",
+                                        BigDecimal.valueOf(precio),
+                                        imagenes[i % imagenes.length],
+                                        null,
+                                        categoria,
+                                        calificacion,
+                                        6 + rng.nextInt(150),
+                                        true,
+                                        materiales[i % materiales.length],
+                                        dimensiones[i % dimensiones.length],
+                                        "Variado",
+                                        1,
+                                        Math.max(1, stock),
+                                        stock,
+                                        Math.max(1, stock / 10),
+                                        "EXCELENTE"));
+                }
+                return out;
+        }
+
+        /**
+         * Siembra 50 clientes demo (clienteNN@demo.furent.co) con la contraseña {@link #DEMO_PASSWORD}.
+         * Es idempotente: parte del primero y omite los correos que ya existan.
+         */
+        private void seedDemoUsers() {
+                if (userRepository.existsByEmail("cliente01@demo.furent.co")) {
+                        return;
+                }
+
+                String[] nombres = { "Valentina", "Santiago", "Camila", "Andrés", "Isabella", "Mateo", "Sofía",
+                                "Sebastián", "Mariana", "Nicolás", "Gabriela", "Daniel", "Luciana", "Tomás", "Sara",
+                                "Emilio", "Alejandra", "Felipe", "Antonella", "Julián", "Renata", "Samuel", "Manuela",
+                                "Diego", "Salomé" };
+                String[] apellidos = { "Gómez", "Rodríguez", "Martínez", "López", "García", "Hernández", "Ramírez",
+                                "Torres", "Vargas", "Castillo", "Moreno", "Rojas", "Cárdenas", "Peña", "Suárez" };
+                String[] ciudades = { "Bogotá", "Medellín", "Cali", "Barranquilla", "Bucaramanga", "Pereira",
+                                "Cartagena", "Manizales", "Cúcuta", "Ibagué" };
+
+                String encoded = passwordEncoder.encode(DEMO_PASSWORD);
+                int creados = 0;
+                for (int i = 1; i <= 50; i++) {
+                        String email = String.format("cliente%02d@demo.furent.co", i);
+                        if (userRepository.existsByEmail(email)) {
+                                continue;
+                        }
+                        User user = new User();
+                        user.setEmail(email);
+                        user.setPassword(encoded);
+                        user.setNombre(nombres[(i - 1) % nombres.length]);
+                        user.setApellido(apellidos[(i * 7) % apellidos.length]);
+                        user.setTelefono(String.format("+57 3%02d %03d %04d", i % 100, 200 + i, 1000 + i * 7));
+                        user.setRole("USER");
+                        user.setActivo(true);
+                        user.setTenantId("default");
+                        user.setPais("Colombia");
+                        String ciudad = ciudades[(i - 1) % ciudades.length];
+                        user.setCiudad(ciudad);
+                        String direccion = "Carrera " + (20 + i % 60) + " #" + (30 + i % 50) + "-" + (10 + i % 80);
+                        user.setDireccion(direccion);
+                        user.setDirecciones(new ArrayList<>(List.of(
+                                        new UserAddress("Casa", direccion, ciudad, "Colombia", "Colombia",
+                                                        "110" + (i % 10), true))));
+                        userRepository.save(user);
+                        creados++;
+                }
+                log.info("=== {} usuarios demo creados (clienteNN@demo.furent.co / {}) ===", creados, DEMO_PASSWORD);
         }
 
         /**
@@ -373,6 +538,116 @@ public class DataInitializer implements CommandLineRunner {
          * Recalculates calificacion and cantidadResenas for every product
          * based on real reviews stored in the database.
          */
+        /**
+         * Siembra reseñas demo para los productos del catálogo demo, de modo que las
+         * calificaciones y el panel de reseñas del asistente tengan contenido real.
+         * Es idempotente: omite los productos que ya tengan reseñas.
+         */
+        private void seedDemoReviews() {
+                List<Product> demo = productRepository.findAll().stream()
+                                .filter(p -> "Opción versátil para tu evento".equals(p.getDescripcionCorta()))
+                                .toList();
+                if (demo.isEmpty()) {
+                        return;
+                }
+
+                List<User> clientes = userRepository.findAll().stream()
+                                .filter(u -> u.getEmail() != null && u.getEmail().endsWith("@demo.furent.co"))
+                                .sorted(java.util.Comparator.comparing(User::getEmail))
+                                .limit(8)
+                                .toList();
+                if (clientes.isEmpty()) {
+                        return;
+                }
+
+                String[] comentarios = {
+                                "Llegó puntual y en perfecto estado, tal como se veía en las fotos.",
+                                "Muy buena calidad para el precio. Sin duda lo volvería a alquilar.",
+                                "El montaje fue rápido y el equipo muy atento. Recomendado.",
+                                "Quedó espectacular en el evento, todos preguntaron dónde lo conseguimos.",
+                                "Cumplió con lo prometido. La entrega y recogida fueron muy puntuales.",
+                                "Excelente relación calidad-precio, ideal para eventos medianos."
+                };
+
+                Random rng = new Random(11);
+                List<Review> batch = new ArrayList<>();
+                for (Product product : demo) {
+                        if (!reviewRepository.findByProductIdOrderByCreatedAtDesc(product.getId()).isEmpty()) {
+                                continue;
+                        }
+                        int cantidad = 2 + rng.nextInt(2);
+                        for (int j = 0; j < cantidad; j++) {
+                                User cliente = clientes.get(rng.nextInt(clientes.size()));
+                                String apellido = cliente.getApellido() == null || cliente.getApellido().isBlank()
+                                                ? ""
+                                                : " " + cliente.getApellido().charAt(0) + ".";
+                                Review review = new Review(
+                                                product.getId(),
+                                                cliente.getId(),
+                                                cliente.getNombre() + apellido,
+                                                4 + rng.nextInt(2),
+                                                comentarios[rng.nextInt(comentarios.length)]);
+                                review.setTenantId("default");
+                                batch.add(review);
+                        }
+                }
+
+                if (!batch.isEmpty()) {
+                        reviewRepository.saveAll(batch);
+                        log.info("=== {} reseñas demo creadas ===", batch.size());
+                }
+        }
+
+        /** Cupones demo para que el asistente y el checkout tengan descuentos reales (idempotente). */
+        private void seedDemoCoupons() {
+                LocalDate hoy = LocalDate.now();
+                List<Coupon> nuevos = new ArrayList<>();
+
+                if (!couponRepository.existsByCodigoIgnoreCase("BIENVENIDA10")) {
+                        Coupon bienvenida = new Coupon();
+                        bienvenida.setCodigo("BIENVENIDA10");
+                        bienvenida.setTipo("PORCENTAJE");
+                        bienvenida.setValor(BigDecimal.valueOf(10));
+                        bienvenida.setMontoMinimo(BigDecimal.valueOf(300000));
+                        bienvenida.setValidoDesde(hoy);
+                        bienvenida.setValidoHasta(hoy.plusMonths(6));
+                        bienvenida.setUsosMaximos(0);
+                        bienvenida.setActivo(true);
+                        nuevos.add(bienvenida);
+                }
+
+                if (!couponRepository.existsByCodigoIgnoreCase("EVENTO50K")) {
+                        Coupon evento = new Coupon();
+                        evento.setCodigo("EVENTO50K");
+                        evento.setTipo("MONTO_FIJO");
+                        evento.setValor(BigDecimal.valueOf(50000));
+                        evento.setMontoMinimo(BigDecimal.valueOf(800000));
+                        evento.setValidoDesde(hoy);
+                        evento.setValidoHasta(hoy.plusMonths(6));
+                        evento.setUsosMaximos(0);
+                        evento.setActivo(true);
+                        nuevos.add(evento);
+                }
+
+                if (!couponRepository.existsByCodigoIgnoreCase("GRADO15")) {
+                        Coupon graduacion = new Coupon();
+                        graduacion.setCodigo("GRADO15");
+                        graduacion.setTipo("PORCENTAJE");
+                        graduacion.setValor(BigDecimal.valueOf(15));
+                        graduacion.setMontoMinimo(BigDecimal.valueOf(500000));
+                        graduacion.setValidoDesde(hoy);
+                        graduacion.setValidoHasta(hoy.plusMonths(3));
+                        graduacion.setUsosMaximos(100);
+                        graduacion.setActivo(true);
+                        nuevos.add(graduacion);
+                }
+
+                if (!nuevos.isEmpty()) {
+                        couponRepository.saveAll(nuevos);
+                        log.info("=== {} cupones demo creados (BIENVENIDA10, EVENTO50K, GRADO15) ===", nuevos.size());
+                }
+        }
+
         private void syncProductRatings() {
                 List<Product> allProducts = productRepository.findAll();
                 int updated = 0;

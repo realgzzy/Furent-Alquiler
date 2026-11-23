@@ -179,6 +179,22 @@ public class AssistantConversationService {
     }
 
     /**
+     * Registra la valoración de una respuesta del asistente. Se guardan solo contadores para
+     * que el panel de administración pueda ver la satisfacción sin almacenar datos personales.
+     */
+    public void registerFeedback(AssistantConversation conversation, boolean positivo) {
+        if (conversation == null) {
+            return;
+        }
+        if (positivo) {
+            conversation.setFeedbackPositivo(conversation.getFeedbackPositivo() + 1);
+        } else {
+            conversation.setFeedbackNegativo(conversation.getFeedbackNegativo() + 1);
+        }
+        conversationRepository.save(conversation);
+    }
+
+    /**
      * Cierra la conversación para que deje de admitir escritura. {@code motivo} queda guardado
      * (ADMIN, EXPIRADO o USUARIO) para que el usuario sepa por qué se cerró.
      */
