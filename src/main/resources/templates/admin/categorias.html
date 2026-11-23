@@ -4,192 +4,1131 @@
     <title>Colecciones — Furent Admin</title>
 </head>
 <body>
-    <main>
-        <div class="px-10 py-8 max-w-[90rem] mx-auto relative">
-            
-            <!-- Header section -->
-            <div class="flex items-center justify-between mb-8">
-                <div>
-                    <h1 class="text-3xl font-extrabold tracking-tight text-surface-900">Colecciones</h1>
-                    <p class="text-sm font-medium text-surface-500 mt-1">Organiza tus mobiliarios por categorías principales</p>
+<main>
+    <!-- ============================================================
+         Colecciones · mesa de organización del catálogo
+         Identidad Furent: base zinc, una sola tinta de acento (#E07A3A).
+         Registro: mostrador de catálogo — KPIs que filtran al hacer clic,
+         dos vistas (Vitrina de placas / Mesa densa), inspector de
+         colección y modales de creación/edición.
+         ============================================================ -->
+    <div class="cg-scope px-5 sm:px-8 lg:px-10 py-8 pb-20 max-w-[92rem] mx-auto"
+         x-data="categoriasPage()" x-init="init()" x-cloak
+         @pointerdown.window="cerrarPopovers($event)" @keydown.escape.window="cerrarPopovers()">
+
+        <style>
+            .cg-scope {
+                --cg-accent: #E07A3A;
+                --cg-accent-strong: #C2630F;
+                --cg-accent-soft: #FFF7F0;
+                --cg-accent-line: #FED7AA;
+                --cg-ink: #18181b;
+                --cg-ink-2: #52525b;
+                --cg-mute: #71717a;
+                --cg-faint: #a1a1aa;
+                --cg-line: #f4f4f5;
+                --cg-line-2: #e4e4e7;
+                --cg-card: #ffffff;
+                --cg-hover: #fafafa;
+                --cg-tint: #fafafa;
+                --cg-ring: rgba(224, 122, 58, .1);
+            }
+            html.dark .cg-scope {
+                --cg-accent-soft: rgba(224, 122, 58, .14);
+                --cg-accent-line: rgba(224, 122, 58, .32);
+                --cg-ink: #fafafa;
+                --cg-ink-2: #a1a1aa;
+                --cg-mute: #71717a;
+                --cg-faint: #52525b;
+                --cg-line: #1c1c20;
+                --cg-line-2: #27272a;
+                --cg-card: #131316;
+                --cg-hover: #1a1a1e;
+                --cg-tint: #17171a;
+            }
+
+            .cg-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .13em; color: var(--cg-faint); }
+            .cg-tabular { font-variant-numeric: tabular-nums; }
+
+            /* Entrada escalonada */
+            .cg-rise { animation: cgRise .5s cubic-bezier(.16, 1, .3, 1) both; }
+            .cg-d1 { animation-delay: .04s; } .cg-d2 { animation-delay: .1s; } .cg-d3 { animation-delay: .16s; }
+            @keyframes cgRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+            .cg-card { background: var(--cg-card); border: 1px solid var(--cg-line); border-radius: 1rem; }
+
+            /* KPIs (clic = filtro) */
+            .cg-kpi { position: relative; overflow: hidden; width: 100%; text-align: left; padding: 1.05rem 1.15rem; cursor: pointer;
+                      display: flex; flex-direction: column; transition: border-color .16s ease, transform .16s ease, background-color .16s ease; }
+            .cg-kpi:hover { border-color: var(--cg-line-2); transform: translateY(-1px); }
+            .cg-kpi:focus-visible { outline: 2px solid var(--cg-accent); outline-offset: 2px; }
+            .cg-kpi[aria-pressed="true"] { border-color: var(--cg-accent-line); background: var(--cg-accent-soft); }
+            .cg-kpi--static { cursor: default; }
+            .cg-kpi--static:hover { transform: none; border-color: var(--cg-line); }
+            .cg-kpi__ray { position: absolute; right: 1rem; top: 1.25rem; color: var(--cg-line-2); opacity: .9; pointer-events: none; }
+            .cg-kpi__top { display: flex; align-items: center; gap: .55rem; }
+            .cg-kpi__icon { display: inline-flex; align-items: center; justify-content: center; width: 2.05rem; height: 2.05rem; border-radius: .65rem;
+                            background: var(--cg-tint); color: var(--cg-ink-2); flex-shrink: 0; }
+            .cg-kpi__icon--accent { background: var(--cg-accent-soft); color: var(--cg-accent); }
+            .cg-kpi__icon--ok { background: #f0fdf4; color: #15803d; }
+            .cg-kpi__icon--warn { background: #fffbeb; color: #b45309; }
+            .cg-kpi__icon--stop { background: #fef2f2; color: #b91c1c; }
+            .cg-kpi__value { font-size: 1.7rem; line-height: 1; font-weight: 900; letter-spacing: -.025em; color: var(--cg-ink); margin-top: .75rem; }
+            .cg-kpi__sub { font-size: .72rem; font-weight: 600; color: var(--cg-mute); margin-top: .4rem; }
+            html.dark .cg-kpi__icon--ok { background: rgba(22, 163, 74, .16); color: #4ade80; }
+            html.dark .cg-kpi__icon--warn { background: rgba(217, 119, 6, .16); color: #fbbf24; }
+            html.dark .cg-kpi__icon--stop { background: rgba(220, 38, 38, .16); color: #f87171; }
+
+            /* Segmentos */
+            .cg-seg { display: inline-flex; padding: .22rem; border-radius: .8rem; background: #f4f4f5; gap: .22rem; }
+            .cg-seg__btn { display: inline-flex; align-items: center; gap: .5rem; padding: .5rem .9rem; border-radius: .62rem;
+                           font-size: .74rem; font-weight: 800; letter-spacing: .02em; color: #52525b; transition: all .14s ease; white-space: nowrap; }
+            .cg-seg__btn:hover { color: #18181b; }
+            .cg-seg__btn:focus-visible { outline: 2px solid var(--cg-accent); outline-offset: 2px; }
+            .cg-seg__btn[aria-selected="true"] { background: #fff; color: #18181b; box-shadow: 0 1px 2px rgba(0, 0, 0, .07); }
+            .cg-seg__count { font-size: .64rem; font-weight: 900; padding: .1rem .42rem; border-radius: .45rem; background: var(--cg-line-2); color: var(--cg-ink-2); }
+            .cg-seg__btn[aria-selected="true"] .cg-seg__count { background: var(--cg-accent-soft); color: var(--cg-accent-strong); }
+            html.dark .cg-seg { background: #1c1c20; }
+            html.dark .cg-seg__btn { color: #a1a1aa; }
+            html.dark .cg-seg__btn:hover { color: #fff; }
+            html.dark .cg-seg__btn[aria-selected="true"] { background: #27272a; color: #fff; box-shadow: none; }
+            html.dark .cg-seg__count { background: #3f3f46; color: #d4d4d8; }
+            html.dark .cg-seg__btn[aria-selected="true"] .cg-seg__count { background: rgba(224, 122, 58, .2); color: #f0b483; }
+            .cg-seg--tight .cg-seg__btn { padding: .42rem .7rem; }
+
+            /* Píldoras */
+            .cg-pill { display: inline-flex; align-items: center; gap: .32rem; padding: .2rem .58rem; border-radius: .5rem;
+                       font-size: .63rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+                       border: 1px solid transparent; white-space: nowrap; }
+            .cg-dot { width: .4rem; height: .4rem; border-radius: 9999px; background: currentColor; flex-shrink: 0; }
+            .cg-pill-ok { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+            .cg-pill-warn { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+            .cg-pill-stop { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+            .cg-pill-info { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+            .cg-pill-mute { background: var(--cg-line); color: var(--cg-ink-2); border-color: var(--cg-line-2); }
+            .cg-pill-accent { background: var(--cg-accent-soft); color: var(--cg-accent-strong); border-color: var(--cg-accent-line); }
+            html.dark .cg-pill-ok { background: rgba(22, 163, 74, .14); color: #4ade80; border-color: rgba(22, 163, 74, .32); }
+            html.dark .cg-pill-warn { background: rgba(217, 119, 6, .16); color: #fbbf24; border-color: rgba(217, 119, 6, .34); }
+            html.dark .cg-pill-stop { background: rgba(220, 38, 38, .16); color: #f87171; border-color: rgba(220, 38, 38, .34); }
+            html.dark .cg-pill-info { background: rgba(37, 99, 235, .18); color: #93c5fd; border-color: rgba(37, 99, 235, .34); }
+            html.dark .cg-pill-mute { background: rgba(113, 113, 122, .16); color: #a1a1aa; border-color: rgba(113, 113, 122, .3); }
+            html.dark .cg-pill-accent { color: #FDBA74; }
+
+            /* Botones */
+            .cg-btn { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; padding: .6rem .95rem; border-radius: .75rem;
+                      font-size: .72rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; cursor: pointer;
+                      transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .14s ease; white-space: nowrap; }
+            .cg-btn:active { transform: scale(.975); }
+            .cg-btn:focus-visible { outline: 2px solid var(--cg-accent); outline-offset: 2px; }
+            .cg-btn:disabled { opacity: .5; cursor: not-allowed; }
+            .cg-btn-accent { background: var(--cg-accent); color: #fff; }
+            .cg-btn-accent:hover { background: var(--cg-accent-strong); }
+            .cg-btn-dark { background: #18181b; color: #fff; }
+            .cg-btn-dark:hover { background: #000; }
+            .cg-btn-ghost { background: var(--cg-card); border: 1px solid var(--cg-line-2); color: var(--cg-ink-2); }
+            .cg-btn-ghost:hover { border-color: var(--cg-faint); color: var(--cg-ink); }
+            .cg-btn-soft { background: var(--cg-accent-soft); border: 1px solid var(--cg-accent-line); color: var(--cg-accent-strong); }
+            .cg-btn-soft:hover { background: #FFEDD5; }
+            .cg-btn-danger { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+            .cg-btn-danger:hover { background: #fee2e2; }
+            .cg-btn-icon { padding: .6rem; }
+            html.dark .cg-btn-dark { background: #fafafa; color: #18181b; }
+            html.dark .cg-btn-dark:hover { background: #fff; }
+            html.dark .cg-btn-ghost { background: #18181b; border-color: #27272a; color: #d4d4d8; }
+            html.dark .cg-btn-ghost:hover { border-color: #3f3f46; color: #fff; }
+            html.dark .cg-btn-soft { background: rgba(224, 122, 58, .14); border-color: rgba(224, 122, 58, .32); color: #FDBA74; }
+            html.dark .cg-btn-soft:hover { background: rgba(224, 122, 58, .22); }
+            html.dark .cg-btn-danger { background: rgba(220, 38, 38, .14); border-color: rgba(220, 38, 38, .3); color: #f87171; }
+            html.dark .cg-btn-danger:hover { background: rgba(220, 38, 38, .2); }
+
+            /* Campos */
+            .cg-field { width: 100%; border-radius: .75rem; border: 1px solid var(--cg-line-2); background: var(--cg-tint);
+                        padding: .6rem .8rem; font-size: .82rem; font-weight: 600; color: var(--cg-ink);
+                        transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+            .cg-field::placeholder { color: var(--cg-faint); font-weight: 500; }
+            .cg-field:focus { outline: none; border-color: #FDBA74; background: var(--cg-card); box-shadow: 0 0 0 4px var(--cg-ring); }
+            .cg-field-pl { padding-left: 2.3rem; }
+            .cg-field-pr { padding-right: 2.2rem; }
+            .cg-field--open { border-color: #FDBA74; background: var(--cg-card); box-shadow: 0 0 0 4px var(--cg-ring); }
+            .cg-fld-wrap { min-width: 12rem; }
+
+            /* Disparadores dropdown */
+            .cg-dd { display: flex; align-items: center; gap: .5rem; width: 100%; padding-left: .8rem; padding-right: .8rem; cursor: pointer; text-align: left; }
+            .cg-dd__lead { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--cg-ink-2); }
+            .cg-dd__val { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35; font-weight: 700; color: var(--cg-ink); }
+            .cg-dd__caret { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--cg-faint); transition: transform .16s ease; }
+            .cg-dd__caret--open { transform: rotate(180deg); }
+
+            /* Popovers */
+            .cg-pop { position: absolute; top: calc(100% + .5rem); z-index: 60; background: var(--cg-card);
+                      border: 1px solid var(--cg-line-2); border-radius: 1rem;
+                      box-shadow: 0 18px 44px -14px rgba(24, 24, 27, .24), 0 4px 12px -6px rgba(24, 24, 27, .12);
+                      animation: cgPop .16s cubic-bezier(.16, 1, .3, 1) both; }
+            html.dark .cg-pop { box-shadow: 0 18px 44px -14px rgba(0, 0, 0, .72); }
+            .cg-pop--menu { right: 0; left: auto; width: max-content; min-width: 15rem; max-width: 22rem; padding: .35rem;
+                            max-height: 22rem; overflow-y: auto; }
+            @media (max-width: 639px) { .cg-pop--menu { left: 0; right: 0; width: auto; max-width: none; } }
+
+            /* Opciones */
+            .cg-opt { display: flex; align-items: center; gap: .65rem; width: 100%; text-align: left; padding: .5rem .55rem;
+                      border-radius: .7rem; transition: background-color .12s ease; }
+            .cg-opt--active { background: var(--cg-hover); }
+            .cg-opt__ic { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem;
+                          border-radius: .6rem; background: var(--cg-tint); color: var(--cg-ink-2); flex-shrink: 0; }
+            .cg-opt--sel .cg-opt__ic { background: var(--cg-accent-soft); color: var(--cg-accent); }
+            .cg-opt__body { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+            .cg-opt__label { font-size: .8rem; font-weight: 700; color: var(--cg-ink); }
+            .cg-opt__desc { font-size: .66rem; font-weight: 500; color: var(--cg-mute); }
+            .cg-opt__count { font-size: .66rem; font-weight: 800; color: var(--cg-faint); margin-left: auto; padding-left: .5rem; }
+            .cg-opt__check { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--cg-accent); }
+            .cg-opt[aria-selected="true"] { background: var(--cg-accent-soft); }
+            html.dark .cg-opt[aria-selected="true"] { background: rgba(224, 122, 58, .12); }
+
+            /* Placa de icono de colección */
+            .cg-tile { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+                       border-radius: .85rem; background: var(--cg-accent-soft); color: var(--cg-accent);
+                       border: 1px solid var(--cg-accent-line); }
+            .cg-tile svg { width: 55%; height: 55%; }
+            .cg-tile--sm { width: 2.6rem; height: 2.6rem; border-radius: .7rem; }
+            .cg-tile--md { width: 3.25rem; height: 3.25rem; }
+            .cg-tile--lg { width: 4rem; height: 4rem; border-radius: 1rem; }
+
+            /* Tarjeta de colección (Vitrina) */
+            .cg-plaque { background: var(--cg-card); border: 1px solid var(--cg-line); border-radius: 1.1rem; padding: 1.25rem;
+                         display: flex; flex-direction: column; transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease; }
+            .cg-plaque:hover { border-color: var(--cg-line-2); transform: translateY(-2px); box-shadow: 0 20px 40px -26px rgba(24, 24, 27, .35); }
+            html.dark .cg-plaque:hover { box-shadow: 0 20px 40px -26px rgba(0, 0, 0, .7); }
+            .cg-plaque__name { font-size: 1.02rem; font-weight: 800; color: var(--cg-ink); letter-spacing: -.01em; line-height: 1.25; }
+            .cg-slug { display: inline-flex; align-items: center; gap: .3rem; padding: .18rem .5rem; border-radius: .5rem;
+                       font-size: .66rem; font-weight: 700; background: var(--cg-tint); color: var(--cg-ink-2);
+                       border: 1px solid var(--cg-line); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+            .cg-countbar { height: .3rem; border-radius: 9999px; background: var(--cg-line-2); overflow: hidden; }
+            .cg-countfill { height: 100%; border-radius: 9999px; background: var(--cg-accent); transition: width .5s cubic-bezier(.16, 1, .3, 1); }
+            .cg-countfill--empty { background: var(--cg-faint); }
+
+            /* Tabla */
+            .cg-th { font-size: .64rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--cg-faint);
+                     text-align: left; padding: .7rem 1rem; white-space: nowrap; }
+            .cg-td { padding: .7rem 1rem; font-size: .82rem; color: var(--cg-ink-2); vertical-align: middle; }
+            .cg-row { transition: background-color .15s ease; cursor: pointer; }
+            .cg-row:hover { background: var(--cg-hover); }
+            .cg-row:focus-visible { outline: 2px solid var(--cg-accent); outline-offset: -2px; }
+            .cg-row-line { border-bottom: 1px solid var(--cg-line); }
+            .cg-row-line:last-child { border-bottom: 0; }
+
+            /* Lista de definición */
+            .cg-dl { display: grid; grid-template-columns: auto 1fr; gap: .55rem 1rem; align-items: baseline; }
+            .cg-dl dt { font-size: .68rem; font-weight: 700; color: var(--cg-faint); white-space: nowrap; }
+            .cg-dl dd { font-size: .82rem; font-weight: 600; color: var(--cg-ink); text-align: right; word-break: break-word; }
+
+            /* Miniaturas / galería de productos */
+            .cg-thumb { border-radius: .7rem; overflow: hidden; background: var(--cg-tint); flex-shrink: 0;
+                        display: flex; align-items: center; justify-content: center; color: var(--cg-faint);
+                        width: 2.6rem; height: 2.6rem; }
+            .cg-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+            /* Chips de producto clicables */
+            .cg-prodchip { display: flex; align-items: center; gap: .6rem; width: 100%; text-align: left; padding: .5rem;
+                           border-radius: .8rem; border: 1px solid var(--cg-line); background: var(--cg-card);
+                           transition: border-color .14s ease, background-color .14s ease; }
+            .cg-prodchip:hover { border-color: var(--cg-line-2); background: var(--cg-hover); }
+
+            /* Modal nativo */
+            .cg-modal { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; }
+            .cg-modal::backdrop { background: rgba(24, 24, 27, .55); backdrop-filter: blur(4px); }
+            html.dark .cg-modal::backdrop { background: rgba(0, 0, 0, .7); }
+            .cg-modal[open] .cg-modal__card { animation: cgPop .24s cubic-bezier(.16, 1, .3, 1) both; }
+            @keyframes cgPop { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+            .cg-modal__card { background: var(--cg-card); border: 1px solid var(--cg-line-2); border-radius: 1.25rem;
+                              box-shadow: 0 30px 80px -30px rgba(24, 24, 27, .5); }
+            .cg-scroll { scrollbar-width: thin; }
+            .cg-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+            .cg-scroll::-webkit-scrollbar-thumb { background: var(--cg-line-2); border-radius: 9999px; }
+            .cg-scroll::-webkit-scrollbar-track { background: transparent; }
+
+            /* Formularios del modal */
+            .cg-flabel { display: block; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; color: var(--cg-faint); margin-bottom: .45rem; }
+            .cg-finput { width: 100%; border-radius: .75rem; border: 1px solid var(--cg-line-2); background: var(--cg-tint);
+                         padding: .68rem .85rem; font-size: .85rem; font-weight: 600; color: var(--cg-ink); transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+            .cg-finput::placeholder { color: var(--cg-faint); font-weight: 500; }
+            .cg-finput:focus { outline: none; border-color: #FDBA74; background: var(--cg-card); box-shadow: 0 0 0 4px var(--cg-ring); }
+            .cg-finput--open { border-color: #FDBA74; background: var(--cg-card); box-shadow: 0 0 0 4px var(--cg-ring); }
+            .cg-section { padding-top: 1.1rem; margin-top: 1.1rem; border-top: 1px solid var(--cg-line); }
+
+            /* Selector de iconos */
+            .cg-iconpick { display: flex; flex-direction: column; align-items: center; gap: .35rem; padding: .6rem .3rem;
+                           border-radius: .8rem; border: 1px solid var(--cg-line-2); color: var(--cg-ink-2);
+                           background: var(--cg-card); transition: border-color .14s ease, background-color .14s ease, color .14s ease; }
+            .cg-iconpick:hover { border-color: var(--cg-accent-line); color: var(--cg-ink); }
+            .cg-iconpick:focus-visible { outline: 2px solid var(--cg-accent); outline-offset: 2px; }
+            .cg-iconpick--on { border-color: var(--cg-accent); background: var(--cg-accent-soft); color: var(--cg-accent-strong); box-shadow: 0 0 0 3px var(--cg-ring); }
+            .cg-iconpick__lbl { font-size: .6rem; font-weight: 800; letter-spacing: .02em; }
+
+            @media (prefers-reduced-motion: reduce) {
+                .cg-rise { animation: none !important; opacity: 1 !important; transform: none !important; }
+                .cg-modal[open] .cg-modal__card, .cg-pop { animation: none !important; }
+                .cg-row, .cg-seg__btn, .cg-dd__caret, .cg-kpi, .cg-btn, .cg-plaque, .cg-countfill, .cg-iconpick, .cg-prodchip { transition: none !important; }
+                .cg-kpi:hover, .cg-plaque:hover { transform: none; }
+            }
+        </style>
+
+        <!-- ============================ Cabecera ============================ -->
+        <header class="cg-rise flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div class="min-w-0">
+                <div class="flex items-center gap-2.5 mb-3 flex-wrap">
+                    <span class="cg-label">Catálogo · Organización</span>
+                    <span class="block size-1 rounded-full bg-surface-300"></span>
+                    <span class="cg-pill" :class="stats.vacias > 0 ? 'cg-pill-warn' : 'cg-pill-ok'">
+                        <span class="cg-dot"></span>
+                        <span x-text="stats.vacias > 0 ? (num(stats.vacias) + ' sin mobiliarios') : 'Colecciones al día'"></span>
+                    </span>
+                    <span class="cg-pill cg-pill-info" x-show="stats.sinCategoria > 0" x-cloak>
+                        <span class="cg-dot"></span><span x-text="num(stats.sinCategoria) + ' sin clasificar'"></span>
+                    </span>
                 </div>
-                <button onclick="openCatModal('Nueva Colección')" class="flex items-center gap-2 px-6 py-3 bg-surface-900 text-white text-sm font-bold rounded-xl hover:bg-black transition-all shadow-sm">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-                    Añadir Colección
+                <h1 class="text-[2.1rem] leading-none font-black tracking-tight text-surface-900 dark:text-white">Colecciones</h1>
+                <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-3 max-w-2xl">
+                    Organiza tus mobiliarios en familias, define su identidad y detecta lo que aún no está clasificado.
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button type="button" class="cg-btn cg-btn-ghost" x-show="!estaVacio" x-cloak @click="location.reload()" aria-label="Actualizar colecciones">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                    Actualizar
+                </button>
+                <button type="button" class="cg-btn cg-btn-accent" @click="abrirCrear()">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                    Nueva colección
                 </button>
             </div>
+        </header>
 
-            <!-- Success Alert -->
-            <div th:if="${success}" id="successAlert" class="mb-6 p-4 glass-panel bg-green-50/80 border-green-200 text-green-800 rounded-2xl text-sm font-semibold flex items-center justify-between shadow-soft animate-[fade-in-down_0.5s_ease-out]">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    </div>
-                    <span th:text="${success}"></span>
-                </div>
-                <button onclick="this.parentElement.style.display='none'" class="text-green-600 hover:text-green-800">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+        <!-- ============================ KPIs (filtran al clic) ============================ -->
+        <section class="cg-rise cg-d1 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5 mt-7" aria-label="Resumen de colecciones">
+            <button type="button" class="cg-card cg-kpi" :aria-pressed="estado === 'todas'" @click="irA('todas')">
+                <svg class="cg-kpi__ray w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zm0 9.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25z"/></svg>
+                <span class="cg-kpi__top">
+                    <span class="cg-kpi__icon cg-kpi__icon--accent">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zm0 9.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zm0 9.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+                    </span>
+                    <span class="cg-label">Colecciones</span>
+                </span>
+                <span class="cg-kpi__value cg-tabular" x-text="num(stats.total)">0</span>
+                <span class="cg-kpi__sub">Familias del catálogo</span>
+            </button>
+
+            <button type="button" class="cg-card cg-kpi" :aria-pressed="estado === 'en-uso'" @click="irA('en-uso')">
+                <svg class="cg-kpi__ray w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="cg-kpi__top">
+                    <span class="cg-kpi__icon cg-kpi__icon--ok">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </span>
+                    <span class="cg-label">En uso</span>
+                </span>
+                <span class="cg-kpi__value cg-tabular text-green-600 dark:text-green-400" x-text="num(stats.enUso)">0</span>
+                <span class="cg-kpi__sub">Con mobiliarios</span>
+            </button>
+
+            <button type="button" class="cg-card cg-kpi" :aria-pressed="estado === 'vacias'" @click="irA('vacias')">
+                <svg class="cg-kpi__ray w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                <span class="cg-kpi__top">
+                    <span class="cg-kpi__icon cg-kpi__icon--warn">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                    </span>
+                    <span class="cg-label">Vacías</span>
+                </span>
+                <span class="cg-kpi__value cg-tabular text-amber-600 dark:text-amber-400" x-text="num(stats.vacias)">0</span>
+                <span class="cg-kpi__sub" x-text="stats.vacias > 0 ? 'Revisar o eliminar' : 'Todas con contenido'">Todas con contenido</span>
+            </button>
+
+            <div class="cg-card cg-kpi cg-kpi--static" role="group" aria-label="Mobiliarios clasificados">
+                <svg class="cg-kpi__ray w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+                <span class="cg-kpi__top">
+                    <span class="cg-kpi__icon">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+                    </span>
+                    <span class="cg-label">Clasificados</span>
+                </span>
+                <span class="cg-kpi__value cg-tabular" x-text="num(stats.clasificados)">0</span>
+                <span class="cg-kpi__sub">Mobiliarios con colección</span>
             </div>
 
-            <!-- Grid of Categories (Bento style) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                <!-- Item -->
-                <div th:each="cat : ${categorias}" class="bg-white p-6 rounded-2xl shadow-sm border border-surface-200 group hover:-translate-y-1 hover:shadow-md transition-all duration-300 relative overflow-hidden">
-                    
-                    <div class="flex items-start justify-between mb-6 relative z-10">
-                        <div class="w-14 h-14 bg-gradient-to-br from-white to-surface-50 rounded-2xl flex items-center justify-center border border-surface-100 shadow-sm text-furent-500 group-hover:text-furent-600 group-hover:scale-110 transition-all duration-300">
-                            <!-- Dynamic Icon based on the string -->
-                            <svg th:if="${cat.icono == 'chair'}" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
-                            <svg th:if="${cat.icono != 'chair'}" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/></svg>
+            <button type="button" class="cg-card cg-kpi" :class="stats.sinCategoria > 0 ? '' : 'cg-kpi--static'"
+                    :aria-pressed="false" @click="stats.sinCategoria > 0 ? abrirSinCategoria() : null"
+                    :aria-label="stats.sinCategoria > 0 ? 'Ver mobiliarios sin clasificar' : 'No hay mobiliarios sin clasificar'">
+                <svg class="cg-kpi__ray w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/></svg>
+                <span class="cg-kpi__top">
+                    <span class="cg-kpi__icon" :class="stats.sinCategoria > 0 ? 'cg-kpi__icon--stop' : ''">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/></svg>
+                    </span>
+                    <span class="cg-label">Sin categoría</span>
+                </span>
+                <span class="cg-kpi__value cg-tabular" :class="stats.sinCategoria > 0 ? 'text-red-600 dark:text-red-400' : ''" x-text="num(stats.sinCategoria)">0</span>
+                <span class="cg-kpi__sub">Mobiliarios por clasificar</span>
+            </button>
+        </section>
+
+        <!-- ============================ Mesa de trabajo ============================ -->
+        <section class="cg-card cg-rise cg-d2 mt-5">
+            <div class="flex flex-col gap-4 p-5 sm:px-6 border-b border-[color:var(--cg-line)]">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <div class="cg-seg" role="tablist" aria-label="Filtrar colecciones por uso">
+                            <button type="button" class="cg-seg__btn" role="tab" :aria-selected="estado === 'todas'" @click="setEstado('todas')">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"/></svg>
+                                <span>Todas</span>
+                                <span class="cg-seg__count" x-text="num(stats.total)">0</span>
+                            </button>
+                            <button type="button" class="cg-seg__btn" role="tab" :aria-selected="estado === 'en-uso'" @click="setEstado('en-uso')">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>En uso</span>
+                                <span class="cg-seg__count" x-text="num(stats.enUso)">0</span>
+                            </button>
+                            <button type="button" class="cg-seg__btn" role="tab" :aria-selected="estado === 'vacias'" @click="setEstado('vacias')">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                <span>Vacías</span>
+                                <span class="cg-seg__count" x-text="num(stats.vacias)">0</span>
+                            </button>
                         </div>
-                        <div class="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button th:data-id="${cat.id}" th:data-nombre="${cat.nombre}" th:data-descripcion="${cat.descripcion}" th:data-icono="${cat.icono}" th:data-slug="${cat.slug}" onclick="editCat(this)" class="p-2 bg-white text-surface-500 hover:text-furent-600 rounded-xl shadow-sm border border-surface-100 hover:border-furent-200 transition-all" title="Editar">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.89 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.89l10.686-10.686z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125L16.862 4.487" /></svg>
+
+                        <div class="cg-seg cg-seg--tight" role="group" aria-label="Modo de visualización">
+                            <button type="button" class="cg-seg__btn" :aria-selected="vista === 'vitrina'" @click="setVista('vitrina')" aria-label="Vista de vitrina">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zm0 9.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zm0 9.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+                                <span>Vitrina</span>
                             </button>
-                            <button th:data-id="${cat.id}" data-tipo="Colección" onclick="confirmDelete(this.getAttribute('data-id'), this.getAttribute('data-tipo'))" class="p-2 bg-white text-surface-500 hover:text-red-500 rounded-xl shadow-sm border border-surface-100 hover:border-red-200 transition-all" title="Eliminar">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                            <button type="button" class="cg-seg__btn" :aria-selected="vista === 'mesa'" @click="setVista('mesa')" aria-label="Vista de mesa">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+                                <span>Mesa</span>
                             </button>
-                            <form th:id="'del-' + ${cat.id}" th:action="@{/admin/categorias/eliminar/{id}(id=${cat.id})}" method="post" class="hidden"></form>
                         </div>
                     </div>
-                    
-                    <div class="relative z-10">
-                        <h3 class="text-xl font-bold text-surface-900 mb-1" th:text="${cat.nombre}">Categoría</h3>
-                        <p class="text-sm font-medium text-surface-500 mb-6 line-clamp-2" th:text="${cat.descripcion}">Descripción rápida de esta colección de elementos.</p>
-                        
-                        <div class="pt-4 border-t border-surface-200/50 flex items-center justify-between">
-                            <div class="flex items-center gap-1.5 px-3 py-1 bg-surface-100 rounded-lg">
-                                <span class="text-[10px] font-bold text-surface-500 uppercase">Slug</span>
-                                <span class="w-1 h-3 bg-surface-300 rounded-full"></span>
-                                <span class="text-xs font-semibold text-surface-800" th:text="${cat.slug}">slug</span>
+                    <p class="text-xs font-medium text-surface-500 dark:text-surface-400">
+                        <span x-text="num(filtradas.length)"></span>
+                        <span x-text="filtradas.length === 1 ? 'colección' : 'colecciones'"></span>
+                        <span class="hidden sm:inline">· haz clic en una para abrir su ficha</span>
+                    </p>
+                </div>
+
+                <!-- Barra de herramientas -->
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2.5">
+                    <div class="relative flex-1 sm:max-w-sm">
+                        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                        <input type="text" x-model="q" @input="onFilterChange()" class="cg-field cg-field-pl cg-field-pr"
+                               placeholder="Buscar por nombre, descripción o slug" aria-label="Buscar colecciones">
+                        <button type="button" x-show="q" x-cloak @click="q=''; onFilterChange()"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-surface-400 hover:text-surface-900 dark:hover:text-white transition-colors" aria-label="Limpiar búsqueda">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2.5">
+                        <div class="relative cg-fld-wrap">
+                            <button type="button" data-cgpop="orden" class="cg-field cg-dd"
+                                    :class="{ 'cg-field--open': ordenOpen }" @click="toggleOrden()"
+                                    :aria-expanded="ordenOpen ? 'true' : 'false'" aria-haspopup="listbox" aria-label="Ordenar colecciones">
+                                <svg class="cg-dd__lead" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="ordenActual.icon"/></svg>
+                                <span class="cg-dd__val" x-text="ordenActual.label"></span>
+                                <svg class="cg-dd__caret" :class="{ 'cg-dd__caret--open': ordenOpen }" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                            </button>
+                            <div x-show="ordenOpen" x-cloak x-ref="ordenMenu" class="cg-pop cg-pop--menu" role="listbox" tabindex="-1" aria-label="Ordenar colecciones"
+                                 @keydown.down.prevent="moverMenu(1)" @keydown.up.prevent="moverMenu(-1)"
+                                 @keydown.enter.prevent="elegirOrden(ordenIdx)" @keydown.escape.prevent="ordenOpen=false"
+                                 @focusout="if (!$event.currentTarget.contains($event.relatedTarget)) ordenOpen = false">
+                                <template x-for="(o, i) in ordenOpciones" :key="o.key">
+                                    <button type="button" role="option" class="cg-opt"
+                                            :class="{ 'cg-opt--sel': orden === o.key, 'cg-opt--active': ordenIdx === i }"
+                                            :aria-selected="orden === o.key ? 'true' : 'false'"
+                                            @click="elegirOrden(i)" @mouseenter="ordenIdx = i">
+                                        <span class="cg-opt__ic"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="o.icon"/></svg></span>
+                                        <span class="cg-opt__body">
+                                            <span class="cg-opt__label" x-text="o.label"></span>
+                                            <span class="cg-opt__desc" x-text="o.desc"></span>
+                                        </span>
+                                        <svg class="cg-opt__check" x-show="orden === o.key" x-cloak fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                    </button>
+                                </template>
                             </div>
                         </div>
+
+                        <button type="button" x-show="hayFiltros" x-cloak @click="limpiarFiltros()" class="cg-btn cg-btn-ghost !py-2.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            Limpiar
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Empty State -->
-            <div th:if="${#lists.isEmpty(categorias)}" class="text-center py-24 bg-surface-50 rounded-2xl border border-surface-200">
-                <div class="w-16 h-16 bg-white shadow-sm border border-surface-200 rounded-2xl flex items-center justify-center mx-auto mb-4 text-surface-400">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                </div>
-                <h3 class="text-lg font-bold text-surface-900 mb-1">Sin Colecciones</h3>
-                <p class="text-sm font-medium text-surface-500">Agrega agrupaciones para organizar tus muebles.</p>
-            </div>
-            
-            <!-- Abstract background shape -->
-            <div class="absolute top-[20%] right-[10%] w-[30rem] h-[30rem] bg-furent-400/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
-        </div>
-
-        <!-- Modern Modal Overlay -->
-        <div id="catModal" class="fixed inset-0 bg-surface-900/40 backdrop-blur-md z-[100] hidden flex items-center justify-center p-4 transition-all opacity-0 pointer-events-none" style="display:none;">
-            <div class="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl border border-surface-100 flex flex-col transform scale-95 transition-transform duration-300 relative overflow-hidden">
-                
-                <div class="absolute -right-10 -top-10 w-40 h-40 bg-gradient-to-br from-furent-300/20 to-transparent rounded-full blur-2xl pointer-events-none"></div>
-
-                <div class="flex items-center justify-between px-8 py-6 border-b border-surface-100 relative z-10">
-                    <div>
-                        <h2 id="catModalTitle" class="text-xl font-extrabold text-surface-900">Nueva Colección</h2>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-surface-400 mt-1">Configuración general</p>
+            <!-- ===================== Estado vacío global ===================== -->
+            <template x-if="estaVacio">
+                <div class="flex flex-col items-center justify-center text-center py-20 px-6">
+                    <div class="cg-tile cg-tile--lg mb-5">
+                        <svg fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath('layers')"/></svg>
                     </div>
-                    <button onclick="closeCatModal()" class="w-10 h-10 rounded-full bg-surface-50 hover:bg-surface-100 flex items-center justify-center text-surface-500 hover:text-surface-900 transition-all">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    <h3 class="text-lg font-black text-surface-900 dark:text-white" x-text="vacioTitulo"></h3>
+                    <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-1.5 max-w-sm" x-text="vacioTexto"></p>
+                    <button type="button" class="cg-btn cg-btn-accent mt-6" @click="abrirCrear()">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                        Nueva colección
                     </button>
                 </div>
-                
-                <form th:action="@{/admin/categorias/guardar}" method="post" class="p-8 space-y-6 relative z-10">
-                    <input type="hidden" id="catId" name="id">
-                    
-                    <div>
-                        <label class="block text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-1.5">Nombre de la colección</label>
-                        <input type="text" name="nombre" id="fc_nombre" required placeholder="Ej. Mesas Elegantes" class="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-semibold text-surface-900 focus:outline-none focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 transition-all shadow-sm hover:border-surface-300">
+            </template>
+
+            <!-- ===================== Estado sin resultados ===================== -->
+            <template x-if="!estaVacio && filtradas.length === 0">
+                <div class="flex flex-col items-center justify-center text-center py-20 px-6">
+                    <div class="w-16 h-16 rounded-2xl bg-[color:var(--cg-tint)] border border-[color:var(--cg-line)] flex items-center justify-center text-surface-400 mb-5">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
                     </div>
-                    
-                    <div>
-                        <label class="block text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-1.5">Descripción</label>
-                        <textarea name="descripcion" id="fc_descripcion" rows="3" required placeholder="Detalla esta agrupación..." class="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-semibold text-surface-900 focus:outline-none focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 transition-all resize-none shadow-sm hover:border-surface-300"></textarea>
+                    <h3 class="text-lg font-black text-surface-900 dark:text-white" x-text="sinResTitulo"></h3>
+                    <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-1.5 max-w-sm" x-text="sinResTexto"></p>
+                    <button type="button" class="cg-btn cg-btn-ghost mt-6" @click="limpiarFiltros()" x-show="hayFiltros" x-cloak>Limpiar filtros</button>
+                </div>
+            </template>
+
+            <!-- ═══════════════════════ VISTA · VITRINA ═══════════════════════ -->
+            <div x-show="!estaVacio && filtradas.length > 0 && vista === 'vitrina'" x-cloak
+                 class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 p-5 sm:p-6">
+                <template x-for="c in paginadas" :key="c.id">
+                    <article class="cg-plaque">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="cg-tile cg-tile--lg">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath(c.icono)"/></svg>
+                            </div>
+                            <span class="cg-pill" :class="c.cantidad > 0 ? 'cg-pill-ok' : 'cg-pill-warn'">
+                                <span class="cg-dot"></span>
+                                <span x-text="c.cantidad + ' ' + plural(c.cantidad, 'mobiliario', 'mobiliarios')"></span>
+                            </span>
+                        </div>
+
+                        <div class="mt-4 min-w-0">
+                            <h3 class="cg-plaque__name" x-text="c.nombre"></h3>
+                            <span class="cg-slug mt-2 max-w-full truncate" x-text="'/' + (c.slug || slugify(c.nombre) || 'sin-slug')"></span>
+                        </div>
+
+                        <p class="text-xs font-medium text-surface-500 dark:text-surface-400 leading-relaxed mt-3 line-clamp-2 min-h-[2.5rem]"
+                           x-text="c.descripcion || 'Sin descripción todavía. Añade una para diferenciar esta colección.'"></p>
+
+                        <div class="mt-4">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="cg-label">Ocupación</span>
+                                <span class="text-[11px] font-bold text-surface-400 cg-tabular" x-text="participacion(c) + '% del catálogo'"></span>
+                            </div>
+                            <div class="cg-countbar">
+                                <div class="cg-countfill" :class="c.cantidad === 0 ? 'cg-countfill--empty' : ''" :style="`width:${barPct(c)}%`"></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-auto pt-4 flex items-center gap-2 border-t border-[color:var(--cg-line)]">
+                            <button type="button" class="cg-btn cg-btn-soft flex-1" @click="abrirInspector(c)">Abrir ficha</button>
+                            <button type="button" class="cg-btn cg-btn-ghost cg-btn-icon" title="Editar colección" @click="abrirEditar(c)" aria-label="Editar colección">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                            </button>
+                            <button type="button" class="cg-btn cg-btn-danger cg-btn-icon" :disabled="!puedeBorrar(c)"
+                                    :title="puedeBorrar(c) ? 'Eliminar colección' : 'Reasigna sus mobiliarios para eliminar'"
+                                    @click="confirmarEliminar(c)" aria-label="Eliminar colección">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                            </button>
+                        </div>
+                    </article>
+                </template>
+            </div>
+
+            <!-- ═══════════════════════ VISTA · MESA ═══════════════════════ -->
+            <div x-show="!estaVacio && filtradas.length > 0 && vista === 'mesa'" x-cloak class="overflow-x-auto cg-scroll">
+                <table class="w-full min-w-[46rem] border-collapse">
+                    <thead>
+                        <tr class="border-b border-[color:var(--cg-line)] bg-[color:var(--cg-tint)]">
+                            <th class="cg-th !pl-5 sm:!pl-6">Colección</th>
+                            <th class="cg-th">Slug</th>
+                            <th class="cg-th">Mobiliarios</th>
+                            <th class="cg-th">Ocupación</th>
+                            <th class="cg-th !pr-5 sm:!pr-6 text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="c in paginadas" :key="c.id">
+                            <tr class="cg-row cg-row-line" tabindex="0" @click="abrirInspector(c)" @keydown.enter.prevent="abrirInspector(c)">
+                                <td class="cg-td !pl-5 sm:!pl-6">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="cg-tile cg-tile--sm">
+                                            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath(c.icono)"/></svg>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <p class="font-bold text-[color:var(--cg-ink)] truncate max-w-[16rem]" x-text="c.nombre"></p>
+                                            <p class="text-xs font-medium text-surface-400 truncate max-w-[16rem]" x-text="c.descripcion || 'Sin descripción'"></p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="cg-td"><span class="cg-slug" x-text="'/' + (c.slug || slugify(c.nombre) || 'sin-slug')"></span></td>
+                                <td class="cg-td">
+                                    <div class="flex items-center gap-2.5 min-w-[7.5rem]">
+                                        <div class="cg-countbar w-16"><div class="cg-countfill" :class="c.cantidad === 0 ? 'cg-countfill--empty' : ''" :style="`width:${barPct(c)}%`"></div></div>
+                                        <span class="text-xs font-black text-[color:var(--cg-ink)] cg-tabular" x-text="c.cantidad"></span>
+                                    </div>
+                                </td>
+                                <td class="cg-td cg-tabular" x-text="participacion(c) + '%'"></td>
+                                <td class="cg-td !pr-5 sm:!pr-6" @click.stop>
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        <button type="button" class="cg-btn cg-btn-ghost cg-btn-icon" title="Editar" @click="abrirEditar(c)" aria-label="Editar colección">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                                        </button>
+                                        <button type="button" class="cg-btn cg-btn-danger cg-btn-icon" :disabled="!puedeBorrar(c)"
+                                                :title="puedeBorrar(c) ? 'Eliminar colección' : 'Reasigna sus mobiliarios para eliminar'"
+                                                @click="confirmarEliminar(c)" aria-label="Eliminar colección">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ===================== Paginación ===================== -->
+            <div x-show="!estaVacio && totalFiltrado > 0" x-cloak class="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 sm:px-6 py-4 border-t border-[color:var(--cg-line)]">
+                <p class="text-xs font-semibold text-surface-500 dark:text-surface-400 cg-tabular">
+                    Mostrando <span class="text-surface-900 dark:text-white font-black" x-text="rangoInicio"></span>–<span class="text-surface-900 dark:text-white font-black" x-text="rangoFin"></span>
+                    de <span class="text-surface-900 dark:text-white font-black" x-text="totalFiltrado"></span>
+                </p>
+                <div class="flex items-center gap-2">
+                    <button type="button" class="cg-btn cg-btn-ghost cg-btn-icon" :disabled="page <= 1" @click="page--; syncUrl()" aria-label="Página anterior">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                    </button>
+                    <template x-for="n in totalPaginas" :key="n">
+                        <button type="button" class="cg-btn cg-btn-icon"
+                                :class="n === page ? 'cg-btn-dark' : 'cg-btn-ghost'"
+                                @click="page = n; syncUrl()" x-text="n"></button>
+                    </template>
+                    <button type="button" class="cg-btn cg-btn-ghost cg-btn-icon" :disabled="page >= totalPaginas" @click="page++; syncUrl()" aria-label="Página siguiente">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             MODAL · Ficha de la colección (inspector)
+             ═══════════════════════════════════════════════════════════════ -->
+        <dialog id="cg-expediente" class="cg-modal fixed inset-0 z-[80] overflow-y-auto" @close="insp = null">
+            <div class="cg-modal__card w-[min(46rem,94vw)] max-h-[90vh] flex flex-col overflow-hidden my-[5vh] mx-auto">
+                <template x-if="insp">
+                    <div class="flex flex-col min-h-0 max-h-[90vh]">
+                        <header class="flex items-start justify-between gap-4 px-6 py-5 border-b border-[color:var(--cg-line)]">
+                            <div class="flex items-start gap-3.5 min-w-0">
+                                <div class="cg-tile cg-tile--lg shrink-0">
+                                    <svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath(insp.icono)"/></svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <span class="cg-label">Ficha de colección</span>
+                                    <h2 class="text-xl font-black text-surface-900 dark:text-white truncate mt-1" x-text="insp.nombre"></h2>
+                                    <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                                        <span class="cg-slug" x-text="'/' + (insp.slug || slugify(insp.nombre) || 'sin-slug')"></span>
+                                        <span class="cg-pill" :class="insp.cantidad > 0 ? 'cg-pill-ok' : 'cg-pill-warn'">
+                                            <span class="cg-dot"></span>
+                                            <span x-text="insp.cantidad + ' ' + plural(insp.cantidad, 'mobiliario', 'mobiliarios')"></span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="cg-btn cg-btn-ghost cg-btn-icon" @click="cerrarInspector()" aria-label="Cerrar ficha">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </header>
+
+                        <div class="overflow-y-auto cg-scroll px-6 py-5 space-y-5">
+                            <div>
+                                <p class="cg-label mb-2">Descripción</p>
+                                <p class="text-sm font-medium text-surface-600 dark:text-surface-300 leading-relaxed" x-text="insp.descripcion || 'Sin descripción registrada.'"></p>
+                            </div>
+
+                            <div class="cg-section">
+                                <dl class="cg-dl">
+                                    <dt>Mobiliarios</dt><dd x-text="insp.cantidad"></dd>
+                                    <dt>Participación</dt><dd x-text="participacion(insp) + '% del catálogo clasificado'"></dd>
+                                    <dt>Estado</dt><dd x-text="insp.cantidad > 0 ? 'En uso' : 'Vacía'"></dd>
+                                </dl>
+                            </div>
+
+                            <div class="cg-section">
+                                <div class="flex items-center justify-between gap-3 mb-3">
+                                    <p class="cg-label">Mobiliarios en esta colección</p>
+                                    <a class="text-[11px] font-bold text-[color:var(--cg-accent-strong)] dark:text-[#FDBA74] hover:underline shrink-0"
+                                       :href="'/admin/mobiliarios?cat=' + encodeURIComponent(insp.nombre)">Ver en inventario →</a>
+                                </div>
+                                <template x-if="insp.productos && insp.productos.length > 0">
+                                    <div class="grid sm:grid-cols-2 gap-2">
+                                        <template x-for="p in insp.productos" :key="p.id">
+                                            <a class="cg-prodchip" :href="'/admin/mobiliarios?q=' + encodeURIComponent(p.nombre)">
+                                                <span class="cg-thumb">
+                                                    <template x-if="p.imagen"><img :src="p.imagen" :alt="p.nombre" loading="lazy"></template>
+                                                    <template x-if="!p.imagen">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath('image')"/></svg>
+                                                    </template>
+                                                </span>
+                                                <span class="min-w-0 flex-1">
+                                                    <span class="block text-xs font-bold text-[color:var(--cg-ink)] truncate" x-text="p.nombre"></span>
+                                                    <span class="block text-[10px] font-medium text-surface-400">Abrir en inventario</span>
+                                                </span>
+                                                <svg class="w-3.5 h-3.5 shrink-0 text-surface-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                            </a>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="!insp.productos || insp.productos.length === 0">
+                                    <div class="rounded-2xl border border-dashed border-[color:var(--cg-line-2)] px-4 py-6 text-center">
+                                        <p class="text-sm font-bold text-[color:var(--cg-ink)]">Colección sin mobiliarios</p>
+                                        <p class="text-xs font-medium text-surface-400 mt-1">Asigna mobiliarios desde Inventario para llenar esta colección.</p>
+                                        <a class="cg-btn cg-btn-ghost mt-3" href="/admin/mobiliarios">Ir a Mobiliarios</a>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <footer class="flex items-center justify-between gap-3 px-6 py-4 border-t border-[color:var(--cg-line)] bg-[color:var(--cg-tint)]">
+                            <button type="button" class="cg-btn cg-btn-danger" :disabled="!puedeBorrar(insp)"
+                                    :title="puedeBorrar(insp) ? 'Eliminar colección' : 'Reasigna sus mobiliarios para eliminar'"
+                                    @click="confirmarEliminar(insp)">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                Eliminar
+                            </button>
+                            <div class="flex items-center gap-2">
+                                <button type="button" class="cg-btn cg-btn-ghost" @click="cerrarInspector()">Cerrar</button>
+                                <button type="button" class="cg-btn cg-btn-accent" @click="editarDesdeInspector()">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                                    Editar colección
+                                </button>
+                            </div>
+                        </footer>
                     </div>
-                    
-                    <div class="grid grid-cols-2 gap-4">
+                </template>
+            </div>
+        </dialog>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             MODAL · Crear / Editar colección
+             ═══════════════════════════════════════════════════════════════ -->
+        <dialog id="cg-categoria" class="cg-modal fixed inset-0 z-[80] overflow-y-auto">
+            <div class="cg-modal__card w-[min(40rem,94vw)] max-h-[92vh] my-[4vh] mx-auto overflow-hidden">
+                <form id="cg-categoria-form" method="post" action="/admin/categorias/guardar" class="flex flex-col max-h-[92vh]" @submit="enviando = true">
+                    <input type="hidden" name="id" :value="form.id || ''">
+                    <input type="hidden" name="icono" :value="form.icono">
+                    <input type="hidden" name="slug" :value="form.slug || slugify(form.nombre)">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+                    <header class="flex items-start justify-between gap-4 px-6 py-5 border-b border-[color:var(--cg-line)]">
                         <div>
-                            <label class="block text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-1.5">Icon ID</label>
-                            <input type="text" name="icono" id="fc_icono" required placeholder="chair, table..." class="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-semibold text-surface-900 focus:outline-none focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 transition-all shadow-sm">
+                            <div class="flex items-center gap-2 mb-1.5">
+                                <span class="cg-label" x-text="form.id ? 'Edición' : 'Nueva colección'"></span>
+                                <span class="cg-pill cg-pill-accent" x-show="form.id" x-cloak>Colección</span>
+                            </div>
+                            <h2 class="text-xl font-black text-surface-900 dark:text-white" x-text="form.id ? 'Editar colección' : 'Crear colección'"></h2>
+                            <p class="text-xs font-medium text-surface-400 mt-0.5">Define el nombre, la descripción y el icono que identificará esta familia del catálogo.</p>
                         </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-1.5">Slug (URL)</label>
-                            <input type="text" name="slug" id="fc_slug" required placeholder="sillas-modernas" class="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-sm font-semibold text-surface-900 focus:outline-none focus:ring-2 focus:ring-furent-500/30 focus:border-furent-500 transition-all shadow-inner">
+                        <button type="button" class="cg-btn cg-btn-ghost cg-btn-icon" @click="cerrarFormulario()" aria-label="Cerrar formulario">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </header>
+
+                    <div class="overflow-y-auto cg-scroll px-6 py-5 space-y-6">
+                        <!-- Vista previa en vivo -->
+                        <div class="rounded-2xl border border-[color:var(--cg-line-2)] bg-[color:var(--cg-tint)] p-4 flex items-center gap-4">
+                            <div class="cg-tile cg-tile--lg shrink-0">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath(form.icono)"/></svg>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="cg-label">Vista previa</p>
+                                <p class="text-base font-black text-[color:var(--cg-ink)] truncate mt-1" x-text="form.nombre || 'Nombre de la colección'"></p>
+                                <span class="cg-slug mt-1.5" x-text="'/' + (form.slug || slugify(form.nombre) || 'slug-automatico')"></span>
+                            </div>
                         </div>
+
+                        <!-- Identidad -->
+                        <section class="space-y-4">
+                            <p class="cg-label">1 · Identidad</p>
+                            <div>
+                                <label class="cg-flabel" for="cg-f-nombre">Nombre</label>
+                                <input id="cg-f-nombre" name="nombre" type="text" required maxlength="60" x-model="form.nombre" class="cg-finput" placeholder="Ej. Sillas">
+                            </div>
+                            <div>
+                                <label class="cg-flabel" for="cg-f-slug">Slug (URL)</label>
+                                <div class="flex items-center gap-2">
+                                    <input id="cg-f-slug" type="text" x-model="form.slug" class="cg-finput" placeholder="se-genera-automaticamente">
+                                    <button type="button" class="cg-btn cg-btn-ghost shrink-0 !py-3" @click="form.slug = slugify(form.nombre)" title="Generar desde el nombre">Generar</button>
+                                </div>
+                                <p class="text-[11px] font-medium text-surface-400 mt-1.5">Se usa en la dirección pública de la colección. Si lo dejas vacío, se genera solo.</p>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="cg-flabel !mb-0" for="cg-f-desc">Descripción</label>
+                                    <span class="text-[10px] font-bold text-surface-400 cg-tabular" x-text="form.descripcion.length + ' / 220'"></span>
+                                </div>
+                                <textarea id="cg-f-desc" name="descripcion" rows="3" maxlength="220" x-model="form.descripcion" class="cg-finput resize-none" placeholder="Qué tipo de mobiliarios agrupa y para qué eventos se usan."></textarea>
+                            </div>
+                        </section>
+
+                        <!-- Icono -->
+                        <section class="cg-section space-y-3">
+                            <p class="cg-label">2 · Icono</p>
+                            <div class="grid grid-cols-4 gap-2">
+                                <template x-for="ic in iconos" :key="ic.key">
+                                    <button type="button" class="cg-iconpick" :class="{ 'cg-iconpick--on': form.icono === ic.key }"
+                                            @click="form.icono = ic.key" :aria-pressed="form.icono === ic.key ? 'true' : 'false'">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath(ic.key)"/></svg>
+                                        <span class="cg-iconpick__lbl" x-text="ic.label"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </section>
                     </div>
 
-                    <div class="pt-6 mt-4 flex justify-end gap-3 border-t border-surface-100">
-                        <button type="button" onclick="closeCatModal()" class="px-6 py-3 text-sm font-bold tracking-wide text-surface-600 bg-surface-100 rounded-xl hover:bg-surface-200 transition-colors">Cancelar</button>
-                        <button type="submit" class="px-8 py-3 text-sm font-bold tracking-wide text-white bg-surface-900 rounded-xl hover:bg-black hover:shadow-lg transition-all">Guardar Colección</button>
-                    </div>
+                    <footer class="flex items-center justify-between gap-3 px-6 py-4 border-t border-[color:var(--cg-line)] bg-[color:var(--cg-tint)]">
+                        <p class="text-[11px] font-semibold text-surface-400 hidden sm:block" x-text="form.id ? 'Los cambios se aplican al guardar.' : 'Podrás asignarle mobiliarios después.'"></p>
+                        <div class="flex items-center gap-2 ml-auto">
+                            <button type="button" class="cg-btn cg-btn-ghost" @click="cerrarFormulario()">Cancelar</button>
+                            <button type="submit" class="cg-btn cg-btn-accent" :disabled="enviando">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                <span x-text="form.id ? 'Guardar cambios' : 'Crear colección'"></span>
+                            </button>
+                        </div>
+                    </footer>
                 </form>
             </div>
-        </div>
-        <script>
-        function confirmDelete(id, tipo) {
-            Swal.fire({
-                title: '¿Estás seguro?',
-                text: '¿Eliminar permanentemente esta ' + tipo.toLowerCase() + '? Todos los productos asociados perderán esta categoría.',
-                icon: 'warning',
+        </dialog>
 
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#18181b',
-                confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar',
-                customClass: {
-                    popup: 'rounded-[2rem] shadow-2xl border border-surface-100',
-                    confirmButton: 'rounded-xl text-sm font-bold px-5 py-2.5',
-                    cancelButton: 'rounded-xl text-sm font-bold px-5 py-2.5'
+        <!-- ═══════════════════════════════════════════════════════════════
+             MODAL · Mobiliarios sin clasificar
+             ═══════════════════════════════════════════════════════════════ -->
+        <dialog id="cg-sin" class="cg-modal fixed inset-0 z-[80] overflow-y-auto">
+            <div class="cg-modal__card w-[min(38rem,94vw)] max-h-[88vh] my-[6vh] mx-auto overflow-hidden flex flex-col">
+                <header class="flex items-start justify-between gap-4 px-6 py-5 border-b border-[color:var(--cg-line)]">
+                    <div class="flex items-start gap-3">
+                        <div class="cg-tile cg-tile--md shrink-0">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath('tag')"/></svg>
+                        </div>
+                        <div>
+                            <span class="cg-label">Catálogo</span>
+                            <h2 class="text-lg font-black text-surface-900 dark:text-white mt-1">Mobiliarios sin colección</h2>
+                            <p class="text-xs font-medium text-surface-400 mt-0.5">
+                                <span x-text="sinCategoria.length"></span>
+                                <span x-text="plural(sinCategoria.length, 'mobiliario', 'mobiliarios')"></span> pendientes de clasificar
+                            </p>
+                        </div>
+                    </div>
+                    <button type="button" class="cg-btn cg-btn-ghost cg-btn-icon" @click="cerrarSin()" aria-label="Cerrar">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </header>
+                <div class="overflow-y-auto cg-scroll px-6 py-5">
+                    <template x-if="sinCategoria.length > 0">
+                        <div class="space-y-2">
+                            <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-3">Abre cada mobiliario en Inventario y asígnale una colección para que deje de aparecer aquí.</p>
+                            <template x-for="p in sinCategoria" :key="p.id">
+                                <a class="cg-prodchip" :href="'/admin/mobiliarios?q=' + encodeURIComponent(p.nombre)">
+                                    <span class="cg-thumb">
+                                        <template x-if="p.imagen"><img :src="p.imagen" :alt="p.nombre" loading="lazy"></template>
+                                        <template x-if="!p.imagen">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath('image')"/></svg>
+                                        </template>
+                                    </span>
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block text-xs font-bold text-[color:var(--cg-ink)] truncate" x-text="p.nombre"></span>
+                                        <span class="block text-[10px] font-medium text-surface-400">Clasificar en Inventario</span>
+                                    </span>
+                                    <svg class="w-3.5 h-3.5 shrink-0 text-surface-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                </a>
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="sinCategoria.length === 0">
+                        <div class="text-center py-8">
+                            <div class="cg-tile cg-tile--lg mx-auto mb-4">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="iconPath('check')"/></svg>
+                            </div>
+                            <p class="text-sm font-black text-[color:var(--cg-ink)]">Todo está clasificado</p>
+                            <p class="text-xs font-medium text-surface-400 mt-1">Cada mobiliario pertenece a una colección.</p>
+                        </div>
+                    </template>
+                </div>
+                <footer class="flex items-center justify-end gap-2 px-6 py-4 border-t border-[color:var(--cg-line)] bg-[color:var(--cg-tint)]">
+                    <button type="button" class="cg-btn cg-btn-ghost" @click="cerrarSin()">Cerrar</button>
+                    <a class="cg-btn cg-btn-accent" href="/admin/mobiliarios">Ir a Mobiliarios</a>
+                </footer>
+            </div>
+        </dialog>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             MODAL · Confirmar eliminación
+             ═══════════════════════════════════════════════════════════════ -->
+        <dialog id="cg-eliminar" class="cg-modal fixed inset-0 z-[90] overflow-y-auto">
+            <div class="cg-modal__card w-[min(28rem,92vw)] my-[15vh] mx-auto overflow-hidden">
+                <form method="post" :action="borrar.action">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <div class="p-6 text-center">
+                        <div class="w-12 h-12 mx-auto rounded-2xl bg-red-50 dark:bg-red-500/15 flex items-center justify-center text-red-600 dark:text-red-400 mb-4">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                        </div>
+                        <h2 class="text-lg font-black text-surface-900 dark:text-white">Eliminar colección</h2>
+                        <p class="text-sm font-medium text-surface-500 dark:text-surface-400 mt-2">
+                            Vas a eliminar <span class="font-bold text-surface-800 dark:text-surface-200" x-text="borrar.nombre"></span>. Esta acción no se puede deshacer.
+                        </p>
+                    </div>
+                    <footer class="flex items-center gap-2 px-6 py-4 border-t border-[color:var(--cg-line)] bg-[color:var(--cg-tint)]">
+                        <button type="button" class="cg-btn cg-btn-ghost flex-1" @click="cerrarEliminar()">Cancelar</button>
+                        <button type="submit" class="cg-btn cg-btn-danger flex-1 !bg-red-600 !text-white !border-red-600 hover:!bg-red-700">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                            Eliminar definitivamente
+                        </button>
+                    </footer>
+                </form>
+            </div>
+        </dialog>
+
+        <!-- ===================== Datos del servidor ===================== -->
+        <script id="cg-data" type="application/json" th:utext="${categoriasJson}">{"stats":{},"categorias":[],"sinCategoria":[]}</script>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════
+        // Colecciones · componente Alpine
+        // ═══════════════════════════════════════════════════════════════
+        const CG_ICON = {
+            list: 'M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5',
+            check: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+            box: 'M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z',
+            tag: 'M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3zM6.75 6.75h.008v.008H6.75V6.75z',
+            chair: 'M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0zM5 18v2M19 18v2',
+            table: 'M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18',
+            tent: 'M2 21h20M4 21L12 3l8 18M9.5 21l2.5-6 2.5 6',
+            sparkles: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z',
+            layers: 'M12 2.25l9 5.25-9 5.25-9-5.25 9-5.25zM3.75 12L12 17.25 20.25 12M3.75 16.5L12 21.75l8.25-5.25',
+            star: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z',
+            image: 'M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M18 8.25h.008v.008H18V8.25zM3.75 4.5h16.5a1.5 1.5 0 011.5 1.5v12a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5z'
+        };
+
+        function categoriasPage() {
+            return {
+                // Datos
+                stats: {}, categorias: [], sinCategoria: [],
+
+                // UI
+                q: '', estado: 'todas', orden: 'nombre', vista: 'vitrina',
+                ordenOpen: false, ordenIdx: 0,
+                page: 1, perPage: 12,
+
+                // Modales
+                insp: null,
+                borrar: { action: '', nombre: '' },
+                enviando: false,
+                form: { id: '', nombre: '', descripcion: '', icono: 'tag', slug: '' },
+                iconos: [
+                    { key: 'chair', label: 'Sillas' }, { key: 'table', label: 'Mesas' },
+                    { key: 'tent', label: 'Carpas' }, { key: 'sparkles', label: 'Decoración' },
+                    { key: 'tag', label: 'General' }, { key: 'box', label: 'Bodega' },
+                    { key: 'layers', label: 'Series' }, { key: 'star', label: 'Destacado' }
+                ],
+
+                init() {
+                    var raw = {};
+                    try { raw = JSON.parse(document.getElementById('cg-data').textContent || '{}'); } catch (e) { raw = {}; }
+                    this.stats = Object.assign({ total: 0, enUso: 0, vacias: 0, clasificados: 0, sinCategoria: 0 }, raw.stats || {});
+                    this.categorias = raw.categorias || [];
+                    this.sinCategoria = raw.sinCategoria || [];
+
+                    var qs = new URLSearchParams(location.search);
+                    if (qs.get('q')) this.q = qs.get('q');
+                    if (qs.get('estado')) this.estado = qs.get('estado');
+                    if (qs.get('orden')) this.orden = qs.get('orden');
+                    if (qs.get('vista')) this.vista = qs.get('vista');
+                    if (qs.get('page')) this.page = parseInt(qs.get('page'), 10) || 1;
+
+                    this.normaliza();
+                    this.page = Math.min(Math.max(1, this.page), this.totalPaginas);
+                },
+
+                normaliza() {
+                    if (['todas', 'en-uso', 'vacias'].indexOf(this.estado) === -1) this.estado = 'todas';
+                    var okeys = this.ordenOpciones.map(function (o) { return o.key; });
+                    if (okeys.indexOf(this.orden) === -1) this.orden = 'nombre';
+                    if (['vitrina', 'mesa'].indexOf(this.vista) === -1) this.vista = 'vitrina';
+                },
+                setEstado(e) { this.estado = e; this.page = 1; this.cerrarPopovers(); this.syncUrl(); },
+                setVista(v) { this.vista = v; this.syncUrl(); },
+                irA(destino) {
+                    this.estado = ['todas', 'en-uso', 'vacias'].indexOf(destino) >= 0 ? destino : 'todas';
+                    this.page = 1;
+                    this.syncUrl();
+                },
+                get hayFiltros() { return !!this.q || this.estado !== 'todas' || this.orden !== 'nombre'; },
+                limpiarFiltros() {
+                    this.q = ''; this.estado = 'todas'; this.orden = 'nombre'; this.ordenOpen = false;
+                    this.page = 1; this.syncUrl();
+                },
+                onFilterChange() { this.page = 1; this.syncUrl(); },
+
+                // ── Orden (dropdown HeroUI-style) ──
+                get ordenOpciones() {
+                    return [
+                        { key: 'nombre', label: 'Nombre (A–Z)', desc: 'Orden alfabético', icon: CG_ICON.list },
+                        { key: 'nombre-desc', label: 'Nombre (Z–A)', desc: 'Orden inverso', icon: CG_ICON.list },
+                        { key: 'productos-desc', label: 'Más mobiliarios', desc: 'Colecciones con más contenido', icon: CG_ICON.box },
+                        { key: 'productos-asc', label: 'Menos mobiliarios', desc: 'Prioriza colecciones vacías', icon: CG_ICON.box }
+                    ];
+                },
+                get ordenActual() {
+                    var k = this.orden;
+                    var f = this.ordenOpciones.filter(function (o) { return o.key === k; });
+                    return f.length ? f[0] : this.ordenOpciones[0];
+                },
+                toggleOrden() {
+                    if (this.ordenOpen) { this.ordenOpen = false; return; }
+                    this.cerrarPopovers(); this.ordenOpen = true;
+                    var self = this;
+                    var i = this.ordenOpciones.map(function (o) { return o.key; }).indexOf(this.orden);
+                    this.ordenIdx = i < 0 ? 0 : i;
+                    this.$nextTick(function () { if (self.$refs.ordenMenu) self.$refs.ordenMenu.focus(); });
+                },
+                elegirOrden(i) {
+                    var o = this.ordenOpciones[i]; if (!o) return;
+                    this.orden = o.key; this.ordenOpen = false; this.onFilterChange();
+                },
+                moverMenu(dir) {
+                    var n = this.ordenOpciones.length;
+                    this.ordenIdx = (this.ordenIdx + dir + n) % n;
+                },
+                cerrarPopovers(ev) {
+                    if (ev && ev.target && ev.target.closest && (ev.target.closest('.cg-pop') || ev.target.closest('[data-cgpop]'))) return;
+                    this.ordenOpen = false;
+                },
+
+                // ── Listas derivadas ──
+                get filtradas() {
+                    var self = this;
+                    var q = this.q.trim().toLowerCase();
+                    var out = this.categorias.filter(function (c) {
+                        if (self.estado === 'en-uso' && !(c.cantidad > 0)) return false;
+                        if (self.estado === 'vacias' && c.cantidad > 0) return false;
+                        if (q) {
+                            var prods = (c.productos || []).map(function (p) { return p.nombre; }).join(' ');
+                            var hay = (c.nombre + ' ' + (c.descripcion || '') + ' ' + (c.slug || '') + ' ' + prods).toLowerCase();
+                            if (hay.indexOf(q) === -1) return false;
+                        }
+                        return true;
+                    });
+                    var orden = this.orden;
+                    out.sort(function (a, b) {
+                        if (orden === 'nombre') return String(a.nombre).localeCompare(String(b.nombre), 'es');
+                        if (orden === 'nombre-desc') return String(b.nombre).localeCompare(String(a.nombre), 'es');
+                        if (orden === 'productos-desc') return (b.cantidad || 0) - (a.cantidad || 0);
+                        if (orden === 'productos-asc') return (a.cantidad || 0) - (b.cantidad || 0);
+                        return 0;
+                    });
+                    return out;
+                },
+                get totalFiltrado() { return this.filtradas.length; },
+                get totalPaginas() { return Math.max(1, Math.ceil(this.totalFiltrado / this.perPage)); },
+                get paginadas() {
+                    var start = (Math.min(this.page, this.totalPaginas) - 1) * this.perPage;
+                    return this.filtradas.slice(start, start + this.perPage);
+                },
+                get rangoInicio() { return this.totalFiltrado === 0 ? 0 : (Math.min(this.page, this.totalPaginas) - 1) * this.perPage + 1; },
+                get rangoFin() { return Math.min(this.totalFiltrado, Math.min(this.page, this.totalPaginas) * this.perPage); },
+
+                get estaVacio() { return this.categorias.length === 0; },
+                get vacioTitulo() { return 'Aún no hay colecciones'; },
+                get vacioTexto() { return 'Crea familias como Sillas, Mesas o Decoración para organizar tu catálogo y encontrar cada mobiliario en segundos.'; },
+                get sinResTitulo() {
+                    if (this.estado === 'vacias') return 'Ninguna colección vacía';
+                    if (this.estado === 'en-uso') return 'Ninguna colección en uso';
+                    return 'Sin coincidencias';
+                },
+                get sinResTexto() {
+                    if (this.estado === 'vacias') return 'Todas tus colecciones tienen mobiliarios asignados. Excelente organización.';
+                    if (this.estado === 'en-uso') return 'Aún no hay colecciones con mobiliarios. Asigna productos desde Inventario.';
+                    return 'Ninguna colección coincide con la búsqueda o los filtros activos.';
+                },
+
+                // ── Inspector ──
+                abrirInspector(c) {
+                    this.insp = c;
+                    var d = document.getElementById('cg-expediente');
+                    if (d && !d.open) d.showModal();
+                },
+                cerrarInspector() { var d = document.getElementById('cg-expediente'); if (d && d.open) d.close(); },
+                editarDesdeInspector() { var c = this.insp; this.cerrarInspector(); this.abrirEditar(c); },
+
+                // ── Formulario ──
+                abrirCrear() {
+                    this.form = { id: '', nombre: '', descripcion: '', icono: 'tag', slug: '' };
+                    this.enviando = false;
+                    var d = document.getElementById('cg-categoria');
+                    if (d && !d.open) d.showModal();
+                },
+                abrirEditar(c) {
+                    if (!c) return;
+                    this.form = {
+                        id: c.id, nombre: c.nombre || '', descripcion: c.descripcion || '',
+                        icono: c.icono || 'tag', slug: c.slug || ''
+                    };
+                    this.enviando = false;
+                    var d = document.getElementById('cg-categoria');
+                    if (d && !d.open) d.showModal();
+                },
+                cerrarFormulario() { var d = document.getElementById('cg-categoria'); if (d && d.open) d.close(); },
+
+                // ── Sin clasificar ──
+                abrirSinCategoria() { var d = document.getElementById('cg-sin'); if (d && !d.open) d.showModal(); },
+                cerrarSin() { var d = document.getElementById('cg-sin'); if (d && d.open) d.close(); },
+
+                // ── Eliminación ──
+                puedeBorrar(c) { return !!c && (c.cantidad || 0) === 0; },
+                confirmarEliminar(c) {
+                    if (!c) return;
+                    if ((c.cantidad || 0) > 0) {
+                        if (window.showToast) window.showToast({ message: 'Reasigna los mobiliarios de esta colección antes de eliminarla.', type: 'error' });
+                        return;
+                    }
+                    this.borrar = { action: '/admin/categorias/eliminar/' + c.id, nombre: c.nombre };
+                    var ex = document.getElementById('cg-expediente'); if (ex && ex.open) ex.close();
+                    var d = document.getElementById('cg-eliminar');
+                    if (d && !d.open) d.showModal();
+                },
+                cerrarEliminar() { var d = document.getElementById('cg-eliminar'); if (d && d.open) d.close(); },
+
+                // ── Helpers ──
+                iconPath(k) { return CG_ICON[k] || CG_ICON.tag; },
+                plural(n, s, p) { return (Number(n) || 0) === 1 ? s : p; },
+                num(v) { return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(v) || 0); },
+                participacion(c) {
+                    var total = Number(this.stats.clasificados) || 0;
+                    if (total <= 0 || !c) return 0;
+                    return Math.round((Number(c.cantidad) || 0) / total * 100);
+                },
+                barPct(c) {
+                    var max = 0;
+                    this.categorias.forEach(function (x) { if ((x.cantidad || 0) > max) max = x.cantidad; });
+                    if (!c || (c.cantidad || 0) === 0 || max <= 0) return 0;
+                    return Math.max(6, Math.round((c.cantidad || 0) / max * 100));
+                },
+                slugify(v) {
+                    return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                        .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                },
+
+                // ── URL ──
+                syncUrl() {
+                    var p = new URLSearchParams();
+                    if (this.q) p.set('q', this.q);
+                    if (this.estado !== 'todas') p.set('estado', this.estado);
+                    if (this.orden !== 'nombre') p.set('orden', this.orden);
+                    if (this.vista !== 'vitrina') p.set('vista', this.vista);
+                    if (this.page > 1) p.set('page', this.page);
+                    var s = p.toString();
+                    try { history.replaceState(null, '', location.pathname + (s ? '?' + s : '')); } catch (e) { /* file:// */ }
                 }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    document.getElementById('del-' + id).submit();
-                }
-            });
+            };
         }
-
-        const catModal = document.getElementById('catModal');
-        const catModalContent = catModal.querySelector('div');
-
-        function editCat(btn) {
-            document.getElementById('catId').value = btn.dataset.id;
-            document.getElementById('fc_nombre').value = btn.dataset.nombre;
-            document.getElementById('fc_descripcion').value = btn.dataset.descripcion;
-            document.getElementById('fc_icono').value = btn.dataset.icono;
-            document.getElementById('fc_slug').value = btn.dataset.slug;
-            openCatModal('Modificar Colección');
-        }
-
-        function openCatModal(titleText = 'Nueva Colección') {
-            document.getElementById('catModalTitle').textContent = titleText;
-            catModal.style.display = 'flex';
-            setTimeout(() => {
-                catModal.classList.remove('opacity-0', 'pointer-events-none');
-                catModalContent.classList.remove('scale-95');
-            }, 10);
-        }
-
-        function closeCatModal() {
-            catModal.classList.add('opacity-0', 'pointer-events-none');
-            catModalContent.classList.add('scale-95');
-            setTimeout(() => {
-                catModal.style.display = 'none';
-                document.getElementById('catId').value = '';
-                document.querySelectorAll('#catModal input, #catModal textarea').forEach(el => { 
-                    if (el.type !== 'hidden') el.value = ''; 
-                });
-            }, 300);
-        }
-
-        catModal.addEventListener('click', (e) => {
-            if(e.target === catModal) closeCatModal();
-        });
     </script>
-    </main>
+</main>
 </body>
 </html>

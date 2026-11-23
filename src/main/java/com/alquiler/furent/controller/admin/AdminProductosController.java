@@ -5,6 +5,7 @@ import com.alquiler.furent.model.Combo;
 import com.alquiler.furent.model.Product;
 import com.alquiler.furent.service.AuditLogService;
 import com.alquiler.furent.service.ProductService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
@@ -16,12 +17,17 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Controller
@@ -32,17 +38,27 @@ public class AdminProductosController {
 
     private final ProductService productService;
     private final AuditLogService auditLogService;
+    private final ObjectMapper objectMapper;
 
-    public AdminProductosController(ProductService productService, AuditLogService auditLogService) {
+    public AdminProductosController(ProductService productService, AuditLogService auditLogService,
+                                    ObjectMapper objectMapper) {
         this.productService = productService;
         this.auditLogService = auditLogService;
+        this.objectMapper = objectMapper;
     }
 
     @GetMapping("/mobiliarios")
     public String listProducts(Model model) {
-        model.addAttribute("productos", productService.getAllProducts());
-        model.addAttribute("categorias", productService.getAllCategories());
-        model.addAttribute("combos", productService.getAllCombos());
+        List<Product> productos = productService.getAllProducts();
+        List<Category> categorias = productService.getAllCategories();
+        List<Combo> combos = productService.getAllCombos();
+
+        model.addAttribute("mobiliariosJson", toJson(buildPayload(productos, categorias, combos)));
+
+        // Compatibilidad con la plantilla anterior.
+        model.addAttribute("productos", productos);
+        model.addAttribute("categorias", categorias);
+        model.addAttribute("combos", combos);
         return "admin/mobiliarios";
     }
 
@@ -55,7 +71,7 @@ public class AdminProductosController {
             @RequestParam String color, @RequestParam int cantidadMinima,
             @RequestParam int cantidadMaxima, @RequestParam int stock,
             @RequestParam(defaultValue = "10") int stockMinimo,
-            @RequestParam(defaultValue = "EXCELENTE") String estadoMantenimiento,
+            @RequestParam(defaultValue = "OPERATIVO") String estadoMantenimiento,
             @RequestParam(required = false) String notasMantenimiento,
             @RequestParam(required = false) String id,
             Authentication authentication,
@@ -124,7 +140,7 @@ public class AdminProductosController {
         product.setCantidadMaxima(cantidadMaxima);
         product.setStock(stock);
         product.setStockMinimo(stockMinimo);
-        product.setEstadoMantenimiento(estadoMantenimiento);
+        product.setEstadoMantenimiento(normalizaEstado(estadoMantenimiento));
         product.setNotasMantenimiento(notasMantenimiento);
 
         boolean available = stock > 0
@@ -154,37 +170,50 @@ public class AdminProductosController {
     // === CATEGORÍAS ===
     @GetMapping("/categorias")
     public String listCategories(Model model) {
-        model.addAttribute("categorias", productService.getAllCategories());
+        List<Category> categorias = productService.getAllCategories();
+        List<Product> productos = productService.getAllProducts();
+
+        model.addAttribute("categoriasJson", toJson(buildCategoriasPayload(categorias, productos)));
+
+        // Compatibilidad con la plantilla anterior.
+        model.addAttribute("categorias", categorias);
         return "admin/categorias";
     }
 
     @PostMapping("/categorias/guardar")
-    public String saveCategory(@RequestParam String nombre, @RequestParam String descripcion,
-            @RequestParam String icono, @RequestParam String slug,
+    public String saveCategory(@RequestParam String nombre, @RequestParam(required = false) String descripcion,
+            @RequestParam(required = false) String icono, @RequestParam(required = false) String slug,
             @RequestParam(required = false) String id,
             RedirectAttributes redirectAttributes) {
+        String nombreLimpio = nombre == null ? "" : nombre.trim();
+        if (nombreLimpio.isEmpty()) {
+            redirectAttributes.addFlashAttribute("error", "El nombre de la colección es obligatorio.");
+            return "redirect:/admin/categorias";
+        }
+
         Category category;
         if (id != null && !id.isEmpty()) {
             category = productService.getCategoryById(id).orElse(new Category());
         } else {
             category = new Category();
         }
-        category.setNombre(nombre);
-        category.setDescripcion(descripcion);
-        category.setIcono(icono);
-        category.setSlug(slug);
+        category.setNombre(nombreLimpio);
+        category.setDescripcion(descripcion == null ? "" : descripcion.trim());
+        category.setIcono(texto(icono, "tag"));
+        category.setSlug(slugify(slug != null && !slug.isBlank() ? slug : nombreLimpio));
         productService.saveCategory(category);
-        redirectAttributes.addFlashAttribute("success", "Categoría guardada exitosamente");
+        redirectAttributes.addFlashAttribute("success", "Colección guardada exitosamente");
         return "redirect:/admin/categorias";
     }
 
     @PostMapping("/categorias/eliminar/{id}")
     public String deleteCategory(@PathVariable String id, RedirectAttributes redirectAttributes) {
         try {
-        productService.deleteCategory(id);
-        redirectAttributes.addFlashAttribute("success", "Categoría eliminada");
+            productService.deleteCategory(id);
+            redirectAttributes.addFlashAttribute("success", "Colección eliminada");
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            redirectAttributes.addFlashAttribute("error",
+                    e.getMessage() != null ? e.getMessage() : "No se pudo eliminar la colección.");
         }
         return "redirect:/admin/categorias";
     }
@@ -279,5 +308,213 @@ public class AdminProductosController {
         productService.deleteCombo(id);
         redirectAttributes.addFlashAttribute("success", "Combo eliminado");
         return "redirect:/admin/mobiliarios";
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Helpers · vista JSON para la bandeja interactiva
+    // ═══════════════════════════════════════════════════════════
+
+    private Map<String, Object> buildPayload(List<Product> productos, List<Category> categorias, List<Combo> combos) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+
+        BigDecimal valorInventario = BigDecimal.ZERO;
+        BigDecimal sumaPrecios = BigDecimal.ZERO;
+        int conPrecio = 0;
+        for (Product p : productos) {
+            if (p.getPrecioPorDia() != null) {
+                valorInventario = valorInventario.add(p.getPrecioPorDia().multiply(BigDecimal.valueOf(Math.max(0, p.getStock()))));
+                sumaPrecios = sumaPrecios.add(p.getPrecioPorDia());
+                conPrecio++;
+            }
+        }
+
+        long disponibles = productos.stream().filter(Product::isDisponible).count();
+        long bajoStock = productos.stream().filter(Product::isBajoStock).count();
+        long mantenimiento = productos.stream().filter(p -> "EN_MANTENIMIENTO".equals(estado(p))).count();
+        long fueraServicio = productos.stream().filter(p -> "FUERA_DE_SERVICIO".equals(estado(p))).count();
+
+        Map<String, Object> stats = new LinkedHashMap<>();
+        stats.put("total", productos.size());
+        stats.put("disponibles", disponibles);
+        stats.put("bajoStock", bajoStock);
+        stats.put("mantenimiento", mantenimiento);
+        stats.put("fueraServicio", fueraServicio);
+        stats.put("combos", combos.size());
+        stats.put("categorias", categorias.size());
+        stats.put("valorInventario", valorInventario.setScale(0, RoundingMode.HALF_UP));
+        stats.put("precioPromedio", conPrecio > 0
+                ? sumaPrecios.divide(BigDecimal.valueOf(conPrecio), 0, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO);
+        payload.put("stats", stats);
+
+        List<Map<String, Object>> vistaProductos = new ArrayList<>();
+        for (Product p : productos) {
+            Map<String, Object> v = new LinkedHashMap<>();
+            v.put("id", p.getId());
+            v.put("nombre", texto(p.getNombre(), "Mobiliario sin nombre"));
+            v.put("descripcion", texto(p.getDescripcion(), ""));
+            v.put("descripcionCorta", texto(p.getDescripcionCorta(), ""));
+            v.put("precio", p.getPrecioPorDia() != null ? p.getPrecioPorDia() : BigDecimal.ZERO);
+            v.put("categoria", texto(p.getCategoriaNombre(), "Sin categoría"));
+            v.put("material", texto(p.getMaterial(), "—"));
+            v.put("dimensiones", texto(p.getDimensiones(), "—"));
+            v.put("color", texto(p.getColor(), ""));
+            v.put("cantidadMinima", p.getCantidadMinima());
+            v.put("cantidadMaxima", p.getCantidadMaxima());
+            v.put("stock", p.getStock());
+            v.put("stockMinimo", p.getStockMinimo());
+            v.put("estado", estado(p));
+            v.put("notas", texto(p.getNotasMantenimiento(), ""));
+            v.put("imagen", texto(p.getImagenUrl(), ""));
+            v.put("galeria", p.getGalleryImages() != null ? p.getGalleryImages() : List.of());
+            v.put("disponible", p.isDisponible());
+            v.put("bajoStock", p.isBajoStock());
+            v.put("calificacion", Math.round(p.getCalificacion() * 10.0) / 10.0);
+            v.put("resenas", p.getCantidadResenas());
+            vistaProductos.add(v);
+        }
+        payload.put("productos", vistaProductos);
+
+        List<Map<String, Object>> vistaCategorias = new ArrayList<>();
+        for (Category c : categorias) {
+            Map<String, Object> v = new LinkedHashMap<>();
+            v.put("id", c.getId());
+            v.put("nombre", texto(c.getNombre(), "Categoría"));
+            v.put("cantidad", productos.stream()
+                    .filter(p -> c.getNombre() != null && c.getNombre().equalsIgnoreCase(p.getCategoriaNombre()))
+                    .count());
+            vistaCategorias.add(v);
+        }
+        payload.put("categorias", vistaCategorias);
+
+        List<Map<String, Object>> vistaCombos = new ArrayList<>();
+        for (Combo combo : combos) {
+            Map<String, Object> v = new LinkedHashMap<>();
+            v.put("id", combo.getId());
+            v.put("nombre", texto(combo.getNombre(), "Combo"));
+            v.put("descripcion", texto(combo.getDescripcion(), ""));
+            v.put("imagen", texto(combo.getImagenUrl(), ""));
+            v.put("activo", combo.isActivo());
+            v.put("precioCombo", combo.getPrecioCombo() != null ? combo.getPrecioCombo() : BigDecimal.ZERO);
+            v.put("precioOriginal", combo.getPrecioOriginal() != null ? combo.getPrecioOriginal() : BigDecimal.ZERO);
+            v.put("descuento", combo.getPorcentajeDescuento());
+            List<Map<String, Object>> items = new ArrayList<>();
+            if (combo.getItems() != null) {
+                for (Combo.ComboItem it : combo.getItems()) {
+                    Map<String, Object> iv = new LinkedHashMap<>();
+                    iv.put("productoId", texto(it.getProductoId(), ""));
+                    iv.put("nombre", texto(it.getProductoNombre(), "Producto"));
+                    iv.put("imagen", texto(it.getProductoImagen(), ""));
+                    iv.put("precio", it.getPrecioPorDia() != null ? it.getPrecioPorDia() : BigDecimal.ZERO);
+                    iv.put("cantidad", it.getCantidad());
+                    items.add(iv);
+                }
+            }
+            v.put("items", items);
+            vistaCombos.add(v);
+        }
+        payload.put("combos", vistaCombos);
+
+        return payload;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Helpers · vista JSON para la mesa de colecciones
+    // ═══════════════════════════════════════════════════════════
+
+    private Map<String, Object> buildCategoriasPayload(List<Category> categorias, List<Product> productos) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+
+        Set<String> nombres = new HashSet<>();
+        for (Category c : categorias) {
+            if (c.getNombre() != null) nombres.add(c.getNombre().trim().toLowerCase());
+        }
+
+        List<Map<String, Object>> sinCategoria = new ArrayList<>();
+        Map<String, List<Map<String, Object>>> porCategoria = new LinkedHashMap<>();
+
+        for (Product p : productos) {
+            Map<String, Object> v = new LinkedHashMap<>();
+            v.put("id", p.getId());
+            v.put("nombre", texto(p.getNombre(), "Mobiliario sin nombre"));
+            v.put("imagen", texto(p.getImagenUrl(), ""));
+
+            String cat = p.getCategoriaNombre();
+            if (cat == null || cat.isBlank() || !nombres.contains(cat.trim().toLowerCase())) {
+                sinCategoria.add(v);
+            } else {
+                porCategoria.computeIfAbsent(cat.trim().toLowerCase(), k -> new ArrayList<>()).add(v);
+            }
+        }
+
+        List<Map<String, Object>> vistaCategorias = new ArrayList<>();
+        int clasificados = 0;
+        int enUso = 0;
+        for (Category c : categorias) {
+            List<Map<String, Object>> prods = (c.getNombre() == null)
+                    ? List.of()
+                    : porCategoria.getOrDefault(c.getNombre().trim().toLowerCase(), List.of());
+            if (!prods.isEmpty()) enUso++;
+            clasificados += prods.size();
+
+            Map<String, Object> v = new LinkedHashMap<>();
+            v.put("id", c.getId());
+            v.put("nombre", texto(c.getNombre(), "Colección sin nombre"));
+            v.put("descripcion", texto(c.getDescripcion(), ""));
+            v.put("icono", texto(c.getIcono(), "tag"));
+            v.put("slug", texto(c.getSlug(), ""));
+            v.put("cantidad", prods.size());
+            v.put("productos", prods);
+            vistaCategorias.add(v);
+        }
+
+        Map<String, Object> stats = new LinkedHashMap<>();
+        stats.put("total", categorias.size());
+        stats.put("enUso", enUso);
+        stats.put("vacias", Math.max(0, categorias.size() - enUso));
+        stats.put("clasificados", clasificados);
+        stats.put("sinCategoria", sinCategoria.size());
+        payload.put("stats", stats);
+        payload.put("categorias", vistaCategorias);
+        payload.put("sinCategoria", sinCategoria);
+
+        return payload;
+    }
+
+    private String slugify(String valor) {
+        if (valor == null) return "";
+        String base = java.text.Normalizer.normalize(valor, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+        return base.toLowerCase().trim()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("(^-+|-+$)", "");
+    }
+
+    private String estado(Product p) {
+        String e = p.getEstadoMantenimiento();
+        if ("EN_MANTENIMIENTO".equals(e) || "FUERA_DE_SERVICIO".equals(e)) {
+            return e;
+        }
+        return "OPERATIVO";
+    }
+
+    private String normalizaEstado(String estado) {
+        if ("EN_MANTENIMIENTO".equals(estado) || "FUERA_DE_SERVICIO".equals(estado)) {
+            return estado;
+        }
+        return "OPERATIVO";
+    }
+
+    private String texto(String v, String fallback) {
+        return v != null && !v.isBlank() ? v.trim() : fallback;
+    }
+
+    private String toJson(Object value) {
+        try {
+            // Escapamos "<" para que el JSON nunca pueda cerrar el <script>.
+            return objectMapper.writeValueAsString(value).replace("<", "\\u003c");
+        } catch (Exception e) {
+            return "{\"stats\":{},\"productos\":[],\"categorias\":[],\"combos\":[]}";
+        }
     }
 }
