@@ -10,21 +10,24 @@ COPY src src
 RUN ./mvnw package -DskipTests -B
 
 # === Stage 2: Production Unified Runtime (Java + Python Optimizer) ===
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
-# Instalar Python 3 y herramientas base
-RUN apk add --no-cache python3 py3-pip bash
+# Instalar Python 3, pip y solver CBC nativo (coinor-cbc)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip coinor-cbc curl bash \
+    && rm -rf /var/lib/apt/lists/*
 
 # Crear usuario seguro
-RUN addgroup -S furent && adduser -S furent -G furent
+RUN useradd -m -s /bin/bash furent
 
 # Copiar el artefacto Java
 COPY --from=build /app/target/*.jar app.jar
 
 # Copiar el microservicio de optimización en Python e instalar dependencias
 COPY python/optimizer /app/python/optimizer
-RUN pip install --no-cache-dir --break-system-packages -r /app/python/optimizer/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /app/python/optimizer/requirements.txt || \
+    pip3 install --no-cache-dir -r /app/python/optimizer/requirements.txt
 
 # Script de arranque
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
@@ -36,6 +39,6 @@ USER furent
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-  CMD wget -qO- http://localhost:8080/actuator/health || exit 1
+  CMD curl -f http://localhost:8080/login || exit 1
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

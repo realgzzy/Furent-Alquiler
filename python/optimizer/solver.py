@@ -30,6 +30,8 @@ Formulación
 
 from __future__ import annotations
 
+import os
+import shutil
 import time
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional, Tuple
@@ -42,6 +44,34 @@ MAX_HEATMAP_PRODUCTS = 14
 
 
 # ─────────────────────────── utilidades ───────────────────────────
+
+def _get_solver(time_limit: int = 25):
+    """Obtiene un solver CBC disponible en el sistema operativo o el empaquetado por PuLP."""
+    # 1. Buscar binario 'cbc' del sistema (ej. /usr/bin/cbc en Debian/Ubuntu)
+    system_cbc = shutil.which("cbc")
+    if system_cbc and os.path.isfile(system_cbc) and os.access(system_cbc, os.X_OK):
+        return pulp.COIN_CMD(path=system_cbc, msg=False, timeLimit=time_limit)
+
+    for candidate in ("/usr/bin/cbc", "/usr/local/bin/cbc", "/opt/coinbrew/bin/cbc"):
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return pulp.COIN_CMD(path=candidate, msg=False, timeLimit=time_limit)
+
+    # 2. Solver empaquetado por PuLP (funciona en Windows y distros Linux con glibc)
+    try:
+        bundled = pulp.PULP_CBC_CMD(msg=False, timeLimit=time_limit)
+        if bundled.available():
+            return bundled
+    except Exception:
+        pass
+
+    # 3. GLPK si está instalado en el sistema
+    glpk_path = shutil.which("glpsol") or "/usr/bin/glpsol"
+    if os.path.isfile(glpk_path) and os.access(glpk_path, os.X_OK):
+        return pulp.GLPK_CMD(path=glpk_path, msg=False, timeLimit=time_limit)
+
+    # 4. Fallback estándar a PULP_CBC_CMD
+    return pulp.PULP_CBC_CMD(msg=False, timeLimit=time_limit)
+
 
 def _safe(name: str) -> str:
     """PuLP exige nombres de variable válidos; sanea cualquier id."""
@@ -300,7 +330,7 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     built = _build(data, relax=False)
     prob = built["prob"]
-    prob.solve(pulp.PULP_CBC_CMD(msg=False, timeLimit=25))
+    prob.solve(_get_solver(time_limit=25))
 
     status = _status(prob)
     if prob.status != pulp.LpStatusOptimal:
@@ -355,7 +385,7 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
     binding_days: Dict[str, int] = {}
     try:
         lp = _build(data, relax=True)
-        lp["prob"].solve(pulp.PULP_CBC_CMD(msg=False, timeLimit=25))
+        lp["prob"].solve(_get_solver(time_limit=25))
         if lp["prob"].status == pulp.LpStatusOptimal:
             for pid in data["used_products"]:
                 best = 0.0

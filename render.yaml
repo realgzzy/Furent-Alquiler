@@ -29,3 +29,7 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      - key: ASSISTANT_ENABLED
+        value: "true"
+      - key: GEMINI_API_KEY
+        sync: false
